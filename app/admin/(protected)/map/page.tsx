@@ -8,14 +8,14 @@ import {
   ClipboardList,
   LocateFixed,
   MapPinned,
+  Minus,
+  Plus,
   RotateCcw,
   RefreshCw,
-  SearchPlus,
-  SearchMinus,
   Trash2,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react";
 import { deleteReport, fetchReports } from "@/lib/reports";
 import { useAdminRole } from "@/components/admin-role-context";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
@@ -66,9 +66,17 @@ export default function ComplaintMapPage() {
     images: string[];
     index: number;
     zoom: number;
+    offsetX: number;
+    offsetY: number;
   } | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const dragStateRef = useRef<{
+    startX: number;
+    startY: number;
+    baseOffsetX: number;
+    baseOffsetY: number;
+  } | null>(null);
 
   async function loadReports() {
     setIsLoading(true);
@@ -144,7 +152,9 @@ export default function ComplaintMapPage() {
     setImageViewer({
       images,
       index,
-      zoom: 1
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0
     });
   }
 
@@ -160,7 +170,9 @@ export default function ComplaintMapPage() {
       return {
         ...current,
         index: nextIndex,
-        zoom: 1
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0
       };
     });
   }
@@ -171,13 +183,68 @@ export default function ComplaintMapPage() {
       const nextZoom = Math.min(3, Math.max(1, Number((current.zoom + delta).toFixed(2))));
       return {
         ...current,
-        zoom: nextZoom
+        zoom: nextZoom,
+        offsetX: nextZoom === 1 ? 0 : current.offsetX,
+        offsetY: nextZoom === 1 ? 0 : current.offsetY
       };
     });
   }
 
   function resetZoom() {
-    setImageViewer((current) => (current ? { ...current, zoom: 1 } : current));
+    setImageViewer((current) =>
+      current
+        ? {
+            ...current,
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0
+          }
+        : current
+    );
+  }
+
+  function handleImageWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!imageViewer) return;
+    event.preventDefault();
+    changeZoom(event.deltaY < 0 ? 0.2 : -0.2);
+  }
+
+  function handleImageDragStart(event: PointerEvent<HTMLDivElement>) {
+    if (!imageViewer || imageViewer.zoom <= 1) return;
+
+    dragStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      baseOffsetX: imageViewer.offsetX,
+      baseOffsetY: imageViewer.offsetY
+    };
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleImageDragMove(event: PointerEvent<HTMLDivElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState) return;
+
+    const nextOffsetX = dragState.baseOffsetX + (event.clientX - dragState.startX);
+    const nextOffsetY = dragState.baseOffsetY + (event.clientY - dragState.startY);
+
+    setImageViewer((current) =>
+      current
+        ? {
+            ...current,
+            offsetX: nextOffsetX,
+            offsetY: nextOffsetY
+          }
+        : current
+    );
+  }
+
+  function handleImageDragEnd(event: PointerEvent<HTMLDivElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragStateRef.current = null;
   }
 
   return (
@@ -305,11 +372,11 @@ export default function ComplaintMapPage() {
               </div>
               <div className="map-image-toolbar-actions">
                 <button onClick={() => changeZoom(-0.25)} type="button" aria-label="Zoom out">
-                  <SearchMinus size={18} />
+                  <Minus size={18} />
                 </button>
                 <span>{Math.round(imageViewer.zoom * 100)}%</span>
                 <button onClick={() => changeZoom(0.25)} type="button" aria-label="Zoom in">
-                  <SearchPlus size={18} />
+                  <Plus size={18} />
                 </button>
                 <button onClick={resetZoom} type="button" aria-label="Reset zoom">
                   <RotateCcw size={18} />
@@ -346,11 +413,21 @@ export default function ComplaintMapPage() {
             >
               <X size={20} />
             </button>
-            <div className="map-image-stage">
+            <div
+              className={`map-image-stage ${imageViewer.zoom > 1 ? "is-zoomed" : ""}`}
+              onPointerDown={handleImageDragStart}
+              onPointerMove={handleImageDragMove}
+              onPointerUp={handleImageDragEnd}
+              onPointerCancel={handleImageDragEnd}
+              onWheel={handleImageWheel}
+            >
               <img
                 src={imageViewer.images[imageViewer.index]}
                 alt="Complaint evidence preview"
-                style={{ transform: `scale(${imageViewer.zoom})` }}
+                draggable={false}
+                style={{
+                  transform: `translate(${imageViewer.offsetX}px, ${imageViewer.offsetY}px) scale(${imageViewer.zoom})`
+                }}
               />
             </div>
           </div>
