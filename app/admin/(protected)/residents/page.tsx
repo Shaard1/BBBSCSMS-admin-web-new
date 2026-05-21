@@ -368,8 +368,8 @@ function ResidentDetailsDialog({
   const profileImage = resident.profile_image_original || resident.profile_image || "";
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="resident-modal">
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="resident-modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2>{displayValue(resident.full_name)}</h2>
@@ -398,9 +398,6 @@ function ResidentDetailsDialog({
         </div>
 
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onClose} type="button">
-            Close
-          </button>
           {showActions ? (
             <>
               <button className="danger-admin-button" disabled={isWorking} onClick={() => onReject(resident)} type="button">
