@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ShieldCheck, UserPlus } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
+import { UiDropdown } from "@/components/ui-dropdown";
 import {
   createStaffAccount,
   fetchOfficeAccounts,
@@ -10,6 +12,11 @@ import {
   type OfficeAccount
 } from "@/lib/office-accounts";
 import { canManageOfficeAccounts } from "@/lib/roles";
+
+const roleOptions = [
+  { label: "Staff", value: "staff" },
+  { label: "Admin", value: "admin" }
+];
 
 export default function StaffAccountsPage() {
   const { role } = useAdminRole();
@@ -183,9 +190,7 @@ export default function StaffAccountsPage() {
             <span>Actions</span>
           </div>
 
-          {isLoading ? (
-            <div className="empty-state">Loading office accounts...</div>
-          ) : accounts.length === 0 ? (
+          {accounts.length === 0 && !isLoading ? (
             <div className="empty-state">No admin/staff profiles found.</div>
           ) : (
             accounts.map((account) => (
@@ -203,21 +208,20 @@ export default function StaffAccountsPage() {
                   {account.role === "admin" ? "Admin" : "Staff"}
                 </span>
                 <div className="row-actions">
-                  <select
-                    aria-label={`Change role for ${account.full_name || account.id}`}
+                  <UiDropdown
+                    ariaLabel={`Change role for ${account.full_name || account.id}`}
                     disabled={!canManage || isWorking}
+                    options={roleOptions}
                     value={account.role}
-                    onChange={(event) => handleRoleChange(account, event.target.value as "admin" | "staff")}
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                    onChange={(nextRole) => handleRoleChange(account, nextRole as "admin" | "staff")}
+                  />
                 </div>
               </article>
             ))
           )}
         </div>
       </div>
+      {isLoading ? <AdminLoadingOverlay label="Loading office accounts..." /> : null}
     </section>
   );
 }

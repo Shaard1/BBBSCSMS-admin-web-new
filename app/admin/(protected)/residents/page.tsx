@@ -16,6 +16,7 @@ import {
 } from "@/lib/residents";
 import { ImageViewer } from "@/components/image-viewer";
 import { useAdminRole } from "@/components/admin-role-context";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { canApproveResidents } from "@/lib/roles";
 import type { Resident } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export default function ResidentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
   const [viewingImage, setViewingImage] = useState<{ title: string; url: string } | null>(null);
+  const [approvingResident, setApprovingResident] = useState<Resident | null>(null);
   const [rejectingResident, setRejectingResident] = useState<Resident | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [customReason, setCustomReason] = useState("");
@@ -92,9 +94,6 @@ export default function ResidentsPage() {
   }, [residents, searchQuery, selectedFilter]);
 
   async function handleApprove(resident: Resident) {
-    const shouldApprove = window.confirm(`Approve ${resident.full_name}?`);
-    if (!shouldApprove) return;
-
     setIsWorking(true);
     try {
       const result = await approveResident(resident.id);
@@ -104,6 +103,7 @@ export default function ResidentsPage() {
           ? `${resident.full_name} was approved.`
           : `${resident.full_name} was approved. ${result.warning}`
       );
+      setApprovingResident(null);
       setSelectedResident(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Approval failed.");
@@ -188,16 +188,14 @@ export default function ResidentsPage() {
             <span>Actions</span>
           </div>
 
-          {isLoading ? (
-            <div className="empty-state">Loading resident submissions...</div>
-          ) : filteredResidents.length === 0 ? (
+          {filteredResidents.length === 0 && !isLoading ? (
             <div className="empty-state">No resident submissions match this view.</div>
           ) : (
             filteredResidents.map((resident) => (
               <ResidentRow
                 key={resident.id}
                 resident={resident}
-                onApprove={handleApprove}
+                onApprove={setApprovingResident}
                 canManageApprovals={canManageApprovals}
                 onReject={setRejectingResident}
                 onView={setSelectedResident}
@@ -206,16 +204,26 @@ export default function ResidentsPage() {
           )}
         </div>
       </div>
+      {isLoading ? <AdminLoadingOverlay label="Loading resident submissions..." /> : null}
 
       {selectedResident ? (
         <ResidentDetailsDialog
           resident={selectedResident}
           canManageApprovals={canManageApprovals}
           isWorking={isWorking}
-          onApprove={handleApprove}
+          onApprove={setApprovingResident}
           onClose={() => setSelectedResident(null)}
           onImageView={setViewingImage}
           onReject={setRejectingResident}
+        />
+      ) : null}
+
+      {approvingResident ? (
+        <ApproveDialog
+          isWorking={isWorking}
+          resident={approvingResident}
+          onClose={() => setApprovingResident(null)}
+          onSubmit={() => handleApprove(approvingResident)}
         />
       ) : null}
 
@@ -244,6 +252,51 @@ export default function ResidentsPage() {
         />
       ) : null}
     </section>
+  );
+}
+
+function ApproveDialog({
+  isWorking,
+  resident,
+  onClose,
+  onSubmit
+}: {
+  isWorking: boolean;
+  resident: Resident;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="approve-modal">
+        <div className="modal-header">
+          <span className="approval-icon">
+            <Check size={22} />
+          </span>
+          <div>
+            <h2>Approve Resident?</h2>
+            <p>
+              {displayValue(resident.full_name)} will be marked as approved and can access the resident dashboard.
+            </p>
+          </div>
+          <button onClick={onClose} type="button" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="approval-summary">
+          <DetailItem label="Applicant" value={resident.full_name} />
+          <DetailItem label="ID type" value={resident.id_type} />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary-admin-button" onClick={onClose} type="button">
+            Cancel
+          </button>
+          <button className="primary-admin-button" disabled={isWorking} onClick={onSubmit} type="button">
+            {isWorking ? "Approving..." : "Approve"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

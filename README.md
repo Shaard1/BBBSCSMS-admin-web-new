@@ -21,10 +21,15 @@ npm install
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-public-key
 NEXT_PUBLIC_SUPABASE_ANNOUNCEMENT_BUCKET=announcement-files
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+ADMIN_SESSION_SECRET=replace-with-a-long-random-secret
 ```
+
+`NEXT_PUBLIC_*` values are safe for browser/mobile clients. `ADMIN_SESSION_SECRET`
+is server-only and must stay in the Next.js environment. The Supabase service role
+key is also server-only; put the real value only in `.env.local` or your deployment
+provider's private environment variables, never in Flutter/mobile code.
 
 3. Make sure Supabase Storage has a public `announcement-files` bucket.
 

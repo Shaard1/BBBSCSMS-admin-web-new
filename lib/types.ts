@@ -2,6 +2,7 @@ export type ResidentStatus = "pending" | "approved" | "rejected";
 
 export type Resident = {
   id: string;
+  user_id?: string;
   full_name: string;
   birthdate?: string;
   address?: string;

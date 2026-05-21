@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAdminRole } from "@/components/admin-role-context";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { fetchAnnouncements, fetchAnnouncementSummary } from "@/lib/announcements";
 import { fetchReports, fetchReportSummary } from "@/lib/reports";
 import { fetchResidents, fetchResidentSummary } from "@/lib/residents";
@@ -117,10 +118,7 @@ export default function AdminDashboardPage() {
         </div>
       ) : null}
 
-      {isLoading ? (
-        <div className="dashboard-loading">Loading dashboard data...</div>
-      ) : (
-        <>
+      <>
           <div className="dashboard-stat-grid">
             <DashboardStat
               href="/admin/reports"
@@ -222,7 +220,7 @@ export default function AdminDashboardPage() {
             </DashboardPanel>
           </div>
         </>
-      )}
+      {isLoading ? <AdminLoadingOverlay label="Loading dashboard data..." /> : null}
     </section>
   );
 }

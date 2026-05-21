@@ -2,16 +2,20 @@
 "use client";
 
 import {
+  Bold,
   Edit3,
   Eye,
   ImageIcon,
+  Italic,
   Megaphone,
+  Palette,
   Plus,
   Search,
   Trash2,
+  Underline,
   X
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createAnnouncement,
   deleteAnnouncement,
@@ -20,6 +24,7 @@ import {
   updateAnnouncement,
   uploadAnnouncementImage
 } from "@/lib/announcements";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { ImageViewer } from "@/components/image-viewer";
 import type { Announcement } from "@/lib/types";
 
@@ -39,6 +44,8 @@ const emptyForm: AnnouncementForm = {
   imageUrlsText: "",
   isPublished: true
 };
+
+const editorColors = ["#172033", "#0077d9", "#1f8a70", "#e4a000", "#b3261e"];
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -102,7 +109,7 @@ export default function AnnouncementsPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!form.title.trim() || !form.content.trim()) {
+    if (!form.title.trim() || !plainText(form.content).trim()) {
       setMessage("Title and content are required.");
       return;
     }
@@ -230,6 +237,7 @@ export default function AnnouncementsPage() {
           onView={setSelectedAnnouncement}
         />
       )}
+      {isLoading ? <AdminLoadingOverlay label="Loading announcements..." /> : null}
 
       {selectedAnnouncement ? (
         <AnnouncementDetailsDialog
@@ -332,14 +340,14 @@ function CreateAnnouncementPanel({
             placeholder="Enter announcement title"
           />
         </label>
-        <label>
+        <div className="announcement-field">
           Content
-          <textarea
+          <RichTextEditor
             value={form.content}
-            onChange={(event) => onChange({ ...form, content: event.target.value })}
             placeholder="Write the official announcement details"
+            onChange={(content) => onChange({ ...form, content })}
           />
-        </label>
+        </div>
         <div className="announcement-form-grid">
           <label>
             Thumbnail URL
@@ -405,6 +413,97 @@ function CreateAnnouncementPanel({
         </div>
       </form>
     </section>
+  );
+}
+
+function RichTextEditor({
+  onChange,
+  placeholder,
+  value
+}: {
+  onChange: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const changeFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value;
+    }
+  }, [value]);
+
+  useEffect(() => {
+    return () => {
+      if (changeFrameRef.current != null) {
+        window.cancelAnimationFrame(changeFrameRef.current);
+      }
+    };
+  }, []);
+
+  function runCommand(command: string, commandValue?: string) {
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    commitEditorChange();
+  }
+
+  function commitEditorChange() {
+    onChange(editorRef.current?.innerHTML ?? "");
+  }
+
+  function handleInput() {
+    if (changeFrameRef.current != null) return;
+
+    changeFrameRef.current = window.requestAnimationFrame(() => {
+      changeFrameRef.current = null;
+      commitEditorChange();
+    });
+  }
+
+  return (
+    <div className="rich-editor">
+      <div className="rich-editor-toolbar" aria-label="Announcement formatting tools">
+        <button type="button" aria-label="Bold" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}>
+          <Bold size={16} />
+        </button>
+        <button type="button" aria-label="Italic" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")}>
+          <Italic size={16} />
+        </button>
+        <button type="button" aria-label="Underline" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}>
+          <Underline size={16} />
+        </button>
+        <label className="rich-editor-color" aria-label="Text color">
+          <Palette size={16} />
+          <input
+            type="color"
+            defaultValue={editorColors[1]}
+            onChange={(event) => runCommand("foreColor", event.target.value)}
+          />
+        </label>
+        <div className="rich-editor-swatches" aria-label="Quick text colors">
+          {editorColors.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={`Use ${color} text color`}
+              onClick={() => runCommand("foreColor", color)}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+      <div
+        className="rich-editor-surface"
+        contentEditable
+        data-placeholder={placeholder}
+        onInput={handleInput}
+        ref={editorRef}
+        role="textbox"
+        aria-multiline="true"
+        suppressContentEditableWarning
+      />
+    </div>
   );
 }
 
@@ -476,9 +575,7 @@ function PostedAnnouncementsPanel({
         ))}
       </div>
       <div className="announcement-list">
-        {isLoading ? (
-          <div className="empty-state">Loading announcements...</div>
-        ) : announcements.length === 0 ? (
+        {announcements.length === 0 && !isLoading ? (
           <div className="empty-state">No announcements match this view.</div>
         ) : (
           announcements.map((announcement) => (
@@ -581,9 +678,12 @@ function AnnouncementDetailsDialog({
             ))}
           </div>
         ) : null}
-        <div className="announcement-content-view">
-          {plainText(announcement.content) || "No announcement details available."}
-        </div>
+        <div
+          className="announcement-content-view rich-content-view"
+          dangerouslySetInnerHTML={{
+            __html: richContentHtml(announcement.content) || "No announcement details available."
+          }}
+        />
         <div className="modal-actions">
           <button className="danger-admin-button" onClick={() => onDelete(announcement)} type="button">Delete</button>
           <button className="secondary-admin-button" onClick={() => onEdit(announcement)} type="button">Edit</button>
@@ -689,10 +789,42 @@ function plainText(content: string) {
   }
 
   return trimmed
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
     .replace(/\[align=(left|center|right|justify)\]|\[\/align\]/gi, "")
     .replace(/\[size=\d+\]|\[\/size\]/gi, "")
     .replace(/\[\/?[bius]\]/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function richContentHtml(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) return "";
+  if (!trimmed.includes("<")) return escapeHtml(trimmed).replace(/\n/g, "<br />");
+
+  return trimmed
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/\s(href|src)="javascript:[^"]*"/gi, "")
+    .replace(/\s(href|src)='javascript:[^']*'/gi, "");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatDate(value?: string) {

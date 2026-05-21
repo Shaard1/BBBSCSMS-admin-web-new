@@ -2,6 +2,7 @@ import { isOfficeRole, type OfficeRole } from "@/lib/roles";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables.");
@@ -9,6 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const verifiedSupabaseUrl = supabaseUrl;
 const verifiedSupabaseAnonKey = supabaseAnonKey;
+const verifiedSupabaseServiceRoleKey = supabaseServiceRoleKey ?? "";
 
 type SupabaseUserResponse = {
   id?: string;
@@ -48,6 +50,27 @@ export async function getVerifiedOfficeUser(accessToken: string) {
   const user = (await userResponse.json()) as SupabaseUserResponse;
   const userId = user.id?.trim();
   if (!userId) return null;
+
+  if (verifiedSupabaseServiceRoleKey) {
+    const serviceRoleProfileResponse = await fetch(
+      `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+      {
+        headers: {
+          apikey: verifiedSupabaseServiceRoleKey,
+          Authorization: `Bearer ${verifiedSupabaseServiceRoleKey}`
+        },
+        cache: "no-store"
+      }
+    );
+
+    if (serviceRoleProfileResponse.ok) {
+      const serviceProfiles = (await serviceRoleProfileResponse.json()) as ProfileRoleResponse[];
+      const serviceRole = serviceProfiles[0]?.role?.toLowerCase().trim();
+      if (isOfficeRole(serviceRole)) {
+        return { role: serviceRole, userId };
+      }
+    }
+  }
 
   const profileResponse = await fetch(
     `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
@@ -89,6 +112,11 @@ export async function verifySignedAdminSession(sessionToken: string) {
 }
 
 export async function getSignedOfficeRole(sessionToken: string) {
+  const payload = await getSignedAdminSession(sessionToken);
+  return payload?.role ?? null;
+}
+
+export async function getSignedAdminSession(sessionToken: string) {
   const [encodedPayload, signature] = sessionToken.split(".");
   if (!encodedPayload || !signature) return null;
 
@@ -99,7 +127,7 @@ export async function getSignedOfficeRole(sessionToken: string) {
   if (!payload) return null;
 
   return isOfficeRole(payload.role) && payload.exp > Math.floor(Date.now() / 1000)
-    ? payload.role
+    ? payload
     : null;
 }
 

@@ -13,8 +13,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { deleteReport, fetchReports } from "@/lib/reports";
 import { useAdminRole } from "@/components/admin-role-context";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { canDeleteReports } from "@/lib/roles";
 import {
+  hasValidReportLocation,
   normalizeReportCategory,
   normalizeReportStatus,
   reportStatusLabel,
@@ -26,7 +28,7 @@ const ComplaintMap = dynamic(
   () => import("@/components/complaint-map").then((module) => module.ComplaintMap),
   {
     ssr: false,
-    loading: () => <div className="map-loading">Loading map...</div>
+    loading: () => <AdminLoadingOverlay label="Loading map..." />
   }
 );
 
@@ -188,24 +190,21 @@ export default function ComplaintMapPage() {
 
       <div className="map-workspace">
         <div className="map-canvas">
-          {isLoading ? (
-            <div className="map-loading">Loading complaint map data...</div>
-          ) : (
-            <>
-              <ComplaintMap
-                reports={visibleReports}
-                selectedReport={activeSelectedReport}
-                onSelect={setSelectedReport}
-              />
-              <MapLegend />
-              {visibleReports.length === 0 ? (
-                <div className="empty-map-overlay">
-                  <MapPinned size={32} />
-                  <strong>No mapped complaints match the selected filters.</strong>
-                </div>
-              ) : null}
-            </>
-          )}
+          <>
+            <ComplaintMap
+              reports={visibleReports}
+              selectedReport={activeSelectedReport}
+              onSelect={setSelectedReport}
+            />
+            <MapLegend />
+            {visibleReports.length === 0 ? (
+              <div className="empty-map-overlay">
+                <MapPinned size={32} />
+                <strong>No mapped complaints match the selected filters.</strong>
+              </div>
+            ) : null}
+            {isLoading ? <AdminLoadingOverlay label="Loading complaint map data..." /> : null}
+          </>
         </div>
         <aside className="map-side-panel">
           {activeSelectedReport ? (
@@ -385,7 +384,7 @@ function StatusMini({
 }
 
 function hasLocation(report: CommunityReport) {
-  return typeof report.latitude === "number" && typeof report.longitude === "number";
+  return hasValidReportLocation(report.latitude, report.longitude);
 }
 
 function statusLabel(status: string) {

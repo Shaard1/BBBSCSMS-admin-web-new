@@ -20,7 +20,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { AdminRoleProvider } from "@/components/admin-role-context";
-import { clearAdminServerSession, getCurrentOfficeRole } from "@/lib/auth";
+import { RingLoader } from "@/components/ring-loader";
+import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
 import {
   canManageOfficeAccounts,
   canViewAnalytics,
@@ -66,7 +67,8 @@ export function AdminShell({ children }: AdminShellProps) {
     let isMounted = true;
 
     async function checkAccess() {
-      const officeRole = await getCurrentOfficeRole();
+      const adminSession = await getAdminServerSession();
+      const officeRole = adminSession?.role ?? null;
 
       if (!isMounted) return;
 
@@ -153,10 +155,7 @@ export function AdminShell({ children }: AdminShellProps) {
   if (isChecking) {
     return (
       <main className="admin-loading">
-        <div className="loading-mark">
-          <Image src="/assets/BBBC.png" alt="" width={58} height={58} />
-          <p>Checking admin access...</p>
-        </div>
+        <RingLoader label="Checking admin access..." />
       </main>
     );
   }

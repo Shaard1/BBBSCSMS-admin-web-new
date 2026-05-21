@@ -48,7 +48,7 @@ export async function approveResident(id: string) {
 
   const { data: resident, error: residentError } = await supabase
     .from("residents")
-    .select("id, full_name")
+    .select("id, user_id, full_name")
     .eq("id", id)
     .single();
 
@@ -61,8 +61,10 @@ export async function approveResident(id: string) {
     };
   }
 
+  const authUserId = resident.user_id?.trim() || resident.id;
+
   const { error: profileError } = await supabase.from("profiles").upsert({
-    id: resident.id,
+    id: authUserId,
     full_name: resident.full_name ?? "",
     role: "resident"
   });

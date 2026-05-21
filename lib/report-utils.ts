@@ -42,3 +42,11 @@ export function shortReportCategory(value?: string) {
   if (category === "Noise Complaint") return "Noise";
   return category;
 }
+
+export function hasValidReportLocation(latitude?: number | null, longitude?: number | null) {
+  if (typeof latitude !== "number" || typeof longitude !== "number") return false;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return false;
+
+  return !(latitude === 0 && longitude === 0);
+}
