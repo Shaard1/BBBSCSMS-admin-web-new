@@ -3,10 +3,15 @@
 
 import dynamic from "next/dynamic";
 import {
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   LocateFixed,
   MapPinned,
+  RotateCcw,
   RefreshCw,
+  SearchPlus,
+  SearchMinus,
   Trash2,
   X
 } from "lucide-react";
@@ -57,6 +62,11 @@ export default function ComplaintMapPage() {
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
+  const [imageViewer, setImageViewer] = useState<{
+    images: string[];
+    index: number;
+    zoom: number;
+  } | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -129,6 +139,47 @@ export default function ComplaintMapPage() {
       ? selectedReport
       : null;
 
+  function openImageViewer(images: string[], index: number) {
+    if (!images[index]) return;
+    setImageViewer({
+      images,
+      index,
+      zoom: 1
+    });
+  }
+
+  function closeImageViewer() {
+    setImageViewer(null);
+  }
+
+  function changeImage(step: number) {
+    setImageViewer((current) => {
+      if (!current) return current;
+      const count = current.images.length;
+      const nextIndex = (current.index + step + count) % count;
+      return {
+        ...current,
+        index: nextIndex,
+        zoom: 1
+      };
+    });
+  }
+
+  function changeZoom(delta: number) {
+    setImageViewer((current) => {
+      if (!current) return current;
+      const nextZoom = Math.min(3, Math.max(1, Number((current.zoom + delta).toFixed(2))));
+      return {
+        ...current,
+        zoom: nextZoom
+      };
+    });
+  }
+
+  function resetZoom() {
+    setImageViewer((current) => (current ? { ...current, zoom: 1 } : current));
+  }
+
   return (
     <section className="map-page">
       <div className="map-command-header">
@@ -160,31 +211,45 @@ export default function ComplaintMapPage() {
           <MapMetric label="Mapped Reports" value={metrics.mapped} tone="mapped" />
         </div>
         <div className="map-filters">
-          <h3>Filters</h3>
-          <div>
-            {statusFilters.map((filter) => (
-              <button
-                className={selectedStatus === filter.value ? "active" : ""}
-                key={filter.value}
-                onClick={() => setSelectedStatus(filter.value)}
-                type="button"
-              >
-                {filter.label}
-              </button>
-            ))}
+          <div className="map-filters-header">
+            <div>
+              <h3>Filter Complaints</h3>
+              <p>Narrow the map view by report status and issue category.</p>
+            </div>
+            <span className="map-filter-summary">
+              Showing {visibleReports.length} of {mappedReports.length} mapped reports
+            </span>
           </div>
-          <div>
-            {categories.map((category) => (
-              <button
-                className={selectedCategory === category ? "active" : ""}
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+          <section className="map-filter-group">
+            <span className="map-filter-label">Status</span>
+            <div>
+              {statusFilters.map((filter) => (
+                <button
+                  className={selectedStatus === filter.value ? "active" : ""}
+                  key={filter.value}
+                  onClick={() => setSelectedStatus(filter.value)}
                 type="button"
-              >
-                {category === "all" ? "All Categories" : shortReportCategory(category)}
-              </button>
-            ))}
-          </div>
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="map-filter-group">
+            <span className="map-filter-label">Category</span>
+            <div>
+              {categories.map((category) => (
+                <button
+                  className={selectedCategory === category ? "active" : ""}
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                type="button"
+                >
+                  {category === "all" ? "All Categories" : shortReportCategory(category)}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
 
@@ -213,12 +278,84 @@ export default function ComplaintMapPage() {
               canDelete={canDelete}
               onClose={() => setSelectedReport(null)}
               onDelete={handleDelete}
+              onPreviewImage={openImageViewer}
             />
           ) : (
             <ReportQueuePanel reports={visibleReports} onSelect={setSelectedReport} />
           )}
         </aside>
       </div>
+
+      {imageViewer ? (
+        <div
+          className="modal-backdrop map-image-modal-backdrop"
+          onClick={closeImageViewer}
+          role="presentation"
+        >
+          <div
+            className="map-image-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Complaint image preview"
+          >
+            <div className="map-image-toolbar">
+              <div className="map-image-counter">
+                Image {imageViewer.index + 1} of {imageViewer.images.length}
+              </div>
+              <div className="map-image-toolbar-actions">
+                <button onClick={() => changeZoom(-0.25)} type="button" aria-label="Zoom out">
+                  <SearchMinus size={18} />
+                </button>
+                <span>{Math.round(imageViewer.zoom * 100)}%</span>
+                <button onClick={() => changeZoom(0.25)} type="button" aria-label="Zoom in">
+                  <SearchPlus size={18} />
+                </button>
+                <button onClick={resetZoom} type="button" aria-label="Reset zoom">
+                  <RotateCcw size={18} />
+                </button>
+              </div>
+            </div>
+
+            {imageViewer.images.length > 1 ? (
+              <>
+                <button
+                  className="map-image-nav prev"
+                  onClick={() => changeImage(-1)}
+                  type="button"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  className="map-image-nav next"
+                  onClick={() => changeImage(1)}
+                  type="button"
+                  aria-label="Next image"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </>
+            ) : null}
+
+            <button
+              className="map-image-modal-close"
+              onClick={closeImageViewer}
+              type="button"
+              aria-label="Close image preview"
+            >
+              <X size={20} />
+            </button>
+            <div className="map-image-stage">
+              <img
+                src={imageViewer.images[imageViewer.index]}
+                alt="Complaint evidence preview"
+                style={{ transform: `scale(${imageViewer.zoom})` }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -272,8 +409,13 @@ function ReportQueuePanel({
 }) {
   return (
     <div className="queue-panel">
-      <h3>Mapped Complaint Queue</h3>
-      <p>Select a map pin or queue item to inspect complaint details.</p>
+      <div className="queue-panel-header">
+        <div>
+          <h3>Mapped Complaint Queue</h3>
+          <p>Select a map pin or queue item to inspect complaint details.</p>
+        </div>
+        <span className="queue-count">{reports.length}</span>
+      </div>
       <div className="queue-list">
         {reports.length === 0 ? (
           <div className="queue-empty">No mapped reports match this view.</div>
@@ -285,6 +427,7 @@ function ReportQueuePanel({
                 <StatusMini status={normalizeReportStatus(report.status)} />
               </span>
               <p>{report.description?.trim() || "No description provided."}</p>
+              <small>{shortDate(report.created_at)}</small>
             </button>
           ))
         )}
@@ -297,12 +440,14 @@ function ReportDetailsPanel({
   canDelete,
   report,
   onClose,
-  onDelete
+  onDelete,
+  onPreviewImage
 }: {
   canDelete: boolean;
   report: CommunityReport;
   onClose: () => void;
   onDelete: (report: CommunityReport) => void;
+  onPreviewImage: (images: string[], index: number) => void;
 }) {
   const images = reportImages(report);
 
@@ -323,15 +468,23 @@ function ReportDetailsPanel({
       <div className="map-details-scroll">
         {images.length > 0 ? (
           <>
-            <a className="map-primary-image" href={images[0]} target="_blank" rel="noreferrer">
+            <button
+              className="map-primary-image"
+              onClick={() => onPreviewImage(images, 0)}
+              type="button"
+            >
               <img src={images[0]} alt="Report evidence" />
-            </a>
+            </button>
             {images.length > 1 ? (
               <div className="map-image-strip">
-                {images.slice(1).map((image) => (
-                  <a href={image} key={image} target="_blank" rel="noreferrer">
+                {images.slice(1).map((image, index) => (
+                  <button
+                    key={image}
+                    onClick={() => onPreviewImage(images, index + 1)}
+                    type="button"
+                  >
                     <img src={image} alt="Report evidence thumbnail" />
-                  </a>
+                  </button>
                 ))}
               </div>
             ) : null}

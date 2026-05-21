@@ -324,6 +324,8 @@ function CreateAnnouncementPanel({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onThumbnailUpload: (file: File) => void;
 }) {
+  const galleryImages = parseImageUrls(form.imageUrlsText, "");
+
   return (
     <section className="announcement-panel">
       <PanelHeader
@@ -348,14 +350,28 @@ function CreateAnnouncementPanel({
             onChange={(content) => onChange({ ...form, content })}
           />
         </div>
-        <div className="announcement-form-grid">
-          <label>
-            Thumbnail URL
-            <input
-              value={form.thumbnailUrl}
-              onChange={(event) => onChange({ ...form, thumbnailUrl: event.target.value })}
-              placeholder="https://..."
-            />
+        <div className="announcement-media-grid">
+          <section className="announcement-media-card">
+            <div className="announcement-media-heading">
+              <div>
+                <h4>Thumbnail image</h4>
+                <span>Shown in the announcement list</span>
+              </div>
+              <em>Main image</em>
+            </div>
+            <p className="announcement-image-guidance">
+              Recommended landscape sizes: 1920x1080, 1600x900, or 1366x768.
+            </p>
+            <div className={`announcement-thumbnail-preview ${form.thumbnailUrl ? "" : "empty"}`}>
+              {form.thumbnailUrl ? (
+                <img src={form.thumbnailUrl} alt="" />
+              ) : (
+                <div>
+                  <ImageIcon size={30} />
+                  <span>No thumbnail selected</span>
+                </div>
+              )}
+            </div>
             <span className="file-upload-control">
               <input
                 type="file"
@@ -367,16 +383,30 @@ function CreateAnnouncementPanel({
                   event.target.value = "";
                 }}
               />
-              Upload thumbnail
+              {form.thumbnailUrl ? "Replace thumbnail" : "Upload thumbnail"}
             </span>
-          </label>
-          <label>
-            Additional Image URLs
-            <textarea
-              value={form.imageUrlsText}
-              onChange={(event) => onChange({ ...form, imageUrlsText: event.target.value })}
-              placeholder="One image URL per line"
-            />
+          </section>
+          <section className="announcement-media-card">
+            <div className="announcement-media-heading">
+              <div>
+                <h4>Gallery images</h4>
+                <span>Optional photos shown in details</span>
+              </div>
+              <em>{galleryImages.length} image{galleryImages.length === 1 ? "" : "s"}</em>
+            </div>
+            <p className="announcement-image-guidance">
+              Use landscape images when possible: 1920x1080, 1600x900, or 1366x768.
+            </p>
+            <div className={`announcement-gallery-preview ${galleryImages.length > 0 ? "" : "empty"}`}>
+              {galleryImages.length > 0 ? (
+                galleryImages.slice(0, 6).map((imageUrl) => <img src={imageUrl} alt="" key={imageUrl} />)
+              ) : (
+                <div>
+                  <ImageIcon size={28} />
+                  <span>No gallery images yet</span>
+                </div>
+              )}
+            </div>
             <span className="file-upload-control">
               <input
                 type="file"
@@ -390,7 +420,7 @@ function CreateAnnouncementPanel({
               />
               Upload gallery images
             </span>
-          </label>
+          </section>
         </div>
         {isUploading ? <p className="upload-status">Uploading image files...</p> : null}
         <div className="announcement-form-footer">
@@ -655,8 +685,8 @@ function AnnouncementDetailsDialog({
   const images = extractImageUrls(announcement);
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="announcement-modal">
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="announcement-modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2>{announcement.title.trim() || "Untitled announcement"}</h2>
@@ -687,7 +717,6 @@ function AnnouncementDetailsDialog({
         <div className="modal-actions">
           <button className="danger-admin-button" onClick={() => onDelete(announcement)} type="button">Delete</button>
           <button className="secondary-admin-button" onClick={() => onEdit(announcement)} type="button">Edit</button>
-          <button className="primary-admin-button" onClick={onClose} type="button">Close</button>
         </div>
       </div>
     </div>
