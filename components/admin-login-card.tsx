@@ -4,6 +4,7 @@ import { ArrowLeft, Eye, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
+  clearAdminServerSession,
   createAdminServerSession,
   signInAsOfficeUser
 } from "@/lib/auth";
@@ -28,7 +29,7 @@ export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
     setIsSubmitting(true);
     setMessage("");
 
-    const result = await signInAsOfficeUser(email, password, loginMode);
+    const result = await signInAsOfficeUser(email, password);
     setIsSubmitting(false);
 
     if (!result.ok) {
@@ -36,8 +37,9 @@ export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
       return;
     }
 
-    const sessionResult = await createAdminServerSession();
+    const sessionResult = await createAdminServerSession(loginMode);
     if (!sessionResult.ok) {
+      await clearAdminServerSession();
       setMessage(sessionResult.message);
       return;
     }

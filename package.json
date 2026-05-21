@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

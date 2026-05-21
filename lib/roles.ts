@@ -9,7 +9,7 @@ export function officeRoleLabel(role: OfficeRole) {
 }
 
 export function canApproveResidents(role: OfficeRole) {
-  return role === "admin";
+  return role === "admin" || role === "staff";
 }
 
 export function canDeleteReports(role: OfficeRole) {

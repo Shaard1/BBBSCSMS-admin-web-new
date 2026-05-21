@@ -10,6 +10,7 @@ import {
   UsersRound
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { fetchAnnouncements } from "@/lib/announcements";
 import { fetchReports } from "@/lib/reports";
 import { fetchResidents } from "@/lib/residents";
@@ -75,14 +76,6 @@ export default function AnalyticsPage() {
     reports,
     residents
   ]);
-
-  if (isLoading) {
-    return (
-      <section className="analytics-page">
-        <div className="analytics-loading">Loading analytics...</div>
-      </section>
-    );
-  }
 
   return (
     <section className="analytics-page">
@@ -207,6 +200,7 @@ export default function AnalyticsPage() {
           tone="green"
         />
       </div>
+      {isLoading ? <AdminLoadingOverlay label="Loading analytics..." /> : null}
     </section>
   );
 }

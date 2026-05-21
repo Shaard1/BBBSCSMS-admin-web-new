@@ -21,6 +21,8 @@ import {
 } from "@/lib/reports";
 import { ImageViewer } from "@/components/image-viewer";
 import { useAdminRole } from "@/components/admin-role-context";
+import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
+import { UiDropdown } from "@/components/ui-dropdown";
 import { canDeleteReports } from "@/lib/roles";
 import {
   normalizeReportCategory,
@@ -43,6 +45,14 @@ const statusFilters = [
 ];
 
 const statusOptions = ["pending", "in progress", "resolved"];
+const statusDropdownOptions = statusOptions.map((status) => ({
+  label: reportStatusLabel(status),
+  value: status
+}));
+const categoryDropdownOptions = reportCategoryOptions.map((category) => ({
+  label: category,
+  value: category
+}));
 
 export default function ReportsPage() {
   const { role } = useAdminRole();
@@ -231,11 +241,9 @@ export default function ReportsPage() {
       </div>
 
       <div className="report-list">
-        {isLoading ? (
-          <div className="empty-state">Loading community reports...</div>
-        ) : reports.length === 0 ? (
+        {reports.length === 0 && !isLoading ? (
           <div className="empty-state">No reports found.</div>
-        ) : filteredReports.length === 0 ? (
+        ) : filteredReports.length === 0 && !isLoading ? (
           <div className="empty-state">No reports match your current search/filter.</div>
         ) : (
           filteredReports.map((report) => (
@@ -253,6 +261,7 @@ export default function ReportsPage() {
           ))
         )}
       </div>
+      {isLoading ? <AdminLoadingOverlay label="Loading community reports..." /> : null}
 
       {selectedReport ? (
         <ReportDetailsDialog
@@ -337,21 +346,22 @@ function ReportCard({
         <p>{report.description?.trim() || "No description provided."}</p>
         <small className="reporter-line"><UserRound size={13} /> {report.reporter_name ?? "Unknown resident"}</small>
         <div className="report-actions" onClick={(event) => event.stopPropagation()}>
-          <select
+          <UiDropdown
+            ariaLabel="Change report category"
+            className="category-select"
+            disabled={disabled}
+            options={categoryDropdownOptions}
             value={category}
-            disabled={disabled}
-            onChange={(event) => onCategoryChange(report, event.target.value)}
-          >
-            {reportCategoryOptions.map((option) => <option key={option}>{option}</option>)}
-          </select>
-          <select
+            onChange={(nextCategory) => onCategoryChange(report, nextCategory)}
+          />
+          <UiDropdown
+            ariaLabel="Change report status"
             className={`status-select ${status.replace(" ", "-")}`}
-            value={status}
             disabled={disabled}
-            onChange={(event) => onStatusChange(report, event.target.value)}
-          >
-            {statusOptions.map((option) => <option key={option}>{reportStatusLabel(option)}</option>)}
-          </select>
+            options={statusDropdownOptions}
+            value={status}
+            onChange={(nextStatus) => onStatusChange(report, nextStatus)}
+          />
           <button className="note-button" onClick={() => onEditNote(report)} type="button">
             <Edit3 size={14} /> Note
           </button>

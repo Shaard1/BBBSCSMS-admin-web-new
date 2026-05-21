@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { normalizeReportStatus } from "@/lib/report-utils";
+import { hasValidReportLocation, normalizeReportStatus } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
 
 type FetchReportsOptions = {
@@ -29,12 +29,18 @@ export async function fetchReports(options: FetchReportsOptions = {}) {
   if (userIds.length > 0) {
     const { data: residents } = await supabase
       .from("residents")
-      .select("id, full_name")
-      .in("id", userIds);
+      .select("id, user_id, full_name")
+      .or(`id.in.(${userIds.join(",")}),user_id.in.(${userIds.join(",")})`);
 
     residents?.forEach((resident) => {
-      if (resident.id && resident.full_name) {
-        nameByUserId.set(resident.id, resident.full_name);
+      const residentName = resident.full_name?.trim();
+      if (!residentName) return;
+
+      if (resident.user_id) {
+        nameByUserId.set(resident.user_id, residentName);
+      }
+      if (resident.id && !nameByUserId.has(resident.id)) {
+        nameByUserId.set(resident.id, residentName);
       }
     });
 
@@ -76,7 +82,7 @@ export async function fetchReportSummary() {
       if (status === "pending") summary.pending += 1;
       if (status === "in progress") summary.progress += 1;
       if (status === "resolved") summary.resolved += 1;
-      if (typeof report.latitude === "number" && typeof report.longitude === "number") {
+      if (hasValidReportLocation(report.latitude, report.longitude)) {
         summary.mapped += 1;
       }
 
