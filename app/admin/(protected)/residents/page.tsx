@@ -408,6 +408,7 @@ function ResidentDetailsDialog({
 
         <div className="detail-grid">
           <DetailItem label="Birthdate" value={formatDate(resident.birthdate)} />
+          <DetailItem label="Email" value={resident.email} />
           <DetailItem label="Gender" value={resident.gender} />
           <DetailItem label="Civil status" value={resident.civil_status} />
           <DetailItem label="Address" value={resident.address} />
