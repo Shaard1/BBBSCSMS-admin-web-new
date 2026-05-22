@@ -18,7 +18,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AdminRoleProvider } from "@/components/admin-role-context";
 import { RingLoader } from "@/components/ring-loader";
 import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
@@ -44,6 +44,9 @@ const navItems = [
   { label: "Announcement", href: "/admin/announcements", icon: Megaphone }
 ];
 
+const seenReportsKey = "bc_admin_seen_reports_count";
+const seenResidentsKey = "bc_admin_seen_residents_count";
+
 export function AdminShell({ children }: AdminShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,8 +56,32 @@ export function AdminShell({ children }: AdminShellProps) {
   const [role, setRole] = useState<OfficeRole>("staff");
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
   const [pendingResidentsCount, setPendingResidentsCount] = useState(0);
+  const [unreadReportsCount, setUnreadReportsCount] = useState(0);
+  const [unreadResidentsCount, setUnreadResidentsCount] = useState(0);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
-  const notificationCount = pendingReportsCount + pendingResidentsCount;
+  const notificationCount = unreadReportsCount + unreadResidentsCount;
+  const notificationItems = useMemo(() => {
+    return [
+      {
+        badgeCount: unreadReportsCount,
+        count: pendingReportsCount,
+        description: "Pending community reports need review.",
+        href: "/admin/reports",
+        icon: FileText,
+        label: "Community Reports"
+      },
+      {
+        badgeCount: unreadResidentsCount,
+        count: pendingResidentsCount,
+        description: "Resident applications are waiting for verification.",
+        href: "/admin/residents",
+        icon: UsersRound,
+        label: "Resident Verification"
+      }
+    ].filter((item) => item.count > 0);
+  }, [pendingReportsCount, pendingResidentsCount, unreadReportsCount, unreadResidentsCount]);
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => !item.adminOnly || canViewAnalytics(role));
   }, [role]);
@@ -146,10 +173,66 @@ export function AdminShell({ children }: AdminShellProps) {
     };
   }, [pathname, router]);
 
+  useEffect(() => {
+    if (!isNotificationOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!notificationRef.current?.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsNotificationOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isNotificationOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const currentSeenReports = Number(window.localStorage.getItem(seenReportsKey) ?? "0");
+    const currentSeenResidents = Number(window.localStorage.getItem(seenResidentsKey) ?? "0");
+
+    if (pathname.startsWith("/admin/reports")) {
+      const nextSeenReports = Math.max(currentSeenReports, pendingReportsCount);
+      window.localStorage.setItem(seenReportsKey, String(nextSeenReports));
+      setUnreadReportsCount(0);
+    } else {
+      setUnreadReportsCount(Math.max(0, pendingReportsCount - currentSeenReports));
+    }
+
+    if (pathname.startsWith("/admin/residents")) {
+      const nextSeenResidents = Math.max(currentSeenResidents, pendingResidentsCount);
+      window.localStorage.setItem(seenResidentsKey, String(nextSeenResidents));
+      setUnreadResidentsCount(0);
+    } else {
+      setUnreadResidentsCount(Math.max(0, pendingResidentsCount - currentSeenResidents));
+    }
+  }, [pathname, pendingReportsCount, pendingResidentsCount]);
+
+  useEffect(() => {
+    setIsNotificationOpen(false);
+  }, [pathname]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     await clearAdminServerSession();
     router.replace("/admin/login");
+  }
+
+  function openNotificationTarget(href: string) {
+    setIsNotificationOpen(false);
+    router.push(href);
   }
 
   if (isChecking) {
@@ -177,9 +260,9 @@ export function AdminShell({ children }: AdminShellProps) {
             const isActive = pathname.startsWith(item.href);
             const badge =
               item.href === "/admin/reports"
-                ? pendingReportsCount
+                ? unreadReportsCount
                 : item.href === "/admin/residents"
-                  ? pendingResidentsCount
+                  ? unreadResidentsCount
                   : 0;
 
             return (
@@ -217,10 +300,68 @@ export function AdminShell({ children }: AdminShellProps) {
             <Search size={16} />
             <input aria-label="Search" placeholder="Search..." />
           </div>
-          <button className="notification-button" type="button">
-            <Bell size={18} />
-            {notificationCount > 0 ? <span>{notificationCount > 99 ? "99+" : notificationCount}</span> : null}
-          </button>
+          <div className={`notification-menu ${isNotificationOpen ? "open" : ""}`} ref={notificationRef}>
+            <button
+              aria-expanded={isNotificationOpen}
+              aria-haspopup="dialog"
+              aria-label="Open notifications"
+              className="notification-button"
+              onClick={() => setIsNotificationOpen((current) => !current)}
+              type="button"
+            >
+              <Bell size={18} />
+              {notificationCount > 0 ? <span>{notificationCount > 99 ? "99+" : notificationCount}</span> : null}
+            </button>
+            {isNotificationOpen ? (
+              <div className="notification-panel" role="dialog" aria-label="Notifications">
+                <div className="notification-panel-header">
+                  <div>
+                    <strong>Notifications</strong>
+                    <p>Stay on top of pending barangay tasks.</p>
+                  </div>
+                  {notificationCount > 0 ? <em>{notificationCount > 99 ? "99+" : notificationCount} new</em> : null}
+                </div>
+                <div className="notification-panel-body">
+                  {notificationItems.length > 0 ? (
+                    notificationItems.map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <button
+                          className="notification-item"
+                          key={item.href}
+                          onClick={() => openNotificationTarget(item.href)}
+                          type="button"
+                        >
+                          <span className="notification-item-icon">
+                            <Icon size={18} />
+                          </span>
+                          <div className="notification-item-copy">
+                            <strong>{item.label}</strong>
+                            <p>{item.description}</p>
+                            <small>
+                              {item.count} pending item{item.count === 1 ? "" : "s"}
+                            </small>
+                          </div>
+                          <em>{item.badgeCount > 0 ? `${item.badgeCount > 99 ? "99+" : item.badgeCount} new` : "Seen"}</em>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="notification-empty">
+                      <span className="notification-item-icon">
+                        <Bell size={18} />
+                      </span>
+                      <div className="notification-item-copy">
+                        <strong>No pending notifications</strong>
+                        <p>All caught up for now.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="admin-account">
             <span><ShieldCheck size={15} /></span>
             <strong>{adminName} · {officeRoleLabel(role)}</strong>

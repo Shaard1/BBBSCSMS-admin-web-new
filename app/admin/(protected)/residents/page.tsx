@@ -4,6 +4,7 @@
 import {
   Check,
   Eye,
+  RefreshCw,
   Search,
   UserRound,
   X
@@ -93,6 +94,8 @@ export default function ResidentsPage() {
       });
   }, [residents, searchQuery, selectedFilter]);
 
+  const summary = useMemo(() => buildResidentSummary(residents), [residents]);
+
   async function handleApprove(resident: Resident) {
     setIsWorking(true);
     try {
@@ -136,17 +139,34 @@ export default function ResidentsPage() {
 
   return (
     <section className="admin-page residents-page">
-      <div className="page-heading">
+      <div className="page-heading resident-heading-improved">
         <p>Resident records</p>
         <h2>Resident Verification</h2>
         <span>
-          Review and process new community registrations to ensure accurate
-          demographic records.
+          Review and process new community registrations to ensure accurate demographic records and a clean barangay registry.
         </span>
       </div>
 
-      <div className="residents-toolbar">
-        <div className="filter-tabs">
+      <div className="resident-summary-grid">
+        <article className="resident-summary-card gold">
+          <span>Pending Review</span>
+          <strong>{summary.pending}</strong>
+          <p>Applications waiting for validation</p>
+        </article>
+        <article className="resident-summary-card green">
+          <span>Approved</span>
+          <strong>{summary.approved}</strong>
+          <p>Verified residents already in the registry</p>
+        </article>
+        <article className="resident-summary-card rose">
+          <span>Flagged</span>
+          <strong>{summary.flagged}</strong>
+          <p>Rejected or problematic submissions</p>
+        </article>
+      </div>
+
+      <div className="residents-toolbar resident-toolbar-improved">
+        <div className="filter-tabs resident-filter-tabs-improved">
           {filters.map((filter) => (
             <button
               className={selectedFilter === filter.value ? "active" : ""}
@@ -158,8 +178,8 @@ export default function ResidentsPage() {
             </button>
           ))}
         </div>
-        <label className="resident-search">
-          <Search size={17} />
+        <label className="resident-search resident-search-improved">
+          <Search size={18} />
           <input
             placeholder="Search residents, ID, address..."
             value={searchQuery}
@@ -175,13 +195,18 @@ export default function ResidentsPage() {
         </div>
       ) : null}
 
-      <div className="resident-panel">
-        <div className="resident-panel-heading">
-          <h3>Recent Submissions</h3>
-          <button onClick={loadResidents} type="button">Refresh</button>
+      <div className="resident-panel resident-panel-improved">
+        <div className="resident-panel-heading resident-panel-heading-improved">
+          <div>
+            <h3>Recent Submissions</h3>
+            <p>Open an application to review details and submitted images before approval.</p>
+          </div>
+          <button onClick={loadResidents} type="button">
+            <RefreshCw size={16} /> Refresh
+          </button>
         </div>
-        <div className="resident-table">
-          <div className="resident-table-head">
+        <div className="resident-table resident-table-improved">
+          <div className="resident-table-head resident-table-head-improved">
             <span>Resident Applicant</span>
             <span>Date Submitted</span>
             <span>Doc Status</span>
@@ -317,7 +342,7 @@ function ResidentRow({
   const showActions = canManageApprovals && status === "pending";
 
   return (
-    <article className="resident-row" onClick={() => onView(resident)}>
+    <article className="resident-row resident-row-improved" onClick={() => onView(resident)}>
       <div className="resident-person">
         <ResidentAvatar resident={resident} />
         <div>
@@ -543,6 +568,21 @@ function normalizeStatus(resident: Resident) {
   if (status === "approved") return "approved";
   if (status === "rejected") return "flagged";
   return "pending";
+}
+
+function buildResidentSummary(residents: Resident[]) {
+  let pending = 0;
+  let approved = 0;
+  let flagged = 0;
+
+  residents.forEach((resident) => {
+    const status = normalizeStatus(resident);
+    if (status === "pending") pending += 1;
+    if (status === "approved") approved += 1;
+    if (status === "flagged") flagged += 1;
+  });
+
+  return { approved, flagged, pending };
 }
 
 function displayValue(value?: string) {
