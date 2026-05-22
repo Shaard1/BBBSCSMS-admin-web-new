@@ -945,6 +945,27 @@ a {
   box-shadow: 0 12px 30px rgb(16 17 20 / 8%);
 }
 
+.login-card-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgb(248 248 249 / 84%);
+  backdrop-filter: blur(2px);
+}
+
+.login-card-loading-overlay .ring-loader-wrap {
+  gap: 12px;
+}
+
+.login-card-loading-overlay .ring-loader-wrap p {
+  color: #2f3a49;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .login-card form {
   display: grid;
   gap: 18px;

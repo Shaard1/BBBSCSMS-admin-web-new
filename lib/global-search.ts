@@ -3,13 +3,86 @@ import { canManageOfficeAccounts, type OfficeRole } from "@/lib/roles";
 
 export type GlobalSearchResult = {
   id: string;
-  category: "resident" | "report" | "announcement" | "office";
+  category: "resident" | "report" | "announcement" | "office" | "page";
   href: string;
   title: string;
   subtitle: string;
   badge?: string;
   badgeTone?: "approved" | "pending" | "flagged" | "info";
 };
+
+const adminPageResults = [
+  {
+    id: "page-dashboard",
+    category: "page",
+    href: "/admin/dashboard",
+    title: "Dashboard",
+    subtitle: "Open the admin dashboard overview",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["home", "overview", "summary", "main"]
+  },
+  {
+    id: "page-analytics",
+    category: "page",
+    href: "/admin/analytics",
+    title: "Analytics",
+    subtitle: "View analytics and reporting insights",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["stats", "statistics", "insights", "charts", "reports"]
+  },
+  {
+    id: "page-staff",
+    category: "page",
+    href: "/admin/staff",
+    title: "Staff Accounts",
+    subtitle: "Manage admin and staff office accounts",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["staff", "admin", "accounts", "office", "users"]
+  },
+  {
+    id: "page-reports",
+    category: "page",
+    href: "/admin/reports",
+    title: "Community Reports",
+    subtitle: "Review resident-submitted community reports",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["reports", "complaints", "incidents", "cases", "submissions"]
+  },
+  {
+    id: "page-map",
+    category: "page",
+    href: "/admin/map",
+    title: "Complaint Map",
+    subtitle: "Open the complaint map and mapped reports",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["map", "complaint", "location", "pins", "mapped", "reports"]
+  },
+  {
+    id: "page-residents",
+    category: "page",
+    href: "/admin/residents",
+    title: "Resident Verification",
+    subtitle: "Review and verify resident applications",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["resident", "verification", "verify", "applications", "approval"]
+  },
+  {
+    id: "page-announcements",
+    category: "page",
+    href: "/admin/announcements",
+    title: "Announcement",
+    subtitle: "Manage barangay announcements and posts",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["announcement", "announcements", "posts", "advisories", "news"]
+  }
+] satisfies Array<GlobalSearchResult & { keywords: string[] }>;
 
 export async function fetchGlobalSearchResults(query: string, role: OfficeRole) {
   const normalizedQuery = query.trim();
@@ -19,20 +92,41 @@ export async function fetchGlobalSearchResults(query: string, role: OfficeRole) 
   }
 
   const likePattern = buildLikePattern(normalizedQuery);
+  const pageResults = searchAdminPages(normalizedQuery, role);
 
-  const [residentResults, reportResults, announcementResults, officeResults] = await Promise.all([
+  const settledResults = await Promise.allSettled([
     searchResidents(likePattern),
     searchReports(likePattern),
     searchAnnouncements(likePattern),
     canManageOfficeAccounts(role) ? searchOfficeAccounts(likePattern) : Promise.resolve([])
   ]);
 
+  const [residentResults, reportResults, announcementResults, officeResults] = settledResults.map(
+    (result) => (result.status === "fulfilled" ? result.value : [])
+  );
+
   return [
+    ...pageResults,
     ...residentResults,
     ...reportResults,
     ...announcementResults,
     ...officeResults
   ];
+}
+
+function searchAdminPages(query: string, role: OfficeRole): GlobalSearchResult[] {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return adminPageResults
+    .filter((result) => {
+      if (result.href === "/admin/analytics" && role !== "admin") return false;
+      if (result.href === "/admin/staff" && !canManageOfficeAccounts(role)) return false;
+
+      return `${result.title} ${result.subtitle} ${result.keywords.join(" ")}`
+        .toLowerCase()
+        .includes(normalizedQuery);
+    })
+    .slice(0, 5);
 }
 
 async function searchResidents(likePattern: string): Promise<GlobalSearchResult[]> {
@@ -158,6 +252,7 @@ function buildLikePattern(value: string) {
     .replace(/[%_]/g, "")
     .replace(/,/g, " ")
     .replace(/[()]/g, " ")
+    .replace(/\s+/g, "%")
     .trim();
 
   return `%${safeValue}%`;

@@ -175,7 +175,7 @@ export default function ReportsPage() {
     try {
       await updateReportAdminNote(editingNoteReport.id, adminNote);
       await loadReports();
-      setMessage("Admin note updated.");
+      setMessage("Staff note updated.");
       setEditingNoteReport(null);
       setAdminNote("");
     } catch (error) {
@@ -456,7 +456,7 @@ function ReportDetailsDialog({
             <DetailItem label="Status" value={reportStatusLabel(normalizeReportStatus(report.status))} />
             <DetailItem label="Date" value={shortDate(report.created_at)} />
             <DetailItem label="GPS" value={coordinates} />
-            <DetailItem label="Admin note" value={report.admin_note?.trim() || "No admin note yet."} />
+            <DetailItem label="Staff note" value={report.admin_note?.trim() || "No staff note yet."} />
           </div>
 
           {hasCoordinates(report) ? (
@@ -509,14 +509,14 @@ function AdminNoteDialog({
       <div className="reject-modal">
         <div className="modal-header">
           <div>
-            <h2>Admin Note</h2>
+            <h2>Staff Note</h2>
             <p>{report.reporter_name ?? "Unknown resident"}</p>
           </div>
           <button onClick={onClose} type="button" aria-label="Close"><X size={20} /></button>
         </div>
         <textarea
           className="note-textarea"
-          placeholder="Add an update or note visible to the resident"
+          placeholder="Add a staff update or note visible to the resident"
           value={note}
           onChange={(event) => onChange(event.target.value)}
         />
