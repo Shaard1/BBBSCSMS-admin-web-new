@@ -23,6 +23,10 @@ import { AdminRoleProvider } from "@/components/admin-role-context";
 import { RingLoader } from "@/components/ring-loader";
 import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
 import {
+  fetchGlobalSearchResults,
+  type GlobalSearchResult
+} from "@/lib/global-search";
+import {
   canManageOfficeAccounts,
   canViewAnalytics,
   officeRoleLabel,
@@ -46,6 +50,12 @@ const navItems = [
 
 const seenReportsKey = "bc_admin_seen_reports_count";
 const seenResidentsKey = "bc_admin_seen_residents_count";
+const globalSearchCategories = {
+  announcement: "Announcements",
+  office: "Office Accounts",
+  report: "Community Reports",
+  resident: "Residents"
+} satisfies Record<GlobalSearchResult["category"], string>;
 
 export function AdminShell({ children }: AdminShellProps) {
   const router = useRouter();
@@ -59,7 +69,13 @@ export function AdminShell({ children }: AdminShellProps) {
   const [unreadReportsCount, setUnreadReportsCount] = useState(0);
   const [unreadResidentsCount, setUnreadResidentsCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const notificationRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
 
   const notificationCount = unreadReportsCount + unreadResidentsCount;
   const notificationItems = useMemo(() => {
@@ -89,6 +105,14 @@ export function AdminShell({ children }: AdminShellProps) {
   const pageTitle = useMemo(() => {
     return visibleNavItems.find((item) => pathname.startsWith(item.href))?.label ?? "Admin";
   }, [pathname, visibleNavItems]);
+  const groupedSearchResults = useMemo(() => {
+    return searchResults.reduce<Record<string, GlobalSearchResult[]>>((groups, result) => {
+      const group = groups[result.category] ?? [];
+      group.push(result);
+      groups[result.category] = group;
+      return groups;
+    }, {});
+  }, [searchResults]);
 
   useEffect(() => {
     let isMounted = true;
@@ -198,6 +222,30 @@ export function AdminShell({ children }: AdminShellProps) {
   }, [isNotificationOpen]);
 
   useEffect(() => {
+    if (!isSearchOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!searchRef.current?.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isSearchOpen]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const currentSeenReports = Number(window.localStorage.getItem(seenReportsKey) ?? "0");
@@ -224,6 +272,50 @@ export function AdminShell({ children }: AdminShellProps) {
     setIsNotificationOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    setIsSearchOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+
+    if (normalizedQuery.length < 2) {
+      setSearchResults([]);
+      setSearchError("");
+      setIsSearchLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsSearchLoading(true);
+      setSearchError("");
+
+      try {
+        const results = await fetchGlobalSearchResults(normalizedQuery, role);
+        if (!isCancelled) {
+          setSearchResults(results);
+          setIsSearchOpen(true);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setSearchResults([]);
+          setSearchError(error instanceof Error ? error.message : "Search failed.");
+          setIsSearchOpen(true);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsSearchLoading(false);
+        }
+      }
+    }, 220);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [role, searchQuery]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     await clearAdminServerSession();
@@ -233,6 +325,13 @@ export function AdminShell({ children }: AdminShellProps) {
   function openNotificationTarget(href: string) {
     setIsNotificationOpen(false);
     router.push(href);
+  }
+
+  function handleSearchResultOpen(result: GlobalSearchResult) {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    router.push(result.href);
   }
 
   if (isChecking) {
@@ -296,9 +395,60 @@ export function AdminShell({ children }: AdminShellProps) {
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <h1>{pageTitle}</h1>
-          <div className="topbar-search">
-            <Search size={16} />
-            <input aria-label="Search" placeholder="Search..." />
+          <div className={`topbar-search ${isSearchOpen ? "open" : ""}`} ref={searchRef}>
+            <div className="topbar-search-bar">
+              <Search size={16} />
+              <input
+                aria-label="Search across the admin portal"
+                placeholder="Search residents, reports, announcements..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onFocus={() => {
+                  if (searchQuery.trim().length >= 2 || searchError) {
+                    setIsSearchOpen(true);
+                  }
+                }}
+              />
+            </div>
+            {isSearchOpen ? (
+              <div className="topbar-search-panel" role="listbox" aria-label="Global search results">
+                {isSearchLoading ? (
+                  <div className="topbar-search-state">Searching...</div>
+                ) : searchError ? (
+                  <div className="topbar-search-state">{searchError}</div>
+                ) : searchQuery.trim().length < 2 ? (
+                  <div className="topbar-search-state">Type at least 2 characters.</div>
+                ) : searchResults.length === 0 ? (
+                  <div className="topbar-search-state">No results found.</div>
+                ) : (
+                  Object.entries(groupedSearchResults).map(([category, results]) => (
+                    <div className="topbar-search-group" key={category}>
+                      <strong>{globalSearchCategories[category as GlobalSearchResult["category"]]}</strong>
+                      <div className="topbar-search-group-list">
+                        {results.map((result) => (
+                          <button
+                            className="topbar-search-result"
+                            key={result.id}
+                            onClick={() => handleSearchResultOpen(result)}
+                            type="button"
+                          >
+                            <div className="topbar-search-copy">
+                              <span>{result.title}</span>
+                              <small>{result.subtitle}</small>
+                            </div>
+                            {result.badge ? (
+                              <em className={`topbar-search-badge ${result.badgeTone ?? "info"}`}>
+                                {result.badge}
+                              </em>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
           </div>
           <div className={`notification-menu ${isNotificationOpen ? "open" : ""}`} ref={notificationRef}>
             <button
