@@ -11,7 +11,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Bancao Connect",
   description:
-    "A digital service platform for Barangay Bancao-Bancao residents."
+    "A digital service platform for Barangay Bancao-Bancao residents.",
+  icons: {
+    icon: "/assets/BBBCSMS App Icon.svg"
+  }
 };
 
 export default function RootLayout({

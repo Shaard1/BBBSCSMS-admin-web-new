@@ -2132,11 +2132,11 @@ a {
 }
 
 .staff-directory-panel {
-  margin-top: 4px !important;
+  margin-top: 20px !important;
 }
 
 .staff-directory-panel .resident-panel-heading {
-  align-items: flex-end;
+  align-items: center;
   margin-bottom: 18px;
 }
 
@@ -2148,34 +2148,41 @@ a {
   gap: 14px;
 }
 
-.staff-directory-panel .resident-table-head,
-.staff-directory-panel .resident-row {
-  grid-template-columns: minmax(260px, 4fr) minmax(150px, 1.3fr) minmax(180px, 1.5fr);
+.staff-directory-head,
+.staff-directory-row {
+  grid-template-columns: minmax(280px, 3.4fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(190px, 1.35fr);
   gap: 20px;
   border-radius: 14px;
 }
 
-.staff-directory-panel .resident-table-head {
-  min-height: 52px;
+.staff-directory-head {
+  min-height: 54px;
   padding: 0 26px;
   color: #516072;
   font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.staff-directory-panel .resident-row {
-  min-height: 96px;
+.staff-directory-row {
+  min-height: 104px;
   border: 1px solid #e6edf5;
   box-shadow: 0 10px 24px rgb(15 23 42 / 4%);
-  padding: 0 26px;
+  padding: 18px 26px;
 }
 
 .staff-directory-panel .resident-person {
   gap: 18px;
+  align-items: center;
 }
 
 .staff-directory-panel .resident-avatar {
   width: 46px;
   height: 46px;
+}
+
+.staff-directory-identity {
+  min-width: 0;
 }
 
 .staff-directory-panel .resident-person strong {
@@ -2188,17 +2195,60 @@ a {
   font-size: 12px;
 }
 
+.staff-directory-identity small {
+  display: block;
+  margin-top: 6px;
+  color: #97a4b5;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.staff-directory-cell {
+  display: flex;
+  align-items: center;
+}
+
 .staff-directory-panel .status-badge {
   font-size: 13px;
   padding: 6px 12px;
 }
 
-.staff-directory-panel .row-actions {
+.staff-directory-actions {
   justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
 }
 
-.staff-directory-panel .row-actions .ui-dropdown {
-  min-width: 136px;
+.staff-directory-actions .ui-dropdown {
+  min-width: 120px;
+}
+
+.staff-delete-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid rgb(179 38 30 / 18%);
+  border-radius: 12px;
+  background: #fff8f7;
+  color: #b3261e;
+  padding: 0;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.staff-delete-button:hover:not(:disabled) {
+  background: #ffe9e5;
+  border-color: rgb(179 38 30 / 28%);
+  transform: translateY(-1px);
+}
+
+.staff-delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .resident-row time {
@@ -2223,6 +2273,11 @@ a {
 .status-badge.pending {
   background: rgb(230 160 0 / 12%);
   color: #9b6a00;
+}
+
+.status-badge.info {
+  background: rgb(18 106 196 / 12%);
+  color: #126ac4;
 }
 
 .status-badge.flagged {
@@ -2760,7 +2815,7 @@ a {
 
 .ui-dropdown-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 2px);
   left: 0;
   z-index: 30;
   display: grid;
@@ -5443,6 +5498,14 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .staff-directory-row {
+    gap: 14px;
+  }
+
+  .staff-directory-cell {
+    justify-content: flex-start;
+  }
+
   .analytics-header,
   .analytics-main-grid,
   .status-distribution {
@@ -5541,6 +5604,20 @@ a {
 
   .staff-create-panel .announcement-section-header em {
     width: fit-content;
+  }
+
+  .staff-directory-row {
+    padding: 18px;
+  }
+
+  .staff-directory-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .staff-directory-actions .ui-dropdown,
+  .staff-delete-button {
+    width: 40px;
   }
 
   .announcement-page {
