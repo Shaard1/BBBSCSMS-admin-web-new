@@ -572,7 +572,7 @@ function ReportDetailsPanel({
         </p>
         <Detail label="Reported by" value={report.reporter_name ?? "Unknown resident"} />
         <Detail label="GPS" value={`Lat ${report.latitude?.toFixed(6)}, Lng ${report.longitude?.toFixed(6)}`} />
-        {report.admin_note?.trim() ? <Detail label="Admin note" value={report.admin_note.trim()} /> : null}
+        {report.admin_note?.trim() ? <Detail label="Staff note" value={report.admin_note.trim()} /> : null}
         <a
           className="open-map-link"
           href={`https://www.openstreetmap.org/?mlat=${report.latitude}&mlon=${report.longitude}#map=17/${report.latitude}/${report.longitude}`}

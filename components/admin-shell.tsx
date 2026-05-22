@@ -53,6 +53,7 @@ const seenResidentsKey = "bc_admin_seen_residents_count";
 const globalSearchCategories = {
   announcement: "Announcements",
   office: "Office Accounts",
+  page: "Pages",
   report: "Community Reports",
   resident: "Residents"
 } satisfies Record<GlobalSearchResult["category"], string>;
