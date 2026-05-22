@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ShieldCheck, UserPlus } from "lucide-react";
+import { ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import {
   createStaffAccount,
+  deleteOfficeAccount,
   fetchOfficeAccounts,
   updateOfficeRole,
   type OfficeAccount
@@ -18,6 +19,25 @@ const roleOptions = [
   { label: "Admin", value: "admin" }
 ];
 
+function getAccountStatusLabel(status?: string) {
+  const normalizedStatus = status?.toLowerCase().trim();
+
+  if (normalizedStatus === "approved") return "Approved";
+  if (normalizedStatus === "rejected") return "Rejected";
+  if (normalizedStatus === "pending") return "Pending";
+
+  return "Approved";
+}
+
+function getAccountStatusClassName(status?: string) {
+  const normalizedStatus = status?.toLowerCase().trim();
+
+  if (normalizedStatus === "rejected") return "flagged";
+  if (normalizedStatus === "pending") return "pending";
+
+  return "approved";
+}
+
 export default function StaffAccountsPage() {
   const { role } = useAdminRole();
   const canManage = canManageOfficeAccounts(role);
@@ -25,6 +45,7 @@ export default function StaffAccountsPage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<OfficeAccount | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -91,6 +112,23 @@ export default function StaffAccountsPage() {
       await loadAccounts();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to update role.");
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deleteTarget) return;
+
+    setIsWorking(true);
+    setMessage("");
+    try {
+      await deleteOfficeAccount(deleteTarget.id);
+      setMessage(`${deleteTarget.full_name || deleteTarget.id} account deleted.`);
+      setDeleteTarget(null);
+      await loadAccounts();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to delete office account.");
     } finally {
       setIsWorking(false);
     }
@@ -178,7 +216,7 @@ export default function StaffAccountsPage() {
         </section>
       )}
 
-      <div className="resident-panel staff-directory-panel" style={{ marginTop: 20 }}>
+      <div className="resident-panel staff-directory-panel">
         <div className="resident-panel-heading">
           <div>
             <h3>Office User Directory</h3>
@@ -186,9 +224,10 @@ export default function StaffAccountsPage() {
           </div>
           <button onClick={loadAccounts} type="button">Refresh</button>
         </div>
-        <div className="resident-table">
-          <div className="resident-table-head">
+        <div className="resident-table staff-directory-table">
+          <div className="resident-table-head staff-directory-head">
             <span>Account</span>
+            <span>Status</span>
             <span>Role</span>
             <span>Actions</span>
           </div>
@@ -197,20 +236,28 @@ export default function StaffAccountsPage() {
             <div className="empty-state">No admin/staff profiles found.</div>
           ) : (
             accounts.map((account) => (
-              <article className="resident-row" key={account.id}>
+              <article className="resident-row staff-directory-row" key={account.id}>
                 <div className="resident-person">
                   <span className="resident-avatar fallback">
                     <ShieldCheck size={19} />
                   </span>
-                  <div>
+                  <div className="staff-directory-identity">
                     <strong>{account.full_name || "Unnamed office user"}</strong>
-                    <span>{account.id}</span>
+                    <span>{account.email?.trim() || "No email saved"}</span>
+                    <small>{account.id}</small>
                   </div>
                 </div>
-                <span className={`status-badge ${account.role === "admin" ? "approved" : "pending"}`}>
-                  {account.role === "admin" ? "Admin" : "Staff"}
-                </span>
-                <div className="row-actions">
+                <div className="staff-directory-cell">
+                  <span className={`status-badge ${getAccountStatusClassName(account.status)}`}>
+                    {getAccountStatusLabel(account.status)}
+                  </span>
+                </div>
+                <div className="staff-directory-cell">
+                  <span className={`status-badge ${account.role === "admin" ? "approved" : "info"}`}>
+                    {account.role === "admin" ? "Admin" : "Staff"}
+                  </span>
+                </div>
+                <div className="row-actions staff-directory-actions">
                   <UiDropdown
                     ariaLabel={`Change role for ${account.full_name || account.id}`}
                     disabled={!canManage || isWorking}
@@ -218,6 +265,16 @@ export default function StaffAccountsPage() {
                     value={account.role}
                     onChange={(nextRole) => handleRoleChange(account, nextRole as "admin" | "staff")}
                   />
+                  <button
+                    className="staff-delete-button"
+                    aria-label={`Delete ${account.full_name || "office account"}`}
+                    disabled={isWorking}
+                    onClick={() => setDeleteTarget(account)}
+                    title="Delete account"
+                    type="button"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </article>
             ))
@@ -225,6 +282,66 @@ export default function StaffAccountsPage() {
         </div>
       </div>
       {isLoading ? <AdminLoadingOverlay label="Loading office accounts..." /> : null}
+      {deleteTarget ? (
+        <DeleteOfficeAccountDialog
+          account={deleteTarget}
+          isWorking={isWorking}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDeleteConfirmed}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function DeleteOfficeAccountDialog({
+  account,
+  isWorking,
+  onClose,
+  onConfirm
+}: {
+  account: OfficeAccount;
+  isWorking: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="reject-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>Delete Office Account</h2>
+            <p>
+              Remove {account.full_name || "this account"} from the office directory and delete its login access?
+            </p>
+          </div>
+          <button onClick={onClose} type="button" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="approval-summary">
+          <div className="detail-item">
+            <span>Full name</span>
+            <strong>{account.full_name || "Unnamed office user"}</strong>
+          </div>
+          <div className="detail-item">
+            <span>Email</span>
+            <strong>{account.email?.trim() || "No email saved"}</strong>
+          </div>
+          <div className="detail-item">
+            <span>Role</span>
+            <strong>{account.role === "admin" ? "Admin" : "Staff"}</strong>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="secondary-admin-button" onClick={onClose} type="button">
+            Cancel
+          </button>
+          <button className="danger-admin-button" disabled={isWorking} onClick={onConfirm} type="button">
+            {isWorking ? "Deleting..." : "Delete account"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
