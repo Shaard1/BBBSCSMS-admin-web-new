@@ -216,6 +216,7 @@ export default function AnnouncementsPage() {
           isSubmitting={isSubmitting}
           onCancelEdit={() => setForm(emptyForm)}
           onChange={setForm}
+          onGalleryRemove={handleGalleryRemove}
           onGalleryUpload={handleGalleryUpload}
           onSubmit={handleSubmit}
           onThumbnailUpload={handleThumbnailUpload}
@@ -303,6 +304,17 @@ export default function AnnouncementsPage() {
       setIsUploading(false);
     }
   }
+
+  function handleGalleryRemove(imageUrl: string) {
+    setForm((current) => {
+      const remainingUrls = parseImageUrls(current.imageUrlsText, "").filter((url) => url !== imageUrl);
+      return {
+        ...current,
+        imageUrlsText: remainingUrls.join("\n")
+      };
+    });
+    setMessage("Gallery image removed.");
+  }
 }
 
 function CreateAnnouncementPanel({
@@ -311,6 +323,7 @@ function CreateAnnouncementPanel({
   isSubmitting,
   onCancelEdit,
   onChange,
+  onGalleryRemove,
   onGalleryUpload,
   onSubmit,
   onThumbnailUpload
@@ -320,6 +333,7 @@ function CreateAnnouncementPanel({
   isSubmitting: boolean;
   onCancelEdit: () => void;
   onChange: (form: AnnouncementForm) => void;
+  onGalleryRemove: (imageUrl: string) => void;
   onGalleryUpload: (files: FileList) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onThumbnailUpload: (file: File) => void;
@@ -399,7 +413,23 @@ function CreateAnnouncementPanel({
             </p>
             <div className={`announcement-gallery-preview ${galleryImages.length > 0 ? "" : "empty"}`}>
               {galleryImages.length > 0 ? (
-                galleryImages.slice(0, 6).map((imageUrl) => <img src={imageUrl} alt="" key={imageUrl} />)
+                galleryImages.map((imageUrl, index) => (
+                  <article className="announcement-gallery-tile" key={imageUrl}>
+                    <img src={imageUrl} alt={`Gallery image ${index + 1}`} />
+                    <div className="announcement-gallery-tile-bar">
+                      <span>Image {index + 1}</span>
+                      <button
+                        type="button"
+                        className="announcement-remove-image"
+                        onClick={() => onGalleryRemove(imageUrl)}
+                        aria-label={`Remove gallery image ${index + 1}`}
+                      >
+                        <Trash2 size={15} />
+                        Remove
+                      </button>
+                    </div>
+                  </article>
+                ))
               ) : (
                 <div>
                   <ImageIcon size={28} />

@@ -97,14 +97,14 @@ export default function StaffAccountsPage() {
   }
 
   return (
-    <section className="admin-page residents-page">
+    <section className="admin-page residents-page staff-page">
       <div className="page-heading">
         <p>Office accounts</p>
         <h2>Staff Account Management</h2>
         <span>Create staff accounts and maintain admin/staff access assignments.</span>
       </div>
 
-      <div className="report-stats">
+      <div className="report-stats staff-stats">
         <article className="report-stat dark">
           <span>Total Office Users</span>
           <strong>{counts.total}</strong>
@@ -129,7 +129,7 @@ export default function StaffAccountsPage() {
       {!canManage ? (
         <div className="empty-state">Only administrators can manage office accounts.</div>
       ) : (
-        <section className="announcement-panel">
+        <section className="announcement-panel staff-create-panel">
           <div className="announcement-section-header">
             <span><UserPlus size={20} /></span>
             <div>
@@ -138,7 +138,7 @@ export default function StaffAccountsPage() {
             </div>
             <em>Admin only</em>
           </div>
-          <form className="announcement-form" onSubmit={handleSubmit}>
+          <form className="announcement-form staff-form" onSubmit={handleSubmit}>
             <label>
               Full Name
               <input
@@ -178,9 +178,12 @@ export default function StaffAccountsPage() {
         </section>
       )}
 
-      <div className="resident-panel" style={{ marginTop: 20 }}>
+      <div className="resident-panel staff-directory-panel" style={{ marginTop: 20 }}>
         <div className="resident-panel-heading">
-          <h3>Office User Directory</h3>
+          <div>
+            <h3>Office User Directory</h3>
+            <p>Review office accounts and update their assigned access level.</p>
+          </div>
           <button onClick={loadAccounts} type="button">Refresh</button>
         </div>
         <div className="resident-table">
