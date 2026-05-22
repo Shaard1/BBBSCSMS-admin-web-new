@@ -3,6 +3,7 @@
 import { ArrowLeft, Eye, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { RingLoader } from "@/components/ring-loader";
 import {
   clearAdminServerSession,
   createAdminServerSession,
@@ -30,15 +31,16 @@ export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
     setMessage("");
 
     const result = await signInAsOfficeUser(email, password);
-    setIsSubmitting(false);
 
     if (!result.ok) {
+      setIsSubmitting(false);
       setMessage(result.message);
       return;
     }
 
     const sessionResult = await createAdminServerSession(loginMode);
     if (!sessionResult.ok) {
+      setIsSubmitting(false);
       await clearAdminServerSession();
       setMessage(sessionResult.message);
       return;
@@ -84,6 +86,11 @@ export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
     <section
       className={`login-card modal-card-enter ${isModal ? "modal-login-card" : ""} ${isModal ? `modal-login-form modal-login-${loginMode}` : ""}`}
     >
+      {isSubmitting ? (
+        <div className="login-card-loading-overlay">
+          <RingLoader label="Checking access..." />
+        </div>
+      ) : null}
       {isModal ? (
         <button className="login-back-button" onClick={() => setStep("chooser")} type="button" aria-label="Back to login options">
           <ArrowLeft size={24} />
