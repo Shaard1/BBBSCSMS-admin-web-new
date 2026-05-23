@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlignJustify,
   Bell,
   Building2,
   ClipboardList,
@@ -214,6 +215,17 @@ export default function Home() {
 }
 
 function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  function closeMenu() {
+    setIsMenuOpen(false);
+  }
+
+  function handleAdminLogin() {
+    closeMenu();
+    onAdminLogin();
+  }
+
   return (
     <header className="navbar">
       <div className="nav-inner">
@@ -230,7 +242,41 @@ function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
           <button className="login-button" onClick={onAdminLogin} type="button">
             Log in
           </button>
-          <a className="download-outline-button" href="#download">Download App</a>
+          <a className="download-outline-button" href="/downloads/BancaoConnect.apk" download>
+            Download App
+          </a>
+        </div>
+        <button
+          aria-controls="mobile-navigation"
+          aria-expanded={isMenuOpen}
+          aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          className={`mobile-menu-toggle ${isMenuOpen ? "open" : ""}`}
+          onClick={() => setIsMenuOpen((value) => !value)}
+          type="button"
+        >
+          <AlignJustify size={22} />
+        </button>
+      </div>
+      <div className={`mobile-nav-panel ${isMenuOpen ? "open" : ""}`} id="mobile-navigation">
+        <nav className="mobile-nav-links" aria-label="Mobile navigation">
+          {navLinks.map((link) => (
+            <a key={link.label} href={link.href} onClick={closeMenu}>
+              {link.label}
+            </a>
+          ))}
+        </nav>
+        <div className="mobile-nav-actions">
+          <button className="login-button" onClick={handleAdminLogin} type="button">
+            Log in
+          </button>
+          <a
+            className="download-outline-button"
+            href="/downloads/BancaoConnect.apk"
+            download
+            onClick={closeMenu}
+          >
+            Download App
+          </a>
         </div>
       </div>
     </header>
@@ -430,7 +476,9 @@ function CtaSection() {
               barangay announcements.
             </p>
             <div className="cta-actions">
-              <a className="light-button" href="#download">Download App</a>
+              <a className="light-button" href="/downloads/BancaoConnect.apk" download>
+                Download App
+              </a>
               <a className="outline-button" href="#faq">Need Help?</a>
             </div>
           </div>
