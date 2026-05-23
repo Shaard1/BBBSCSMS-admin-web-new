@@ -98,6 +98,90 @@ a {
   gap: 10px;
 }
 
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #006cbf;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.mobile-menu-toggle svg {
+  transition: transform 220ms ease;
+}
+
+.mobile-menu-toggle:hover {
+  color: var(--deep-blue);
+  opacity: 0.82;
+}
+
+.mobile-menu-toggle:active {
+  transform: scale(0.96);
+}
+
+.mobile-menu-toggle.open {
+  color: var(--deep-blue);
+}
+
+.mobile-menu-toggle.open svg {
+  transform: rotate(90deg) scale(1.04);
+}
+
+.mobile-nav-panel {
+  display: block;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease,
+    padding 220ms ease;
+}
+
+.mobile-nav-links,
+.mobile-nav-actions {
+  display: grid;
+}
+
+.mobile-nav-links {
+  gap: 6px;
+}
+
+.mobile-nav-links a {
+  border-radius: 12px;
+  color: #415163;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 14px;
+}
+
+.mobile-nav-links a:hover {
+  background: #f4f9ff;
+  color: var(--blue);
+}
+
+.mobile-nav-actions {
+  gap: 10px;
+}
+
+.mobile-nav-actions .login-button,
+.mobile-nav-actions .download-outline-button {
+  width: 100%;
+}
+
 .primary-button,
 .light-button,
 .outline-button {
@@ -660,6 +744,28 @@ a {
     display: none;
   }
 
+  .nav-actions {
+    display: none;
+  }
+
+  .mobile-menu-toggle {
+    display: inline-flex;
+  }
+
+  .mobile-nav-panel {
+    padding: 0 24px;
+  }
+
+  .mobile-nav-panel.open {
+    max-height: 520px;
+    opacity: 1;
+    background: #ffffff;
+    border-top: 1px solid #e8edf2;
+    padding: 0 24px 18px;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
   .hero {
     min-height: auto;
     padding: 58px 24px 46px;
@@ -712,8 +818,12 @@ a {
     padding: 0 20px;
   }
 
-  .nav-actions {
-    display: none;
+  .mobile-nav-panel {
+    padding: 0 20px;
+  }
+
+  .mobile-nav-panel.open {
+    padding: 0 20px 18px;
   }
 
   .section {
@@ -895,33 +1005,180 @@ a {
 }
 
 @media (max-width: 1023px) {
+  .navbar {
+    height: 68px;
+  }
+
   .hero {
-    padding: 58px 24px 46px;
+    padding: 40px 24px 34px;
   }
 
   .hero-copy {
     max-width: 760px;
+    text-align: center;
   }
 
   .hero-phone {
     width: min(100%, 620px);
     min-width: 0;
     opacity: 1;
+    margin-top: 22px;
+  }
+
+  .official-kicker {
+    margin-inline: auto;
+  }
+
+  .hero p {
+    margin-inline: auto;
+  }
+
+  .section {
+    padding: 80px 24px;
+  }
+
+  .about-grid,
+  .security-grid {
+    gap: 32px;
+  }
+
+  .footer-inner {
+    gap: 28px;
   }
 
 }
 
 @media (max-width: 767px) {
+  .navbar {
+    height: 60px;
+  }
+
   .hero {
-    padding-top: 46px;
+    padding: 26px 20px 20px;
   }
 
   .hero h1 {
-    font-size: 42px;
+    font-size: 38px;
+    line-height: 1.08;
   }
 
   .section {
-    padding: 72px 24px;
+    padding: 56px 20px;
+  }
+
+  .brand {
+    gap: 6px;
+    font-size: 16px;
+    line-height: 0.92;
+  }
+
+  .brand img {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mobile-menu-toggle {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mobile-menu-toggle svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .official-kicker {
+    min-height: 30px;
+    font-size: 11px;
+    padding: 0 12px;
+  }
+
+  .hero p {
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .hero-phone {
+    width: calc(100% + 20px);
+    max-width: none;
+    margin-top: 18px;
+    margin-right: -20px;
+    margin-left: 0;
+  }
+
+  .section-heading h2 {
+    font-size: 28px;
+  }
+
+  .lead-text {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .value-card,
+  .info-card,
+  .step-card {
+    min-height: auto;
+  }
+
+  .value-card {
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .info-card,
+  .step-card {
+    padding: 18px;
+  }
+
+  .steps,
+  .card-grid,
+  .faq-list {
+    margin-top: 28px;
+  }
+
+  .security-badge {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .cta {
+    gap: 18px;
+    padding: 22px 18px;
+  }
+
+  .cta h2 {
+    font-size: 29px;
+  }
+
+  .cta p {
+    font-size: 15px;
+  }
+
+  .cta-actions {
+    margin-top: 20px;
+  }
+
+  .light-button,
+  .outline-button {
+    width: 100%;
+  }
+
+  .footer {
+    padding: 34px 20px 24px;
+  }
+
+  .footer-inner {
+    gap: 22px;
+  }
+
+  .footer p {
+    max-width: none;
+  }
+
+  .copyright {
+    margin-top: 24px;
   }
 }
 
