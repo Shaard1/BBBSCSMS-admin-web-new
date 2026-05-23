@@ -1,16 +1,22 @@
 import { isOfficeRole, type OfficeRole } from "@/lib/roles";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type SupabaseConfig = {
+  anonKey: string;
+  serviceRoleKey: string;
+  url: string;
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables.");
+function getSupabaseConfig(): SupabaseConfig | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+  if (!url || !anonKey) {
+    return null;
+  }
+
+  return { anonKey, serviceRoleKey, url };
 }
-
-const verifiedSupabaseUrl = supabaseUrl;
-const verifiedSupabaseAnonKey = supabaseAnonKey;
-const verifiedSupabaseServiceRoleKey = supabaseServiceRoleKey ?? "";
 
 type SupabaseUserResponse = {
   id?: string;
@@ -36,10 +42,15 @@ const adminSessionSecret =
 export async function getVerifiedOfficeUser(accessToken: string) {
   const trimmedToken = accessToken.trim();
   if (!trimmedToken) return null;
+  const supabaseConfig = getSupabaseConfig();
 
-  const userResponse = await fetch(`${verifiedSupabaseUrl}/auth/v1/user`, {
+  if (!supabaseConfig) {
+    return null;
+  }
+
+  const userResponse = await fetch(`${supabaseConfig.url}/auth/v1/user`, {
     headers: {
-      apikey: verifiedSupabaseAnonKey,
+      apikey: supabaseConfig.anonKey,
       Authorization: `Bearer ${trimmedToken}`
     },
     cache: "no-store"
@@ -51,13 +62,13 @@ export async function getVerifiedOfficeUser(accessToken: string) {
   const userId = user.id?.trim();
   if (!userId) return null;
 
-  if (verifiedSupabaseServiceRoleKey) {
+  if (supabaseConfig.serviceRoleKey) {
     const serviceRoleProfileResponse = await fetch(
-      `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+      `${supabaseConfig.url}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
       {
         headers: {
-          apikey: verifiedSupabaseServiceRoleKey,
-          Authorization: `Bearer ${verifiedSupabaseServiceRoleKey}`
+          apikey: supabaseConfig.serviceRoleKey,
+          Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`
         },
         cache: "no-store"
       }
@@ -73,10 +84,10 @@ export async function getVerifiedOfficeUser(accessToken: string) {
   }
 
   const profileResponse = await fetch(
-    `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+    `${supabaseConfig.url}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
     {
       headers: {
-        apikey: verifiedSupabaseAnonKey,
+        apikey: supabaseConfig.anonKey,
         Authorization: `Bearer ${trimmedToken}`
       },
       cache: "no-store"
