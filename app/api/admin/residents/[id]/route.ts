@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { adminSessionCookieName, getSignedOfficeRole } from "@/lib/admin-session";
+import {
+  adminSessionCookieName,
+  getActiveSignedAdminSession
+} from "@/lib/admin-session";
 import { canApproveResidents } from "@/lib/roles";
+import { rejectCrossOriginMutation } from "@/lib/request-security";
 
 type ResidentActionPayload = {
   action?: "approve" | "reject";
@@ -39,6 +43,9 @@ type RouteContext = {
 };
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const crossOriginResponse = rejectCrossOriginMutation(request);
+  if (crossOriginResponse) return crossOriginResponse;
+
   const adminClientResponse = await getAdminClientForResidentRequest(request);
 
   if ("error" in adminClientResponse) {
@@ -49,9 +56,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const residentId = id?.trim() ?? "";
 
-  if (!residentId) {
+  if (!isUuid(residentId)) {
     return NextResponse.json(
-      { message: "Missing resident id." },
+      { message: "Invalid resident id." },
       { status: 400 }
     );
   }
@@ -66,9 +73,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (action === "reject") {
     const reason = payload?.reason?.trim() ?? "";
 
-    if (!reason) {
+    if (!reason || reason.length > 500) {
       return NextResponse.json(
-        { message: "A rejection reason is required." },
+        { message: "A rejection reason between 1 and 500 characters is required." },
         { status: 400 }
       );
     }
@@ -162,9 +169,9 @@ async function rejectResident(
 
 async function getAdminClientForResidentRequest(request: NextRequest) {
   const adminSessionToken = request.cookies.get(adminSessionCookieName)?.value ?? "";
-  const officeRole = await getSignedOfficeRole(adminSessionToken);
+  const session = await getActiveSignedAdminSession(adminSessionToken);
 
-  if (!officeRole || !canApproveResidents(officeRole)) {
+  if (!session || !canApproveResidents(session.role)) {
     return {
       error: NextResponse.json(
         { message: "Only staff or administrators can manage resident approvals." },
@@ -210,4 +217,8 @@ function firstString(record: RawResidentRecord, keys: string[]) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

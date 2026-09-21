@@ -48,3 +48,39 @@ export type Announcement = {
   created_at: string;
   updated_at?: string;
 };
+
+export type DocumentRequestStatus =
+  | "pending"
+  | "awaiting_payment"
+  | "processing"
+  | "ready_for_release"
+  | "completed"
+  | "rejected";
+
+export type DocumentRequest = {
+  id: string;
+  user_id?: string;
+  resident_id?: string;
+  resident_name: string;
+  certificate_key: string;
+  certificate_title: string;
+  certificate_variant?: string;
+  contact_number?: string;
+  email?: string;
+  address?: string;
+  payment_method?: string;
+  payment_receiver_name?: string;
+  payment_receiver_number?: string;
+  payment_reference?: string;
+  payment_proof_url?: string;
+  payment_submitted_at?: string;
+  fee_label?: string;
+  fee_amount?: number;
+  purpose?: string;
+  additional_notes?: string;
+  form_data?: Record<string, unknown> | string;
+  rejection_reason?: string;
+  status: DocumentRequestStatus;
+  created_at: string;
+  updated_at?: string;
+};

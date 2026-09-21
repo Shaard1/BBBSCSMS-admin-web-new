@@ -23,6 +23,7 @@ npm install
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-public-key
 NEXT_PUBLIC_SUPABASE_ANNOUNCEMENT_BUCKET=announcement-files
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ADMIN_SESSION_SECRET=replace-with-a-long-random-secret
 ```
 
@@ -56,6 +57,42 @@ npm run build
 - `/admin/announcements` Announcement management
 - `/admin/analytics` Analytics overview
 - `/admin/staff` Admin-only staff account management
+
+## Resident Verification Flow
+
+The system uses a layered resident verification flow instead of relying only on
+manual approval.
+
+1. Residents register once in the mobile app.
+2. Residents confirm phone ownership through SMS OTP.
+3. The account can log in as `unverified` with limited access.
+4. Submitted information is checked against the barangay masterlist.
+5. The system checks for possible duplicate or suspicious registrations.
+6. Clean matches can move forward faster.
+7. Flagged or unmatched accounts are reviewed by barangay staff or admins.
+8. Only `verified` residents receive full access to services such as complaint
+   reporting and certificate requests.
+
+Suggested resident account states:
+
+- `unverified`
+- `verified`
+- `review_required`
+- `flagged_duplicate`
+- `flagged_fraud`
+- `rejected`
+
+## Reporting Scope
+
+The complaint reporting feature is intended only for non-emergency community
+concerns.
+
+- Supported concerns include issues such as road damage, blocked drainage,
+  broken streetlights, garbage or cleanliness concerns, noise complaints, and similar barangay-manageable reports.
+- Emergency incidents such as fire, medical emergencies, ambulance needs,
+  and other urgent hazards should not be handled through the normal report flow.
+- Residents should contact `911` immediately for emergencies because
+  emergency response must be faster than app-based complaint processing.
 
 ## Auth Notes
 

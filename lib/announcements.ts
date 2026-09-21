@@ -1,8 +1,16 @@
 import { supabase } from "@/lib/supabase";
 import type { Announcement } from "@/lib/types";
+import DOMPurify from "dompurify";
 
-const announcementBucket =
-  process.env.NEXT_PUBLIC_SUPABASE_ANNOUNCEMENT_BUCKET ?? "announcement-files";
+const announcementSanitizeConfig = {
+  ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br", "p", "div", "ul", "ol", "li", "span", "font"],
+  ALLOWED_ATTR: ["color"],
+  ALLOW_DATA_ATTR: false
+};
+
+export function sanitizeAnnouncementHtml(content: string) {
+  return DOMPurify.sanitize(content, announcementSanitizeConfig);
+}
 
 type FetchAnnouncementsOptions = {
   limit?: number;
@@ -52,11 +60,14 @@ export async function createAnnouncement(input: {
     data: { user }
   } = await supabase.auth.getUser();
 
+  const imageUrls = normalizeImageUrls(input.imageUrls ?? []);
+  const thumbnailUrl = normalizeImageUrl(input.thumbnailUrl);
+
   const { error } = await supabase.from("announcements").insert({
     title: input.title.trim(),
-    content: input.content.trim(),
-    thumbnail_url: input.thumbnailUrl?.trim() ?? "",
-    image_urls: input.imageUrls ?? [],
+    content: sanitizeAnnouncementHtml(input.content.trim()),
+    thumbnail_url: thumbnailUrl,
+    image_urls: imageUrls,
     is_published: input.isPublished ?? true,
     created_by: user?.id,
     created_by_name: user?.email?.split("@")[0] ?? "Barangay Admin"
@@ -73,13 +84,16 @@ export async function updateAnnouncement(input: {
   imageUrls?: string[];
   isPublished: boolean;
 }) {
+  const imageUrls = normalizeImageUrls(input.imageUrls ?? []);
+  const thumbnailUrl = normalizeImageUrl(input.thumbnailUrl);
+
   const { error } = await supabase
     .from("announcements")
     .update({
       title: input.title.trim(),
-      content: input.content.trim(),
-      thumbnail_url: input.thumbnailUrl?.trim() ?? "",
-      image_urls: input.imageUrls ?? [],
+      content: sanitizeAnnouncementHtml(input.content.trim()),
+      thumbnail_url: thumbnailUrl,
+      image_urls: imageUrls,
       is_published: input.isPublished,
       updated_at: new Date().toISOString()
     })
@@ -114,34 +128,57 @@ export async function fetchAuthorNamesByIds(userIds: string[]) {
 }
 
 export async function uploadAnnouncementImage(file: File, folder: "gallery" | "thumbnails") {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Only image files can be uploaded.");
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+  if (!allowedTypes.has(file.type)) {
+    throw new Error("Only JPEG, PNG, and WebP images can be uploaded.");
   }
 
-  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const safeName = file.name
-    .replace(/\.[^/.]+$/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 50);
-  const fileName = `${Date.now()}_${safeName || "announcement"}.${extension}`;
-  const storagePath = `${folder}/${fileName}`;
+  if (file.size <= 0 || file.size > 5 * 1024 * 1024) {
+    throw new Error("Images must be larger than 0 bytes and no bigger than 5 MB.");
+  }
 
-  const { error } = await supabase.storage.from(announcementBucket).upload(storagePath, file, {
-    cacheControl: "3600",
-    contentType: file.type || "image/jpeg",
-    upsert: false
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+
+  const response = await fetch("/api/admin/announcements/upload", {
+    method: "POST",
+    body: formData
   });
 
-  if (error) {
-    throw new Error(
-      error.message.includes("Bucket not found")
-        ? `Create the ${announcementBucket} storage bucket first.`
-        : error.message
-    );
+  const body = (await response.json().catch(() => null)) as {
+    message?: string;
+    url?: string;
+  } | null;
+
+  if (!response.ok || !body?.url) {
+    throw new Error(body?.message ?? "Unable to upload announcement image.");
   }
 
-  const { data } = supabase.storage.from(announcementBucket).getPublicUrl(storagePath);
-  return data.publicUrl;
+  return body.url;
+}
+
+function normalizeImageUrls(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => normalizeImageUrl(value)).filter(Boolean))
+  );
+}
+
+function normalizeImageUrl(value?: string) {
+  const trimmedValue = value?.trim() ?? "";
+  if (!trimmedValue) return "";
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(trimmedValue, window.location.origin);
+  } catch {
+    throw new Error("Image URLs must be valid HTTP(S) URLs.");
+  }
+
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new Error("Image URLs must use HTTP or HTTPS.");
+  }
+
+  return parsedUrl.href;
 }

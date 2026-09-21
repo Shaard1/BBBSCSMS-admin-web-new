@@ -3,7 +3,7 @@ import { canManageOfficeAccounts, type OfficeRole } from "@/lib/roles";
 
 export type GlobalSearchResult = {
   id: string;
-  category: "resident" | "report" | "announcement" | "office" | "page";
+  category: "resident" | "report" | "document" | "announcement" | "office" | "page";
   href: string;
   title: string;
   subtitle: string;
@@ -53,6 +53,16 @@ const adminPageResults = [
     keywords: ["reports", "complaints", "incidents", "cases", "submissions"]
   },
   {
+    id: "page-documents",
+    category: "page",
+    href: "/admin/documents",
+    title: "Document Requests",
+    subtitle: "Review certificate and permit requests from residents",
+    badge: "Page",
+    badgeTone: "info" as const,
+    keywords: ["documents", "certificates", "requests", "permits", "clearance"]
+  },
+  {
     id: "page-map",
     category: "page",
     href: "/admin/map",
@@ -97,18 +107,19 @@ export async function fetchGlobalSearchResults(query: string, role: OfficeRole) 
   const settledResults = await Promise.allSettled([
     searchResidents(likePattern),
     searchReports(likePattern),
+    searchDocumentRequests(likePattern),
     searchAnnouncements(likePattern),
     canManageOfficeAccounts(role) ? searchOfficeAccounts(likePattern) : Promise.resolve([])
   ]);
 
-  const [residentResults, reportResults, announcementResults, officeResults] = settledResults.map(
-    (result) => (result.status === "fulfilled" ? result.value : [])
-  );
+  const [residentResults, reportResults, documentResults, announcementResults, officeResults] =
+    settledResults.map((result) => (result.status === "fulfilled" ? result.value : []));
 
   return [
     ...pageResults,
     ...residentResults,
     ...reportResults,
+    ...documentResults,
     ...announcementResults,
     ...officeResults
   ];
@@ -166,7 +177,11 @@ async function searchReports(likePattern: string): Promise<GlobalSearchResult[]>
 
   const reportRows = data ?? [];
   const userIds = Array.from(
-    new Set(reportRows.map((report) => report.user_id?.trim()).filter(Boolean) as string[])
+    new Set(
+      reportRows
+        .map((report) => report.user_id?.trim())
+        .filter((userId): userId is string => Boolean(userId) && isUuid(userId))
+    )
   );
   const residentNameByUserId = new Map<string, string>();
 
@@ -201,6 +216,29 @@ async function searchReports(likePattern: string): Promise<GlobalSearchResult[]>
       report.id,
     badge: normalizeReportStatus(report.status),
     badgeTone: normalizeReportStatusTone(report.status)
+  }));
+}
+
+async function searchDocumentRequests(likePattern: string): Promise<GlobalSearchResult[]> {
+  const { data, error } = await supabase
+    .from("document_requests")
+    .select("id, resident_name, certificate_title, status, purpose")
+    .or(
+      `resident_name.ilike.${likePattern},certificate_title.ilike.${likePattern},purpose.ilike.${likePattern},status.ilike.${likePattern},id.ilike.${likePattern}`
+    )
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) throw error;
+
+  return (data ?? []).map((request) => ({
+    id: `document-${request.id}`,
+    category: "document",
+    href: "/admin/documents",
+    title: request.certificate_title?.trim() || "Document Request",
+    subtitle: request.resident_name?.trim() || request.purpose?.trim() || request.id,
+    badge: normalizeDocumentStatus(request.status),
+    badgeTone: normalizeDocumentStatusTone(request.status)
   }));
 }
 
@@ -249,13 +287,15 @@ async function searchOfficeAccounts(likePattern: string): Promise<GlobalSearchRe
 
 function buildLikePattern(value: string) {
   const safeValue = value
-    .replace(/[%_]/g, "")
-    .replace(/,/g, " ")
-    .replace(/[()]/g, " ")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .replace(/\s+/g, "%")
     .trim();
 
-  return `%${safeValue}%`;
+  return safeValue ? `%${safeValue}%` : "__no_search_match__";
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function normalizeResidentStatus(status?: string | null) {
@@ -290,6 +330,28 @@ function normalizeReportStatusTone(status?: string | null): GlobalSearchResult["
 
   if (normalizedStatus === "resolved") return "approved";
   if (normalizedStatus === "in progress") return "info";
+
+  return "pending";
+}
+
+function normalizeDocumentStatus(status?: string | null) {
+  const normalizedStatus = status?.trim().toLowerCase();
+
+  if (normalizedStatus === "awaiting_payment") return "Awaiting Payment";
+  if (normalizedStatus === "processing") return "Processing";
+  if (normalizedStatus === "ready_for_release") return "Ready for Release";
+  if (normalizedStatus === "completed") return "Completed";
+  if (normalizedStatus === "rejected") return "Rejected";
+
+  return "Pending";
+}
+
+function normalizeDocumentStatusTone(status?: string | null): GlobalSearchResult["badgeTone"] {
+  const normalizedStatus = status?.trim().toLowerCase();
+
+  if (normalizedStatus === "completed") return "approved";
+  if (normalizedStatus === "rejected") return "flagged";
+  if (normalizedStatus === "processing" || normalizedStatus === "ready_for_release") return "info";
 
   return "pending";
 }

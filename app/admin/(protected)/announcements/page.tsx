@@ -21,6 +21,7 @@ import {
   deleteAnnouncement,
   fetchAnnouncements,
   fetchAuthorNamesByIds,
+  sanitizeAnnouncementHtml,
   updateAnnouncement,
   uploadAnnouncementImage
 } from "@/lib/announcements";
@@ -490,7 +491,7 @@ function RichTextEditor({
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = sanitizeAnnouncementHtml(value);
     }
   }, [value]);
 
@@ -867,14 +868,7 @@ function richContentHtml(content: string) {
   if (!trimmed) return "";
   if (!trimmed.includes("<")) return escapeHtml(trimmed).replace(/\n/g, "<br />");
 
-  return trimmed
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "")
-    .replace(/\s(href|src)="javascript:[^"]*"/gi, "")
-    .replace(/\s(href|src)='javascript:[^']*'/gi, "");
+  return sanitizeAnnouncementHtml(trimmed);
 }
 
 function escapeHtml(value: string) {

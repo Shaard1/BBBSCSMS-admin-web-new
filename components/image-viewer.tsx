@@ -12,6 +12,7 @@ type ImageViewerProps = {
 
 export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
+  const safeImageUrl = toSafeImageUrl(imageUrl);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -38,21 +39,38 @@ export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
         <button type="button" onClick={() => setScale(1)}>
           <RotateCcw size={18} /> Reset
         </button>
-        <a href={imageUrl} target="_blank" rel="noreferrer">
-          <ExternalLink size={18} /> Open original
-        </a>
+        {safeImageUrl ? (
+          <a href={safeImageUrl} target="_blank" rel="noreferrer">
+            <ExternalLink size={18} /> Open original
+          </a>
+        ) : null}
         <button type="button" onClick={onClose} aria-label="Close image viewer">
           <X size={18} />
         </button>
       </div>
       <button className="image-viewer-stage" onClick={onClose} type="button">
-        <img
-          src={imageUrl}
-          alt={title}
-          onClick={(event) => event.stopPropagation()}
-          style={{ transform: `scale(${scale})` }}
-        />
+        {safeImageUrl ? (
+          <img
+            src={safeImageUrl}
+            alt={title}
+            onClick={(event) => event.stopPropagation()}
+            style={{ transform: `scale(${scale})` }}
+          />
+        ) : (
+          <span>Image unavailable.</span>
+        )}
       </button>
     </div>
   );
+}
+
+function toSafeImageUrl(value: string) {
+  try {
+    const parsedUrl = new URL(value, window.location.origin);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+      ? parsedUrl.href
+      : null;
+  } catch {
+    return null;
+  }
 }
