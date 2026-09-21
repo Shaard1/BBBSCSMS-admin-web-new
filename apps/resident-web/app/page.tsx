@@ -18,8 +18,7 @@ import {
   UsersRound
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { AdminLoginCard } from "@/components/admin-login-card";
+import { useState } from "react";
 
 const navLinks = [
   { label: "Office", href: "#about" },
@@ -33,8 +32,7 @@ const footerLinks = [
   { label: "Barangay Office", href: "#about" },
   { label: "Available Services", href: "#features" },
   { label: "Account Process", href: "#how-it-works" },
-  { label: "Privacy and Security", href: "#security" },
-  { label: "Admin Login", action: "admin-login" as const }
+  { label: "Privacy and Security", href: "#security" }
 ];
 
 const contactItems = [
@@ -185,19 +183,9 @@ const faqs = [
 ];
 
 export default function Home() {
-  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("admin") === "login") {
-      setIsAdminLoginOpen(true);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, []);
-
   return (
     <main>
-      <Navbar onAdminLogin={() => setIsAdminLoginOpen(true)} />
+      <Navbar />
       <Hero />
       <About />
       <ProblemSection />
@@ -206,24 +194,16 @@ export default function Home() {
       <SecuritySection />
       <FaqSection />
       <CtaSection />
-      <Footer onAdminLogin={() => setIsAdminLoginOpen(true)} />
-      {isAdminLoginOpen ? (
-        <AdminLoginOverlay onClose={() => setIsAdminLoginOpen(false)} />
-      ) : null}
+      <Footer />
     </main>
   );
 }
 
-function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
+function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   function closeMenu() {
     setIsMenuOpen(false);
-  }
-
-  function handleAdminLogin() {
-    closeMenu();
-    onAdminLogin();
   }
 
   return (
@@ -239,9 +219,6 @@ function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
           ))}
         </nav>
         <div className="nav-actions">
-          <button className="login-button" onClick={onAdminLogin} type="button">
-            Log in
-          </button>
           <a className="download-outline-button" href="/downloads/BancaoConnect.apk" download>
             Download App
           </a>
@@ -266,9 +243,6 @@ function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
           ))}
         </nav>
         <div className="mobile-nav-actions">
-          <button className="login-button" onClick={handleAdminLogin} type="button">
-            Log in
-          </button>
           <a
             className="download-outline-button"
             href="/downloads/BancaoConnect.apk"
@@ -279,27 +253,7 @@ function Navbar({ onAdminLogin }: { onAdminLogin: () => void }) {
           </a>
         </div>
       </div>
-    </header>
-  );
-}
-
-function AdminLoginOverlay({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div className="admin-login-overlay" role="dialog" aria-modal="true">
-      <button className="admin-login-scrim" onClick={onClose} type="button" aria-label="Close admin login" />
-      <div className="admin-login-pop-card">
-        <AdminLoginCard onClose={onClose} />
-      </div>
-    </div>
+  </header>
   );
 }
 
@@ -489,7 +443,7 @@ function CtaSection() {
   );
 }
 
-function Footer({ onAdminLogin }: { onAdminLogin: () => void }) {
+function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
@@ -502,15 +456,7 @@ function Footer({ onAdminLogin }: { onAdminLogin: () => void }) {
         </div>
         <div>
           <h3>Portal links</h3>
-          {footerLinks.map((link) =>
-            link.action === "admin-login" ? (
-              <button className="footer-link-button" key={link.label} onClick={onAdminLogin} type="button">
-                {link.label}
-              </button>
-            ) : (
-              <a key={link.label} href={link.href}>{link.label}</a>
-            )
-          )}
+          {footerLinks.map((link) => <a key={link.label} href={link.href}>{link.label}</a>)}
         </div>
         <div>
           <h3>Barangay office</h3>

@@ -1,31 +1,22 @@
 {
-  "name": "barangay-admin-next",
+  "name": "barangay-connect",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.75.0",
-    "@types/leaflet": "^1.9.21",
-    "dompurify": "3.4.15",
-    "leaflet": "^1.9.4",
-    "lucide-react": "^0.468.0",
-    "next": "15.5.24",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-leaflet": "^5.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "15.5.24",
-    "typescript": "^5.7.0"
+    "dev:admin": "npm --workspace apps/admin-crm run dev",
+    "dev:resident": "npm --workspace apps/resident-web run dev",
+    "build": "npm run build:admin && npm run build:resident",
+    "build:admin": "npm --workspace apps/admin-crm run build",
+    "build:resident": "npm --workspace apps/resident-web run build",
+    "lint": "npm run lint:admin && npm run lint:resident",
+    "lint:admin": "npm --workspace apps/admin-crm run lint",
+    "lint:resident": "npm --workspace apps/resident-web run lint",
+    "typecheck": "npm run typecheck:admin && npm run typecheck:resident",
+    "typecheck:admin": "npm --workspace apps/admin-crm run typecheck",
+    "typecheck:resident": "npm --workspace apps/resident-web run typecheck",
+    "bootstrap:admin": "npm --workspace apps/admin-crm run bootstrap:admin"
   }
 }

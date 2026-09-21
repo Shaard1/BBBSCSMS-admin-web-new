@@ -3,9 +3,9 @@ import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Bancao Connect",
+  title: "Bancao Connect Admin",
   description:
-    "A digital service platform for Barangay Bancao-Bancao residents.",
+    "Staff and administrator workspace for Barangay Bancao-Bancao.",
   icons: {
     icon: "/assets/BBBCSMS App Icon.svg"
   }

@@ -1,7 +1,7 @@
-# Bancao Connect Admin Web — Production-Readiness Audit
+# Bancao Connect — Production-Readiness Audit
 
 Audit date: 2026-09-21  
-Scope: Next.js admin web repository, supplied schema/RLS snapshot, local build and runtime checks.
+Scope: resident landing website, staff/admin CRM, supplied schema/RLS snapshot, local build and runtime checks.
 
 ## Executive summary
 
@@ -43,7 +43,7 @@ Verification: not applied or executed because the environment could not be estab
 
 ### High — stale or weak custom admin sessions
 
-Affected components: `lib/admin-session.ts`, middleware, admin API routes.
+Affected components: `apps/admin-crm/lib/admin-session.ts`, middleware, admin API routes.
 
 The previous implementation accepted a signed cookie until expiry without checking whether the Auth user or profile still existed. It also fell back to a public anon key or a development string when `ADMIN_SESSION_SECRET` was absent.
 
@@ -53,7 +53,7 @@ Verification: unauthenticated session requests return 401; full authenticated ro
 
 ### High — stored XSS in announcement rendering
 
-Affected component: `app/admin/(protected)/announcements/page.tsx`.
+Affected component: `apps/admin-crm/app/admin/(protected)/announcements/page.tsx`.
 
 The editor stored HTML and rendered it through `dangerouslySetInnerHTML`; the previous regex filtering was not a complete HTML sanitizer.
 
@@ -174,7 +174,7 @@ Results:
 
 ## Files modified or added
 
-Audit changes include `SECURITY_AUDIT.md`, `lib/admin-session.ts`, `lib/request-security.ts`, `next.config.ts`, the admin session/staff/resident/document routes, the announcement upload route, `lib/announcements.ts`, `lib/document-requests.ts`, `lib/global-search.ts`, `lib/reports.ts`, `components/image-viewer.tsx`, `.env.production.example`, `package.json`, `package-lock.json`, `supabase/document_requests.sql`, and `supabase/rls_hardening.sql`.
+Audit changes include `SECURITY_AUDIT.md`, the `apps/admin-crm` security/session/API files, the isolated `apps/resident-web` landing app, root workspace metadata, `package-lock.json`, `supabase/document_requests.sql`, and `supabase/rls_hardening.sql`.
 
 The working tree also contained pre-existing user changes to the landing/admin UI, documentation, and document-request feature; those were preserved and not reset.
 
