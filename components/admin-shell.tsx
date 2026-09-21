@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   FileText,
+  FileBadge2,
   LayoutDashboard,
   LogOut,
   MapPinned,
@@ -43,6 +44,7 @@ const navItems = [
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3, adminOnly: true },
   { label: "Staff Accounts", href: "/admin/staff", icon: UserCog, adminOnly: true },
   { label: "Community Reports", href: "/admin/reports", icon: FileText },
+  { label: "Document Requests", href: "/admin/documents", icon: FileBadge2 },
   { label: "Complaint Map", href: "/admin/map", icon: MapPinned },
   { label: "Resident Verification", href: "/admin/residents", icon: UsersRound },
   { label: "Announcement", href: "/admin/announcements", icon: Megaphone }
@@ -52,6 +54,7 @@ const seenReportsKey = "bc_admin_seen_reports_count";
 const seenResidentsKey = "bc_admin_seen_residents_count";
 const globalSearchCategories = {
   announcement: "Announcements",
+  document: "Document Requests",
   office: "Office Accounts",
   page: "Pages",
   report: "Community Reports",

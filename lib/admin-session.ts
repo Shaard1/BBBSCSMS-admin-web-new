@@ -1,16 +1,22 @@
 import { isOfficeRole, type OfficeRole } from "@/lib/roles";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type SupabaseConfig = {
+  anonKey: string;
+  serviceRoleKey: string;
+  url: string;
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables.");
+function getSupabaseConfig(): SupabaseConfig | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+  if (!url || !anonKey) {
+    return null;
+  }
+
+  return { anonKey, serviceRoleKey, url };
 }
-
-const verifiedSupabaseUrl = supabaseUrl;
-const verifiedSupabaseAnonKey = supabaseAnonKey;
-const verifiedSupabaseServiceRoleKey = supabaseServiceRoleKey ?? "";
 
 type SupabaseUserResponse = {
   id?: string;
@@ -18,6 +24,7 @@ type SupabaseUserResponse = {
 
 type ProfileRoleResponse = {
   role?: string;
+  status?: string;
 };
 
 export const adminSessionCookieName = "bc_admin_token";
@@ -28,18 +35,20 @@ type AdminSessionPayload = {
   userId: string;
 };
 
-const adminSessionSecret =
-  process.env.ADMIN_SESSION_SECRET ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "development-admin-session-secret";
+const adminSessionSecret = process.env.ADMIN_SESSION_SECRET?.trim() ?? "";
 
 export async function getVerifiedOfficeUser(accessToken: string) {
   const trimmedToken = accessToken.trim();
   if (!trimmedToken) return null;
+  const supabaseConfig = getSupabaseConfig();
 
-  const userResponse = await fetch(`${verifiedSupabaseUrl}/auth/v1/user`, {
+  if (!supabaseConfig) {
+    return null;
+  }
+
+  const userResponse = await fetch(`${supabaseConfig.url}/auth/v1/user`, {
     headers: {
-      apikey: verifiedSupabaseAnonKey,
+      apikey: supabaseConfig.anonKey,
       Authorization: `Bearer ${trimmedToken}`
     },
     cache: "no-store"
@@ -51,33 +60,14 @@ export async function getVerifiedOfficeUser(accessToken: string) {
   const userId = user.id?.trim();
   if (!userId) return null;
 
-  if (verifiedSupabaseServiceRoleKey) {
-    const serviceRoleProfileResponse = await fetch(
-      `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
-      {
-        headers: {
-          apikey: verifiedSupabaseServiceRoleKey,
-          Authorization: `Bearer ${verifiedSupabaseServiceRoleKey}`
-        },
-        cache: "no-store"
-      }
-    );
-
-    if (serviceRoleProfileResponse.ok) {
-      const serviceProfiles = (await serviceRoleProfileResponse.json()) as ProfileRoleResponse[];
-      const serviceRole = serviceProfiles[0]?.role?.toLowerCase().trim();
-      if (isOfficeRole(serviceRole)) {
-        return { role: serviceRole, userId };
-      }
-    }
-  }
+  if (!supabaseConfig.serviceRoleKey) return null;
 
   const profileResponse = await fetch(
-    `${verifiedSupabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+    `${supabaseConfig.url}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role,status&limit=1`,
     {
       headers: {
-        apikey: verifiedSupabaseAnonKey,
-        Authorization: `Bearer ${trimmedToken}`
+        apikey: supabaseConfig.serviceRoleKey,
+        Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`
       },
       cache: "no-store"
     }
@@ -86,9 +76,10 @@ export async function getVerifiedOfficeUser(accessToken: string) {
   if (!profileResponse.ok) return null;
 
   const profiles = (await profileResponse.json()) as ProfileRoleResponse[];
-  const role = profiles[0]?.role?.toLowerCase().trim();
+  const profile = profiles[0];
+  const role = profile?.role?.toLowerCase().trim();
 
-  return isOfficeRole(role) ? { role, userId } : null;
+  return isActiveOfficeProfile(role, profile?.status) ? { role, userId } : null;
 }
 
 export async function createSignedAdminSession(
@@ -96,6 +87,10 @@ export async function createSignedAdminSession(
   role: OfficeRole,
   maxAgeSeconds: number
 ) {
+  if (!hasValidAdminSessionSecret()) {
+    throw new Error("ADMIN_SESSION_SECRET is not configured with sufficient entropy.");
+  }
+
   const payload: AdminSessionPayload = {
     exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
     role,
@@ -112,13 +107,58 @@ export async function verifySignedAdminSession(sessionToken: string) {
 }
 
 export async function getSignedOfficeRole(sessionToken: string) {
+  const session = await getActiveSignedAdminSession(sessionToken);
+  return session?.role ?? null;
+}
+
+export async function getActiveSignedAdminSession(sessionToken: string) {
   const payload = await getSignedAdminSession(sessionToken);
-  return payload?.role ?? null;
+  if (!payload) return null;
+
+  const supabaseConfig = getSupabaseConfig();
+  if (!supabaseConfig?.serviceRoleKey) return null;
+
+  const authUserResponse = await fetch(
+    `${supabaseConfig.url}/auth/v1/admin/users/${encodeURIComponent(payload.userId)}`,
+    {
+      headers: {
+        apikey: supabaseConfig.serviceRoleKey,
+        Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`
+      },
+      cache: "no-store"
+    }
+  );
+
+  if (!authUserResponse.ok) return null;
+
+  const profileResponse = await fetch(
+    `${supabaseConfig.url}/rest/v1/profiles?id=eq.${encodeURIComponent(payload.userId)}&select=role,status&limit=1`,
+    {
+      headers: {
+        apikey: supabaseConfig.serviceRoleKey,
+        Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`
+      },
+      cache: "no-store"
+    }
+  );
+
+  if (!profileResponse.ok) return null;
+
+  const profiles = (await profileResponse.json()) as ProfileRoleResponse[];
+  const profile = profiles[0];
+  const role = profile?.role?.toLowerCase().trim();
+
+  return isActiveOfficeProfile(role, profile?.status)
+    ? { ...payload, role }
+    : null;
 }
 
 export async function getSignedAdminSession(sessionToken: string) {
-  const [encodedPayload, signature] = sessionToken.split(".");
-  if (!encodedPayload || !signature) return null;
+  if (!hasValidAdminSessionSecret() || sessionToken.length > 4096) return null;
+
+  const parts = sessionToken.split(".");
+  const [encodedPayload, signature] = parts;
+  if (!encodedPayload || !signature || parts.length !== 2) return null;
 
   const expectedSignature = await signValue(encodedPayload);
   if (!timingSafeEqual(signature, expectedSignature)) return null;
@@ -150,6 +190,10 @@ function parseAdminSessionPayload(encodedPayload: string) {
 }
 
 async function signValue(value: string) {
+  if (!hasValidAdminSessionSecret()) {
+    throw new Error("ADMIN_SESSION_SECRET is not configured with sufficient entropy.");
+  }
+
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(adminSessionSecret),
@@ -164,6 +208,19 @@ async function signValue(value: string) {
   );
 
   return encodeBytesBase64Url(new Uint8Array(signature));
+}
+
+function hasValidAdminSessionSecret() {
+  return adminSessionSecret.length >= 32;
+}
+
+function isActiveOfficeProfile(role?: string | null, status?: string | null): role is OfficeRole {
+  const normalizedStatus = status?.toLowerCase().trim();
+
+  return (
+    isOfficeRole(role) &&
+    (normalizedStatus === "approved" || normalizedStatus === "active")
+  );
 }
 
 function encodeBase64Url(value: string) {

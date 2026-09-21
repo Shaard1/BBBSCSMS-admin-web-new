@@ -22,7 +22,11 @@ export async function fetchReports(options: FetchReportsOptions = {}) {
 
   const rows = (data ?? []) as CommunityReport[];
   const userIds = Array.from(
-    new Set(rows.map((row) => row.user_id).filter(Boolean) as string[])
+    new Set(
+      rows
+        .map((row) => row.user_id?.trim())
+        .filter((userId): userId is string => typeof userId === "string" && isUuid(userId))
+    )
   );
   const nameByUserId = new Map<string, string>();
 
@@ -62,6 +66,10 @@ export async function fetchReports(options: FetchReportsOptions = {}) {
       ? nameByUserId.get(row.user_id) ?? "Unknown resident"
       : "Unknown resident"
   }));
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export async function fetchReportSummary() {

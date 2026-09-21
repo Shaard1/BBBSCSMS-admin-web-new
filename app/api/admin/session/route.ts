@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   adminSessionCookieName,
   createSignedAdminSession,
-  getSignedAdminSession,
+  getActiveSignedAdminSession,
   getVerifiedOfficeUser
 } from "@/lib/admin-session";
 import { isOfficeRole, type OfficeRole } from "@/lib/roles";
+import { rejectCrossOriginMutation } from "@/lib/request-security";
 
 const adminCookieMaxAgeSeconds = 60 * 60 * 24;
 
 export async function GET(request: NextRequest) {
   const adminSessionToken = request.cookies.get(adminSessionCookieName)?.value ?? "";
-  const adminSession = await getSignedAdminSession(adminSessionToken);
+  const adminSession = await getActiveSignedAdminSession(adminSessionToken);
 
   if (!adminSession) {
     return NextResponse.json(
@@ -20,14 +21,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    role: adminSession.role,
-    userId: adminSession.userId
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      role: adminSession.role,
+      userId: adminSession.userId
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 export async function POST(request: NextRequest) {
+  const crossOriginResponse = rejectCrossOriginMutation(request);
+  if (crossOriginResponse) return crossOriginResponse;
+
   const payload = (await request.json().catch(() => null)) as {
     accessToken?: string;
     expectedRole?: string;
@@ -89,7 +96,10 @@ export async function POST(request: NextRequest) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const crossOriginResponse = rejectCrossOriginMutation(request);
+  if (crossOriginResponse) return crossOriginResponse;
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set({
     name: adminSessionCookieName,
