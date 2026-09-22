@@ -56,6 +56,12 @@ Create two Vercel projects connected to this repository:
 
 Set the CRM environment variables only on the Admin CRM project. The resident project needs no Supabase environment variables.
 
+## CRM design and browser QA
+
+The admin workspace includes a custom Bancao-Connect logo and responsive layouts for its eight service tabs. See [redesign decisions and QA notes](docs/admin-crm-redesign.md).
+
+Run isolated browser checks with `npm --workspace apps/admin-crm run test:ui`. The suite uses synthetic local records, not the hosted Supabase database, and requires Google Chrome.
+
 ## Supabase and security
 
 Database migrations and RLS hardening scripts are in `supabase/`. Review and apply them in a local or staging Supabase project before production. RLS remains the final authorization boundary for both the mobile app and the CRM.

@@ -14,9 +14,9 @@ import {
   ShieldCheck,
   UserCog,
   UsersRound,
-  X
+  X,
 } from "lucide-react";
-import Image from "next/image";
+import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -25,13 +25,13 @@ import { RingLoader } from "@/components/ring-loader";
 import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
 import {
   fetchGlobalSearchResults,
-  type GlobalSearchResult
+  type GlobalSearchResult,
 } from "@/lib/global-search";
 import {
   canManageOfficeAccounts,
   canViewAnalytics,
   officeRoleLabel,
-  type OfficeRole
+  type OfficeRole,
 } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 
@@ -41,13 +41,27 @@ type AdminShellProps = {
 
 const navItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3, adminOnly: true },
-  { label: "Staff Accounts", href: "/admin/staff", icon: UserCog, adminOnly: true },
+  {
+    label: "Analytics",
+    href: "/admin/analytics",
+    icon: BarChart3,
+    adminOnly: true,
+  },
+  {
+    label: "Staff Accounts",
+    href: "/admin/staff",
+    icon: UserCog,
+    adminOnly: true,
+  },
   { label: "Community Reports", href: "/admin/reports", icon: FileText },
   { label: "Document Requests", href: "/admin/documents", icon: FileBadge2 },
   { label: "Complaint Map", href: "/admin/map", icon: MapPinned },
-  { label: "Resident Verification", href: "/admin/residents", icon: UsersRound },
-  { label: "Announcement", href: "/admin/announcements", icon: Megaphone }
+  {
+    label: "Resident Verification",
+    href: "/admin/residents",
+    icon: UsersRound,
+  },
+  { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
 ];
 
 const seenReportsKey = "bc_admin_seen_reports_count";
@@ -58,7 +72,7 @@ const globalSearchCategories = {
   office: "Office Accounts",
   page: "Pages",
   report: "Community Reports",
-  resident: "Residents"
+  resident: "Residents",
 } satisfies Record<GlobalSearchResult["category"], string>;
 
 export function AdminShell({ children }: AdminShellProps) {
@@ -81,6 +95,46 @@ export function AdminShell({ children }: AdminShellProps) {
   const notificationRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const sidebar = document.getElementById("workspace-navigation");
+    const previous = document.activeElement as HTMLElement | null;
+    const main = document.querySelector<HTMLElement>(".admin-main");
+    main?.setAttribute("inert", "");
+    const targets = () =>
+      Array.from(sidebar?.querySelectorAll<HTMLElement>("a, button") ?? []);
+    targets()[0]?.focus();
+    function keyboard(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsSidebarOpen(false);
+      if (event.key !== "Tab") return;
+      const elements = targets();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+    const query = window.matchMedia("(min-width: 1101px)");
+    const closeOnDesktop = () => {
+      if (query.matches) setIsSidebarOpen(false);
+    };
+    query.addEventListener("change", closeOnDesktop);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      main?.removeAttribute("inert");
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", keyboard);
+      query.removeEventListener("change", closeOnDesktop);
+      previous?.focus();
+    };
+  }, [isSidebarOpen]);
+
   const notificationCount = unreadReportsCount + unreadResidentsCount;
   const notificationItems = useMemo(() => {
     return [
@@ -90,7 +144,7 @@ export function AdminShell({ children }: AdminShellProps) {
         description: "Pending community reports need review.",
         href: "/admin/reports",
         icon: FileText,
-        label: "Community Reports"
+        label: "Community Reports",
       },
       {
         badgeCount: unreadResidentsCount,
@@ -98,24 +152,35 @@ export function AdminShell({ children }: AdminShellProps) {
         description: "Resident applications are waiting for verification.",
         href: "/admin/residents",
         icon: UsersRound,
-        label: "Resident Verification"
-      }
+        label: "Resident Verification",
+      },
     ].filter((item) => item.count > 0);
-  }, [pendingReportsCount, pendingResidentsCount, unreadReportsCount, unreadResidentsCount]);
+  }, [
+    pendingReportsCount,
+    pendingResidentsCount,
+    unreadReportsCount,
+    unreadResidentsCount,
+  ]);
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => !item.adminOnly || canViewAnalytics(role));
   }, [role]);
 
   const pageTitle = useMemo(() => {
-    return visibleNavItems.find((item) => pathname.startsWith(item.href))?.label ?? "Admin";
+    return (
+      visibleNavItems.find((item) => pathname.startsWith(item.href))?.label ??
+      "Admin"
+    );
   }, [pathname, visibleNavItems]);
   const groupedSearchResults = useMemo(() => {
-    return searchResults.reduce<Record<string, GlobalSearchResult[]>>((groups, result) => {
-      const group = groups[result.category] ?? [];
-      group.push(result);
-      groups[result.category] = group;
-      return groups;
-    }, {});
+    return searchResults.reduce<Record<string, GlobalSearchResult[]>>(
+      (groups, result) => {
+        const group = groups[result.category] ?? [];
+        group.push(result);
+        groups[result.category] = group;
+        return groups;
+      },
+      {},
+    );
   }, [searchResults]);
 
   useEffect(() => {
@@ -133,12 +198,18 @@ export function AdminShell({ children }: AdminShellProps) {
         return;
       }
 
-      if (pathname.startsWith("/admin/analytics") && !canViewAnalytics(officeRole)) {
+      if (
+        pathname.startsWith("/admin/analytics") &&
+        !canViewAnalytics(officeRole)
+      ) {
         router.replace("/admin/dashboard");
         return;
       }
 
-      if (pathname.startsWith("/admin/staff") && !canManageOfficeAccounts(officeRole)) {
+      if (
+        pathname.startsWith("/admin/staff") &&
+        !canManageOfficeAccounts(officeRole)
+      ) {
         router.replace("/admin/dashboard");
         return;
       }
@@ -151,7 +222,7 @@ export function AdminShell({ children }: AdminShellProps) {
 
     async function loadHeaderData() {
       const {
-        data: { user }
+        data: { user },
       } = await supabase.auth.getUser();
 
       if (!user || !isMounted) return;
@@ -175,16 +246,17 @@ export function AdminShell({ children }: AdminShellProps) {
     }
 
     async function refreshNotificationCounts() {
-      const [{ count: reportsCount }, { count: residentsCount }] = await Promise.all([
-        supabase
-          .from("reports")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-        supabase
-          .from("residents")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending")
-      ]);
+      const [{ count: reportsCount }, { count: residentsCount }] =
+        await Promise.all([
+          supabase
+            .from("reports")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending"),
+          supabase
+            .from("residents")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending"),
+        ]);
 
       if (!isMounted) return;
 
@@ -192,7 +264,9 @@ export function AdminShell({ children }: AdminShellProps) {
       setPendingResidentsCount(residentsCount ?? 0);
     }
 
-    void checkAccess();
+    void checkAccess().catch(() => {
+      if (isMounted) router.replace("/admin/login");
+    });
     const timer = window.setInterval(refreshNotificationCounts, 15000);
 
     return () => {
@@ -252,23 +326,34 @@ export function AdminShell({ children }: AdminShellProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const currentSeenReports = Number(window.localStorage.getItem(seenReportsKey) ?? "0");
-    const currentSeenResidents = Number(window.localStorage.getItem(seenResidentsKey) ?? "0");
+    const currentSeenReports = Number(
+      window.localStorage.getItem(seenReportsKey) ?? "0",
+    );
+    const currentSeenResidents = Number(
+      window.localStorage.getItem(seenResidentsKey) ?? "0",
+    );
 
     if (pathname.startsWith("/admin/reports")) {
       const nextSeenReports = Math.max(currentSeenReports, pendingReportsCount);
       window.localStorage.setItem(seenReportsKey, String(nextSeenReports));
       setUnreadReportsCount(0);
     } else {
-      setUnreadReportsCount(Math.max(0, pendingReportsCount - currentSeenReports));
+      setUnreadReportsCount(
+        Math.max(0, pendingReportsCount - currentSeenReports),
+      );
     }
 
     if (pathname.startsWith("/admin/residents")) {
-      const nextSeenResidents = Math.max(currentSeenResidents, pendingResidentsCount);
+      const nextSeenResidents = Math.max(
+        currentSeenResidents,
+        pendingResidentsCount,
+      );
       window.localStorage.setItem(seenResidentsKey, String(nextSeenResidents));
       setUnreadResidentsCount(0);
     } else {
-      setUnreadResidentsCount(Math.max(0, pendingResidentsCount - currentSeenResidents));
+      setUnreadResidentsCount(
+        Math.max(0, pendingResidentsCount - currentSeenResidents),
+      );
     }
   }, [pathname, pendingReportsCount, pendingResidentsCount]);
 
@@ -304,7 +389,9 @@ export function AdminShell({ children }: AdminShellProps) {
       } catch (error) {
         if (!isCancelled) {
           setSearchResults([]);
-          setSearchError(error instanceof Error ? error.message : "Search failed.");
+          setSearchError(
+            error instanceof Error ? error.message : "Search failed.",
+          );
           setIsSearchOpen(true);
         }
       } finally {
@@ -347,17 +434,32 @@ export function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <main className="admin-shell">
-      <aside className={`admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
-        <div className="admin-brand">
-          <Image src="/assets/BBBC.png" alt="" width={44} height={44} />
+    <div className="admin-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <aside
+        id="workspace-navigation"
+        className={`admin-sidebar ${isSidebarOpen ? "open" : ""}`}
+      >
+        <button
+          className="mobile-nav-close"
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close navigation"
+        >
+          <X size={20} />
+        </button>
+        <Brand />
+        <div className="workspace-identity">
+          <span>BB</span>
           <div>
-            <strong>{officeRoleLabel(role)} Portal</strong>
-            <span>Community Management</span>
+            <strong>Bancao-Bancao</strong>
+            <small>Barangay workspace</small>
           </div>
         </div>
-        <p className="sidebar-label">Main menu</p>
-        <nav>
+        <p className="sidebar-label">Workspace</p>
+        <nav aria-label="Main navigation">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname.startsWith(item.href);
@@ -370,6 +472,7 @@ export function AdminShell({ children }: AdminShellProps) {
 
             return (
               <Link
+                aria-current={isActive ? "page" : undefined}
                 className={isActive ? "active" : ""}
                 href={item.href}
                 key={item.href}
@@ -382,29 +485,53 @@ export function AdminShell({ children }: AdminShellProps) {
             );
           })}
         </nav>
+        <div className="sidebar-access">
+          <ShieldCheck size={17} />
+          <span>
+            {officeRoleLabel(role)} access
+            <small>Authorized personnel only</small>
+          </span>
+        </div>
         <button className="sidebar-logout" onClick={handleLogout} type="button">
           <LogOut size={18} />
           Logout
         </button>
       </aside>
 
-      <section className="admin-main">
+      {isSidebarOpen ? (
+        <button
+          className="sidebar-scrim"
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      ) : null}
+      <div className="admin-main">
         <header className="admin-topbar">
           <button
             className="sidebar-toggle"
+            aria-controls="workspace-navigation"
+            aria-expanded={isSidebarOpen}
             onClick={() => setIsSidebarOpen((value) => !value)}
             type="button"
             aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
           >
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <h1>{pageTitle}</h1>
-          <div className={`topbar-search ${isSearchOpen ? "open" : ""}`} ref={searchRef}>
+          <div className="topbar-breadcrumb">
+            <span>Workspace</span>
+            <span aria-hidden="true">/</span>
+            <strong>{pageTitle}</strong>
+          </div>
+          <div
+            className={`topbar-search ${isSearchOpen ? "open" : ""}`}
+            ref={searchRef}
+          >
             <div className="topbar-search-bar">
               <Search size={16} />
               <input
                 aria-label="Search across the admin portal"
-                placeholder="Search residents, reports, announcements..."
+                placeholder="Search workspace…"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onFocus={() => {
@@ -415,46 +542,65 @@ export function AdminShell({ children }: AdminShellProps) {
               />
             </div>
             {isSearchOpen ? (
-              <div className="topbar-search-panel" role="listbox" aria-label="Global search results">
+              <div
+                className="topbar-search-panel"
+                role="region"
+                aria-label="Global search results"
+              >
                 {isSearchLoading ? (
                   <div className="topbar-search-state">Searching...</div>
                 ) : searchError ? (
                   <div className="topbar-search-state">{searchError}</div>
                 ) : searchQuery.trim().length < 2 ? (
-                  <div className="topbar-search-state">Type at least 2 characters.</div>
+                  <div className="topbar-search-state">
+                    Type at least 2 characters.
+                  </div>
                 ) : searchResults.length === 0 ? (
                   <div className="topbar-search-state">No results found.</div>
                 ) : (
-                  Object.entries(groupedSearchResults).map(([category, results]) => (
-                    <div className="topbar-search-group" key={category}>
-                      <strong>{globalSearchCategories[category as GlobalSearchResult["category"]]}</strong>
-                      <div className="topbar-search-group-list">
-                        {results.map((result) => (
-                          <button
-                            className="topbar-search-result"
-                            key={result.id}
-                            onClick={() => handleSearchResultOpen(result)}
-                            type="button"
-                          >
-                            <div className="topbar-search-copy">
-                              <span>{result.title}</span>
-                              <small>{result.subtitle}</small>
-                            </div>
-                            {result.badge ? (
-                              <em className={`topbar-search-badge ${result.badgeTone ?? "info"}`}>
-                                {result.badge}
-                              </em>
-                            ) : null}
-                          </button>
-                        ))}
+                  Object.entries(groupedSearchResults).map(
+                    ([category, results]) => (
+                      <div className="topbar-search-group" key={category}>
+                        <strong>
+                          {
+                            globalSearchCategories[
+                              category as GlobalSearchResult["category"]
+                            ]
+                          }
+                        </strong>
+                        <div className="topbar-search-group-list">
+                          {results.map((result) => (
+                            <button
+                              className="topbar-search-result"
+                              key={result.id}
+                              onClick={() => handleSearchResultOpen(result)}
+                              type="button"
+                            >
+                              <div className="topbar-search-copy">
+                                <span>{result.title}</span>
+                                <small>{result.subtitle}</small>
+                              </div>
+                              {result.badge ? (
+                                <em
+                                  className={`topbar-search-badge ${result.badgeTone ?? "info"}`}
+                                >
+                                  {result.badge}
+                                </em>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ),
+                  )
                 )}
               </div>
             ) : null}
           </div>
-          <div className={`notification-menu ${isNotificationOpen ? "open" : ""}`} ref={notificationRef}>
+          <div
+            className={`notification-menu ${isNotificationOpen ? "open" : ""}`}
+            ref={notificationRef}
+          >
             <button
               aria-expanded={isNotificationOpen}
               aria-haspopup="dialog"
@@ -464,16 +610,28 @@ export function AdminShell({ children }: AdminShellProps) {
               type="button"
             >
               <Bell size={18} />
-              {notificationCount > 0 ? <span>{notificationCount > 99 ? "99+" : notificationCount}</span> : null}
+              {notificationCount > 0 ? (
+                <span>
+                  {notificationCount > 99 ? "99+" : notificationCount}
+                </span>
+              ) : null}
             </button>
             {isNotificationOpen ? (
-              <div className="notification-panel" role="dialog" aria-label="Notifications">
+              <div
+                className="notification-panel"
+                role="dialog"
+                aria-label="Notifications"
+              >
                 <div className="notification-panel-header">
                   <div>
                     <strong>Notifications</strong>
                     <p>Stay on top of pending barangay tasks.</p>
                   </div>
-                  {notificationCount > 0 ? <em>{notificationCount > 99 ? "99+" : notificationCount} new</em> : null}
+                  {notificationCount > 0 ? (
+                    <em>
+                      {notificationCount > 99 ? "99+" : notificationCount} new
+                    </em>
+                  ) : null}
                 </div>
                 <div className="notification-panel-body">
                   {notificationItems.length > 0 ? (
@@ -494,10 +652,15 @@ export function AdminShell({ children }: AdminShellProps) {
                             <strong>{item.label}</strong>
                             <p>{item.description}</p>
                             <small>
-                              {item.count} pending item{item.count === 1 ? "" : "s"}
+                              {item.count} pending item
+                              {item.count === 1 ? "" : "s"}
                             </small>
                           </div>
-                          <em>{item.badgeCount > 0 ? `${item.badgeCount > 99 ? "99+" : item.badgeCount} new` : "Seen"}</em>
+                          <em>
+                            {item.badgeCount > 0
+                              ? `${item.badgeCount > 99 ? "99+" : item.badgeCount} new`
+                              : "Seen"}
+                          </em>
                         </button>
                       );
                     })
@@ -517,12 +680,18 @@ export function AdminShell({ children }: AdminShellProps) {
             ) : null}
           </div>
           <div className="admin-account">
-            <span><ShieldCheck size={15} /></span>
-            <strong>{adminName} · {officeRoleLabel(role)}</strong>
+            <span>
+              <ShieldCheck size={15} />
+            </span>
+            <strong>
+              {adminName} · {officeRoleLabel(role)}
+            </strong>
           </div>
         </header>
-        <AdminRoleProvider role={role}>{children}</AdminRoleProvider>
-      </section>
-    </main>
+        <main id="main-content" tabIndex={-1}>
+          <AdminRoleProvider role={role}>{children}</AdminRoleProvider>
+        </main>
+      </div>
+    </div>
   );
 }

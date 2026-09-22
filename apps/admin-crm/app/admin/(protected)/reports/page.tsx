@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { Modal } from "@/components/modal";
+import { PageHeader } from "@/components/workspace-ui";
 import {
   CalendarClock,
   Edit3,
@@ -8,7 +10,7 @@ import {
   Search,
   Trash2,
   UserRound,
-  X
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,7 +19,7 @@ import {
   fetchReports,
   updateReportAdminNote,
   updateReportCategory,
-  updateReportStatus
+  updateReportStatus,
 } from "@/lib/reports";
 import { ImageViewer } from "@/components/image-viewer";
 import { useAdminRole } from "@/components/admin-role-context";
@@ -25,33 +27,37 @@ import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import { canDeleteReports } from "@/lib/roles";
 import {
+  hasValidReportLocation,
   normalizeReportCategory,
   normalizeReportStatus,
   reportCategoryOptions,
-  reportStatusLabel
+  reportStatusLabel,
 } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
 
 const ReportLocationMap = dynamic(
-  () => import("@/components/report-location-map").then((module) => module.ReportLocationMap),
-  { ssr: false }
+  () =>
+    import("@/components/report-location-map").then(
+      (module) => module.ReportLocationMap,
+    ),
+  { ssr: false },
 );
 
 const statusFilters = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
   { label: "In Progress", value: "in progress" },
-  { label: "Resolved", value: "resolved" }
+  { label: "Resolved", value: "resolved" },
 ];
 
 const statusOptions = ["pending", "in progress", "resolved"];
 const statusDropdownOptions = statusOptions.map((status) => ({
   label: reportStatusLabel(status),
-  value: status
+  value: status,
 }));
 const categoryDropdownOptions = reportCategoryOptions.map((category) => ({
   label: category,
-  value: category
+  value: category,
 }));
 
 export default function ReportsPage() {
@@ -60,10 +66,17 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
-  const [viewingImage, setViewingImage] = useState<{ title: string; url: string } | null>(null);
-  const [editingNoteReport, setEditingNoteReport] = useState<CommunityReport | null>(null);
-  const [deleteTargetReport, setDeleteTargetReport] = useState<CommunityReport | null>(null);
+  const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(
+    null,
+  );
+  const [viewingImage, setViewingImage] = useState<{
+    title: string;
+    url: string;
+  } | null>(null);
+  const [editingNoteReport, setEditingNoteReport] =
+    useState<CommunityReport | null>(null);
+  const [deleteTargetReport, setDeleteTargetReport] =
+    useState<CommunityReport | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -74,8 +87,13 @@ export default function ReportsPage() {
     try {
       const data = await fetchReports();
       setReports(data);
+      setSelectedReport(
+        (current) => data.find((report) => report.id === current?.id) ?? null,
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load reports.");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to load reports.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -88,9 +106,15 @@ export default function ReportsPage() {
   const stats = useMemo(() => {
     return {
       total: reports.length,
-      pending: reports.filter((report) => normalizeReportStatus(report.status) === "pending").length,
-      progress: reports.filter((report) => normalizeReportStatus(report.status) === "in progress").length,
-      resolved: reports.filter((report) => normalizeReportStatus(report.status) === "resolved").length
+      pending: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "pending",
+      ).length,
+      progress: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "in progress",
+      ).length,
+      resolved: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "resolved",
+      ).length,
     };
   }, [reports]);
 
@@ -109,7 +133,7 @@ export default function ReportsPage() {
           report.description,
           report.reporter_name,
           report.category,
-          report.status
+          report.status,
         ]
           .join(" ")
           .toLowerCase()
@@ -124,20 +148,27 @@ export default function ReportsPage() {
       await loadReports();
       setMessage("Report status updated.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to update status.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to update status.",
+      );
     } finally {
       setIsWorking(false);
     }
   }
 
-  async function handleCategoryChange(report: CommunityReport, category: string) {
+  async function handleCategoryChange(
+    report: CommunityReport,
+    category: string,
+  ) {
     setIsWorking(true);
     try {
       await updateReportCategory(report.id, category);
       await loadReports();
       setMessage("Report category updated.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to update category.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to update category.",
+      );
     } finally {
       setIsWorking(false);
     }
@@ -162,7 +193,9 @@ export default function ReportsPage() {
       setSelectedReport(null);
       setDeleteTargetReport(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to delete report.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to delete report.",
+      );
     } finally {
       setIsWorking(false);
     }
@@ -179,7 +212,9 @@ export default function ReportsPage() {
       setEditingNoteReport(null);
       setAdminNote("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to save admin note.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to save admin note.",
+      );
     } finally {
       setIsWorking(false);
     }
@@ -192,14 +227,13 @@ export default function ReportsPage() {
 
   return (
     <section className="admin-page reports-page">
-      <div className="page-heading">
-        <p>Community reports</p>
-        <h2>Active Reports</h2>
-        <span>Manage and assign resident-submitted community issues.</span>
-      </div>
+      <PageHeader
+        title="Community reports"
+        description="Triage resident concerns, record follow-up notes, and track each case to resolution."
+      />
 
       <div className="report-stats">
-        <StatCard label="Total Active" value={stats.total} tone="dark" />
+        <StatCard label="Total reports" value={stats.total} tone="dark" />
         <StatCard label="Pending Review" value={stats.pending} tone="pending" />
         <StatCard label="In Progress" value={stats.progress} tone="progress" />
         <StatCard label="Resolved" value={stats.resolved} tone="resolved" />
@@ -209,6 +243,7 @@ export default function ReportsPage() {
         <div className="filter-tabs compact-tabs">
           {statusFilters.map((filter) => (
             <button
+              aria-pressed={selectedFilter === filter.value}
               className={selectedFilter === filter.value ? "active" : ""}
               key={filter.value}
               onClick={() => setSelectedFilter(filter.value)}
@@ -221,7 +256,8 @@ export default function ReportsPage() {
         <label className="resident-search">
           <Search size={17} />
           <input
-            placeholder="Search reports or residents..."
+            aria-label="Search community reports"
+            placeholder="Search reports or residents…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -229,22 +265,28 @@ export default function ReportsPage() {
       </div>
 
       {message ? (
-        <div className="admin-message">
+        <div className="admin-message" role="status">
           <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
+          <button onClick={() => setMessage("")} type="button">
+            Dismiss
+          </button>
         </div>
       ) : null}
 
       <div className="report-list-heading">
         <h3>Recent Submissions</h3>
-        <button onClick={loadReports} type="button">Refresh</button>
+        <button disabled={isLoading} onClick={loadReports} type="button">
+          Refresh
+        </button>
       </div>
 
       <div className="report-list">
         {reports.length === 0 && !isLoading ? (
           <div className="empty-state">No reports found.</div>
         ) : filteredReports.length === 0 && !isLoading ? (
-          <div className="empty-state">No reports match your current search/filter.</div>
+          <div className="empty-state">
+            No reports match your current search/filter.
+          </div>
         ) : (
           filteredReports.map((report) => (
             <ReportCard
@@ -261,7 +303,9 @@ export default function ReportsPage() {
           ))
         )}
       </div>
-      {isLoading ? <AdminLoadingOverlay label="Loading community reports..." /> : null}
+      {isLoading ? (
+        <AdminLoadingOverlay label="Loading community reports..." />
+      ) : null}
 
       {selectedReport ? (
         <ReportDetailsDialog
@@ -276,6 +320,7 @@ export default function ReportsPage() {
 
       {deleteTargetReport ? (
         <DeleteConfirmDialog
+          message={message}
           report={deleteTargetReport}
           isWorking={isWorking}
           onCancel={() => setDeleteTargetReport(null)}
@@ -285,6 +330,7 @@ export default function ReportsPage() {
 
       {editingNoteReport ? (
         <AdminNoteDialog
+          message={message}
           note={adminNote}
           report={editingNoteReport}
           isWorking={isWorking}
@@ -316,7 +362,7 @@ function ReportCard({
   onDelete,
   onEditNote,
   onStatusChange,
-  onView
+  onView,
 }: {
   canDelete: boolean;
   disabled: boolean;
@@ -335,17 +381,36 @@ function ReportCard({
   return (
     <article className="report-card" onClick={() => onView(report)}>
       <div className="report-image">
-        {images.length > 0 ? <img src={images[0]} alt="" /> : <ImageIcon size={28} />}
+        {images.length > 0 ? (
+          <img src={images[0]} alt="" />
+        ) : (
+          <ImageIcon size={28} />
+        )}
       </div>
       <div className="report-body">
         <div className="report-meta">
           <span>{category.toUpperCase()}</span>
-          <small><CalendarClock size={13} /> {shortDate(report.created_at)}</small>
+          <small>
+            <CalendarClock size={13} /> {shortDate(report.created_at)}
+          </small>
         </div>
-        <h3>{title}</h3>
+        <h3>
+          <button
+            className="report-title-button"
+            onClick={() => onView(report)}
+            type="button"
+          >
+            {title}
+          </button>
+        </h3>
         <p>{report.description?.trim() || "No description provided."}</p>
-        <small className="reporter-line"><UserRound size={13} /> {report.reporter_name ?? "Unknown resident"}</small>
-        <div className="report-actions" onClick={(event) => event.stopPropagation()}>
+        <small className="reporter-line">
+          <UserRound size={13} /> {report.reporter_name ?? "Unknown resident"}
+        </small>
+        <div
+          className="report-actions"
+          onClick={(event) => event.stopPropagation()}
+        >
           <UiDropdown
             ariaLabel="Change report category"
             className="category-select"
@@ -362,11 +427,19 @@ function ReportCard({
             value={status}
             onChange={(nextStatus) => onStatusChange(report, nextStatus)}
           />
-          <button className="note-button" onClick={() => onEditNote(report)} type="button">
+          <button
+            className="note-button"
+            onClick={() => onEditNote(report)}
+            type="button"
+          >
             <Edit3 size={14} /> Note
           </button>
           {canDelete ? (
-            <button className="delete-button" onClick={() => onDelete(report)} type="button">
+            <button
+              className="delete-button"
+              onClick={() => onDelete(report)}
+              type="button"
+            >
               <Trash2 size={14} /> Delete
             </button>
           ) : null}
@@ -382,7 +455,7 @@ function ReportDetailsDialog({
   onClose,
   onDelete,
   onEditNote,
-  onImageView
+  onImageView,
 }: {
   canDelete: boolean;
   report: CommunityReport;
@@ -413,13 +486,11 @@ function ReportDetailsDialog({
   }
 
   return (
-    <div
-      className={`modal-backdrop report-modal-backdrop ${isClosing ? "is-closing" : "is-opening"}`}
-      role="dialog"
-      aria-modal="true"
-      onClick={requestClose}
-    >
-      <div className="report-modal" onClick={(event) => event.stopPropagation()}>
+    <Modal title="Report details" onClose={requestClose}>
+      <div
+        className="report-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="report-modal-scroll">
           <div className="modal-header">
             <div>
@@ -430,7 +501,12 @@ function ReportDetailsDialog({
 
           {images.length > 0 ? (
             <div className="report-modal-images">
-              <button onClick={() => onImageView({ title: "Report evidence", url: images[0] })} type="button">
+              <button
+                onClick={() =>
+                  onImageView({ title: "Report evidence", url: images[0] })
+                }
+                type="button"
+              >
                 <img src={images[0]} alt="Report evidence" />
               </button>
               {images.length > 1 ? (
@@ -438,7 +514,12 @@ function ReportDetailsDialog({
                   {images.slice(1).map((image, index) => (
                     <button
                       key={image}
-                      onClick={() => onImageView({ title: `Report evidence ${index + 2}`, url: image })}
+                      onClick={() =>
+                        onImageView({
+                          title: `Report evidence ${index + 2}`,
+                          url: image,
+                        })
+                      }
                       type="button"
                     >
                       <img src={image} alt="Report evidence thumbnail" />
@@ -450,13 +531,28 @@ function ReportDetailsDialog({
           ) : null}
 
           <div className="detail-grid report-detail-grid">
-            <DetailItem label="Description" value={report.description || "No description provided."} />
-            <DetailItem label="Reported by" value={report.reporter_name ?? "Unknown resident"} />
-            <DetailItem label="Category" value={normalizeReportCategory(report.category)} />
-            <DetailItem label="Status" value={reportStatusLabel(normalizeReportStatus(report.status))} />
+            <DetailItem
+              label="Description"
+              value={report.description || "No description provided."}
+            />
+            <DetailItem
+              label="Reported by"
+              value={report.reporter_name ?? "Unknown resident"}
+            />
+            <DetailItem
+              label="Category"
+              value={normalizeReportCategory(report.category)}
+            />
+            <DetailItem
+              label="Status"
+              value={reportStatusLabel(normalizeReportStatus(report.status))}
+            />
             <DetailItem label="Date" value={shortDate(report.created_at)} />
             <DetailItem label="GPS" value={coordinates} />
-            <DetailItem label="Staff note" value={report.admin_note?.trim() || "No staff note yet."} />
+            <DetailItem
+              label="Staff note"
+              value={report.admin_note?.trim() || "No staff note yet."}
+            />
           </div>
 
           {hasCoordinates(report) ? (
@@ -472,30 +568,43 @@ function ReportDetailsDialog({
 
           <div className="modal-actions">
             {canDelete ? (
-              <button className="danger-admin-button" onClick={() => onDelete(report)} type="button">
+              <button
+                className="danger-admin-button"
+                onClick={() => onDelete(report)}
+                type="button"
+              >
                 Delete
               </button>
             ) : null}
-            <button className="secondary-admin-button" onClick={() => onEditNote(report)} type="button">
+            <button
+              className="secondary-admin-button"
+              onClick={() => onEditNote(report)}
+              type="button"
+            >
               Edit note
             </button>
-            <button className="primary-admin-button" onClick={requestClose} type="button">
+            <button
+              className="primary-admin-button"
+              onClick={requestClose}
+              type="button"
+            >
               Close
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function AdminNoteDialog({
+  message,
   isWorking,
   note,
   report,
   onChange,
   onClose,
-  onSave
+  onSave,
 }: {
   isWorking: boolean;
   note: string;
@@ -503,67 +612,117 @@ function AdminNoteDialog({
   onChange: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
+  message: string;
 }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+    <Modal title="Edit staff note" onClose={onClose}>
       <div className="reject-modal">
+        {message ? (
+          <div className="admin-message" role="status">
+            {message}
+          </div>
+        ) : null}
         <div className="modal-header">
           <div>
             <h2>Staff Note</h2>
             <p>{report.reporter_name ?? "Unknown resident"}</p>
           </div>
-          <button onClick={onClose} type="button" aria-label="Close"><X size={20} /></button>
+          <button onClick={onClose} type="button" aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
         <textarea
           className="note-textarea"
+          aria-label="Staff note visible to the resident"
           placeholder="Add a staff update or note visible to the resident"
           value={note}
           onChange={(event) => onChange(event.target.value)}
         />
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onClose} type="button">Cancel</button>
-          <button className="primary-admin-button" disabled={isWorking} onClick={onSave} type="button">Save</button>
+          <button
+            className="secondary-admin-button"
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="primary-admin-button"
+            disabled={isWorking}
+            onClick={onSave}
+            type="button"
+          >
+            Save
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function DeleteConfirmDialog({
+  message,
   report,
   isWorking,
   onCancel,
-  onConfirm
+  onConfirm,
 }: {
   report: CommunityReport;
   isWorking: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  message: string;
 }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
-      <div className="reject-modal" onClick={(event) => event.stopPropagation()}>
+    <Modal title="Delete report" onClose={onCancel}>
+      <div
+        className="reject-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {message ? <div className="admin-message" role="status">{message}</div> : null}
         <div className="modal-header">
           <div>
             <h2>Delete Report</h2>
             <p>
-              Delete this report from {report.reporter_name ?? "Unknown resident"}?
+              Delete this report from{" "}
+              {report.reporter_name ?? "Unknown resident"}?
             </p>
           </div>
-          <button onClick={onCancel} type="button" aria-label="Close"><X size={20} /></button>
+          <button onClick={onCancel} type="button" aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onCancel} type="button">Cancel</button>
-          <button className="danger-admin-button" disabled={isWorking} onClick={onConfirm} type="button">
+          <button
+            className="secondary-admin-button"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="danger-admin-button"
+            disabled={isWorking}
+            onClick={onConfirm}
+            type="button"
+          >
             {isWorking ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: string;
+}) {
   return (
     <article className={`report-stat ${tone}`}>
       <span>{label}</span>
@@ -582,7 +741,11 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  return <span className={`status-badge ${status.replace(" ", "-")}`}>{reportStatusLabel(status)}</span>;
+  return (
+    <span className={`status-badge ${status.replace(" ", "-")}`}>
+      {reportStatusLabel(status)}
+    </span>
+  );
 }
 
 function reportImages(report: CommunityReport) {
@@ -614,7 +777,7 @@ function reportImages(report: CommunityReport) {
 }
 
 function hasCoordinates(report: CommunityReport) {
-  return typeof report.latitude === "number" && typeof report.longitude === "number";
+  return hasValidReportLocation(report.latitude, report.longitude);
 }
 
 function formatCoordinates(report: CommunityReport) {
@@ -632,6 +795,6 @@ function shortDate(value?: string) {
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }

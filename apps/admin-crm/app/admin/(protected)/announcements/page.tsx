@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { Modal } from "@/components/modal";
+import { PageHeader } from "@/components/workspace-ui";
 import {
   Bold,
   Edit3,
@@ -13,7 +15,7 @@ import {
   Search,
   Trash2,
   Underline,
-  X
+  X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -23,7 +25,7 @@ import {
   fetchAuthorNamesByIds,
   sanitizeAnnouncementHtml,
   updateAnnouncement,
-  uploadAnnouncementImage
+  uploadAnnouncementImage,
 } from "@/lib/announcements";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { ImageViewer } from "@/components/image-viewer";
@@ -43,19 +45,25 @@ const emptyForm: AnnouncementForm = {
   content: "",
   thumbnailUrl: "",
   imageUrlsText: "",
-  isPublished: true
+  isPublished: false,
 };
 
 const editorColors = ["#172033", "#0077d9", "#1f8a70", "#e4a000", "#b3261e"];
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [authorNames, setAuthorNames] = useState<Map<string, string>>(new Map());
-  const [activeView, setActiveView] = useState<"create" | "posted">("create");
+  const [authorNames, setAuthorNames] = useState<Map<string, string>>(
+    new Map(),
+  );
+  const [activeView, setActiveView] = useState<"create" | "posted">("posted");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
-  const [viewingImage, setViewingImage] = useState<{ title: string; url: string } | null>(null);
+  const [selectedAnnouncement, setSelectedAnnouncement] =
+    useState<Announcement | null>(null);
+  const [viewingImage, setViewingImage] = useState<{
+    title: string;
+    url: string;
+  } | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(emptyForm);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -69,14 +77,18 @@ export default function AnnouncementsPage() {
       setAnnouncements(data);
       try {
         const names = await fetchAuthorNamesByIds(
-          data.map((announcement) => announcement.created_by ?? "")
+          data.map((announcement) => announcement.created_by ?? ""),
         );
         setAuthorNames(names);
       } catch {
         setAuthorNames(new Map());
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load announcements.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load announcements.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +98,9 @@ export default function AnnouncementsPage() {
     void loadAnnouncements();
   }, []);
 
-  const publishedCount = announcements.filter((item) => item.is_published).length;
+  const publishedCount = announcements.filter(
+    (item) => item.is_published,
+  ).length;
   const draftCount = announcements.length - publishedCount;
 
   const visibleAnnouncements = useMemo(() => {
@@ -115,6 +129,7 @@ export default function AnnouncementsPage() {
       return;
     }
 
+    if (isSubmitting || isUploading) return;
     setIsSubmitting(true);
 
     try {
@@ -127,7 +142,7 @@ export default function AnnouncementsPage() {
           content: form.content,
           thumbnailUrl: form.thumbnailUrl,
           imageUrls,
-          isPublished: form.isPublished
+          isPublished: form.isPublished,
         });
         setMessage("Announcement updated.");
       } else {
@@ -136,16 +151,20 @@ export default function AnnouncementsPage() {
           content: form.content,
           thumbnailUrl: form.thumbnailUrl,
           imageUrls,
-          isPublished: form.isPublished
+          isPublished: form.isPublished,
         });
-        setMessage("Announcement posted.");
+        setMessage(
+          form.isPublished ? "Announcement published." : "Draft saved.",
+        );
       }
 
       setForm(emptyForm);
       setActiveView("posted");
       await loadAnnouncements();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to save announcement.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to save announcement.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -158,14 +177,16 @@ export default function AnnouncementsPage() {
       content: announcement.content,
       thumbnailUrl: announcement.thumbnail_url ?? "",
       imageUrlsText: extractImageUrls(announcement).join("\n"),
-      isPublished: announcement.is_published
+      isPublished: announcement.is_published,
     });
     setActiveView("create");
     setSelectedAnnouncement(null);
   }
 
   async function removeAnnouncement(announcement: Announcement) {
-    const shouldDelete = window.confirm(`Delete "${announcement.title || "Untitled announcement"}"?`);
+    const shouldDelete = window.confirm(
+      `Delete "${announcement.title || "Untitled announcement"}"?`,
+    );
     if (!shouldDelete) return;
 
     try {
@@ -174,39 +195,47 @@ export default function AnnouncementsPage() {
       setMessage("Announcement deleted.");
       await loadAnnouncements();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to delete announcement.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete announcement.",
+      );
     }
   }
 
   return (
     <section className="announcement-page">
       <div className="announcement-header">
-        <div>
-          <h2>Announcement Workspace</h2>
-          <p>Prepare official notices and manage resident-facing updates.</p>
-        </div>
+        <PageHeader
+          title="Announcements"
+          description="Keep residents informed with clear, timely barangay updates."
+        />
         <div className="announcement-view-tabs">
           <button
+            aria-pressed={activeView === "create"}
             className={activeView === "create" ? "active" : ""}
             onClick={() => setActiveView("create")}
             type="button"
           >
-            <Plus size={16} /> Create Announcement
+            <Plus size={16} /> Write announcement
           </button>
           <button
+            aria-pressed={activeView === "posted"}
             className={activeView === "posted" ? "active" : ""}
             onClick={() => setActiveView("posted")}
             type="button"
           >
-            <Megaphone size={16} /> Posted Announcements
+            <Megaphone size={16} /> Announcement library
           </button>
         </div>
       </div>
 
       {message ? (
-        <div className="admin-message">
+        <div className="admin-message" role="status">
           <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
+          <button onClick={() => setMessage("")} type="button">
+            Dismiss
+          </button>
         </div>
       ) : null}
 
@@ -239,7 +268,9 @@ export default function AnnouncementsPage() {
           onView={setSelectedAnnouncement}
         />
       )}
-      {isLoading ? <AdminLoadingOverlay label="Loading announcements..." /> : null}
+      {isLoading ? (
+        <AdminLoadingOverlay label="Loading announcements..." />
+      ) : null}
 
       {selectedAnnouncement ? (
         <AnnouncementDetailsDialog
@@ -271,7 +302,9 @@ export default function AnnouncementsPage() {
       setForm((current) => ({ ...current, thumbnailUrl: url }));
       setMessage("Thumbnail uploaded.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to upload thumbnail.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to upload thumbnail.",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -286,7 +319,7 @@ export default function AnnouncementsPage() {
 
     try {
       const urls = await Promise.all(
-        selectedFiles.map((file) => uploadAnnouncementImage(file, "gallery"))
+        selectedFiles.map((file) => uploadAnnouncementImage(file, "gallery")),
       );
 
       setForm((current) => {
@@ -295,12 +328,18 @@ export default function AnnouncementsPage() {
         return {
           ...current,
           thumbnailUrl: current.thumbnailUrl || urls[0] || "",
-          imageUrlsText: mergedUrls.join("\n")
+          imageUrlsText: mergedUrls.join("\n"),
         };
       });
-      setMessage(`${urls.length} announcement image${urls.length === 1 ? "" : "s"} uploaded.`);
+      setMessage(
+        `${urls.length} announcement image${urls.length === 1 ? "" : "s"} uploaded.`,
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to upload announcement images.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload announcement images.",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -308,10 +347,12 @@ export default function AnnouncementsPage() {
 
   function handleGalleryRemove(imageUrl: string) {
     setForm((current) => {
-      const remainingUrls = parseImageUrls(current.imageUrlsText, "").filter((url) => url !== imageUrl);
+      const remainingUrls = parseImageUrls(current.imageUrlsText, "").filter(
+        (url) => url !== imageUrl,
+      );
       return {
         ...current,
-        imageUrlsText: remainingUrls.join("\n")
+        imageUrlsText: remainingUrls.join("\n"),
       };
     });
     setMessage("Gallery image removed.");
@@ -327,7 +368,7 @@ function CreateAnnouncementPanel({
   onGalleryRemove,
   onGalleryUpload,
   onSubmit,
-  onThumbnailUpload
+  onThumbnailUpload,
 }: {
   form: AnnouncementForm;
   isUploading: boolean;
@@ -345,7 +386,7 @@ function CreateAnnouncementPanel({
     <section className="announcement-panel">
       <PanelHeader
         icon={Edit3}
-        title={form.id ? "Edit Announcement" : "Create Announcement"}
+        title={form.id ? "Edit Announcement" : "Write announcement"}
         subtitle="Prepare a notice with images and publish controls for residents."
       />
       <form className="announcement-form" onSubmit={onSubmit}>
@@ -353,7 +394,9 @@ function CreateAnnouncementPanel({
           Title
           <input
             value={form.title}
-            onChange={(event) => onChange({ ...form, title: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...form, title: event.target.value })
+            }
             placeholder="Enter announcement title"
           />
         </label>
@@ -377,7 +420,9 @@ function CreateAnnouncementPanel({
             <p className="announcement-image-guidance">
               Recommended landscape sizes: 1920x1080, 1600x900, or 1366x768.
             </p>
-            <div className={`announcement-thumbnail-preview ${form.thumbnailUrl ? "" : "empty"}`}>
+            <div
+              className={`announcement-thumbnail-preview ${form.thumbnailUrl ? "" : "empty"}`}
+            >
               {form.thumbnailUrl ? (
                 <img src={form.thumbnailUrl} alt="" />
               ) : (
@@ -390,6 +435,7 @@ function CreateAnnouncementPanel({
             <span className="file-upload-control">
               <input
                 type="file"
+                aria-label="Upload announcement images"
                 accept="image/*"
                 disabled={isUploading || isSubmitting}
                 onChange={(event) => {
@@ -407,12 +453,18 @@ function CreateAnnouncementPanel({
                 <h4>Gallery images</h4>
                 <span>Optional photos shown in details</span>
               </div>
-              <em>{galleryImages.length} image{galleryImages.length === 1 ? "" : "s"}</em>
+              <em>
+                {galleryImages.length} image
+                {galleryImages.length === 1 ? "" : "s"}
+              </em>
             </div>
             <p className="announcement-image-guidance">
-              Use landscape images when possible: 1920x1080, 1600x900, or 1366x768.
+              Use landscape images when possible: 1920x1080, 1600x900, or
+              1366x768.
             </p>
-            <div className={`announcement-gallery-preview ${galleryImages.length > 0 ? "" : "empty"}`}>
+            <div
+              className={`announcement-gallery-preview ${galleryImages.length > 0 ? "" : "empty"}`}
+            >
               {galleryImages.length > 0 ? (
                 galleryImages.map((imageUrl, index) => (
                   <article className="announcement-gallery-tile" key={imageUrl}>
@@ -441,6 +493,7 @@ function CreateAnnouncementPanel({
             <span className="file-upload-control">
               <input
                 type="file"
+                aria-label="Upload announcement images"
                 accept="image/*"
                 multiple
                 disabled={isUploading || isSubmitting}
@@ -453,23 +506,39 @@ function CreateAnnouncementPanel({
             </span>
           </section>
         </div>
-        {isUploading ? <p className="upload-status">Uploading image files...</p> : null}
+        {isUploading ? (
+          <p className="upload-status">Uploading image files...</p>
+        ) : null}
         <div className="announcement-form-footer">
           <label className="publish-toggle">
             <input
               type="checkbox"
               checked={form.isPublished}
-              onChange={(event) => onChange({ ...form, isPublished: event.target.checked })}
+              onChange={(event) =>
+                onChange({ ...form, isPublished: event.target.checked })
+              }
             />
-            Publish immediately
+            Publish to the resident app (leave unchecked to save a draft)
           </label>
           {form.id ? (
-            <button className="secondary-admin-button" onClick={onCancelEdit} type="button">
+            <button
+              className="secondary-admin-button"
+              onClick={onCancelEdit}
+              type="button"
+            >
               Cancel Edit
             </button>
           ) : null}
-          <button className="primary-admin-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : form.id ? "Update Announcement" : "Post Announcement"}
+          <button
+            className="primary-admin-button"
+            disabled={isSubmitting || isUploading}
+            type="submit"
+          >
+            {isSubmitting
+              ? "Saving…"
+              : form.isPublished
+                ? "Publish announcement"
+                : "Save draft"}
           </button>
         </div>
       </form>
@@ -480,7 +549,7 @@ function CreateAnnouncementPanel({
 function RichTextEditor({
   onChange,
   placeholder,
-  value
+  value,
 }: {
   onChange: (value: string) => void;
   placeholder: string;
@@ -524,20 +593,39 @@ function RichTextEditor({
 
   return (
     <div className="rich-editor">
-      <div className="rich-editor-toolbar" aria-label="Announcement formatting tools">
-        <button type="button" aria-label="Bold" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}>
+      <div
+        className="rich-editor-toolbar"
+        aria-label="Announcement formatting tools"
+      >
+        <button
+          type="button"
+          aria-label="Bold"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => runCommand("bold")}
+        >
           <Bold size={16} />
         </button>
-        <button type="button" aria-label="Italic" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("italic")}>
+        <button
+          type="button"
+          aria-label="Italic"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => runCommand("italic")}
+        >
           <Italic size={16} />
         </button>
-        <button type="button" aria-label="Underline" onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}>
+        <button
+          type="button"
+          aria-label="Underline"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => runCommand("underline")}
+        >
           <Underline size={16} />
         </button>
         <label className="rich-editor-color" aria-label="Text color">
           <Palette size={16} />
           <input
             type="color"
+            aria-label="Announcement text color"
             defaultValue={editorColors[1]}
             onChange={(event) => runCommand("foreColor", event.target.value)}
           />
@@ -561,6 +649,7 @@ function RichTextEditor({
         onInput={handleInput}
         ref={editorRef}
         role="textbox"
+        aria-label="Announcement content"
         aria-multiline="true"
         suppressContentEditableWarning
       />
@@ -581,7 +670,7 @@ function PostedAnnouncementsPanel({
   onEdit,
   onSearchChange,
   onStatusFilterChange,
-  onView
+  onView,
 }: {
   announcements: Announcement[];
   authorNames: Map<string, string>;
@@ -601,19 +690,24 @@ function PostedAnnouncementsPanel({
     <section className="announcement-panel posted-panel">
       <PanelHeader
         icon={Megaphone}
-        title="Posted Announcements"
+        title="Announcement library"
         subtitle="Browse, review, and manage all published or draft posts."
         trailing={`${totalCount} total`}
       />
       <div className="announcement-tools">
         <div className="announcement-stats">
-          <span className="published">Published <strong>{publishedCount}</strong></span>
-          <span className="draft">Drafts <strong>{draftCount}</strong></span>
+          <span className="published">
+            Published <strong>{publishedCount}</strong>
+          </span>
+          <span className="draft">
+            Drafts <strong>{draftCount}</strong>
+          </span>
         </div>
         <label className="resident-search">
           <Search size={17} />
           <input
-            placeholder="Search announcements..."
+            aria-label="Search announcements"
+            placeholder="Search announcements…"
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
           />
@@ -623,9 +717,10 @@ function PostedAnnouncementsPanel({
         {[
           ["All Posts", "all"],
           ["Published", "published"],
-          ["Drafts", "draft"]
+          ["Drafts", "draft"],
         ].map(([label, value]) => (
           <button
+            aria-pressed={statusFilter === value}
             className={statusFilter === value ? "active" : ""}
             key={value}
             onClick={() => onStatusFilterChange(value)}
@@ -660,7 +755,7 @@ function AnnouncementCard({
   author,
   onDelete,
   onEdit,
-  onView
+  onView,
 }: {
   announcement: Announcement;
   author: string;
@@ -681,17 +776,44 @@ function AnnouncementCard({
           <h3>{announcement.title.trim() || "Untitled announcement"}</h3>
           <AnnouncementStatus isPublished={announcement.is_published} />
         </div>
-        <p className="announcement-date">{formatDate(announcement.created_at)}</p>
+        <p className="announcement-date">
+          {formatDate(announcement.created_at)}
+        </p>
         <p className="announcement-author">By: {author}</p>
         <p className="announcement-summary">
-          {plainText(announcement.content) || "No announcement details available."}
+          {plainText(announcement.content) ||
+            "No announcement details available."}
         </p>
-        <div className="announcement-card-actions" onClick={(event) => event.stopPropagation()}>
-          <span>{images.length} photo{images.length === 1 ? "" : "s"}</span>
+        <div
+          className="announcement-card-actions"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span>
+            {images.length} photo{images.length === 1 ? "" : "s"}
+          </span>
           <span>{announcement.updated_at ? "Updated" : "New post"}</span>
-          <button onClick={() => onView(announcement)} type="button" aria-label="View announcement"><Eye size={18} /></button>
-          <button onClick={() => onEdit(announcement)} type="button" aria-label="Edit announcement"><Edit3 size={18} /></button>
-          <button className="danger-icon" onClick={() => onDelete(announcement)} type="button" aria-label="Delete announcement"><Trash2 size={18} /></button>
+          <button
+            onClick={() => onView(announcement)}
+            type="button"
+            aria-label="View announcement"
+          >
+            <Eye size={18} />
+          </button>
+          <button
+            onClick={() => onEdit(announcement)}
+            type="button"
+            aria-label="Edit announcement"
+          >
+            <Edit3 size={18} />
+          </button>
+          <button
+            className="danger-icon"
+            onClick={() => onDelete(announcement)}
+            type="button"
+            aria-label="Delete announcement"
+          >
+            <Trash2 size={18} />
+          </button>
         </div>
       </div>
     </article>
@@ -704,7 +826,7 @@ function AnnouncementDetailsDialog({
   onClose,
   onDelete,
   onEdit,
-  onImageView
+  onImageView,
 }: {
   announcement: Announcement;
   author: string;
@@ -716,22 +838,34 @@ function AnnouncementDetailsDialog({
   const images = extractImageUrls(announcement);
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="announcement-modal" onClick={(event) => event.stopPropagation()}>
+    <Modal title="Announcement preview" onClose={onClose}>
+      <div
+        className="announcement-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
             <h2>{announcement.title.trim() || "Untitled announcement"}</h2>
-            <p>By {author} • {formatDate(announcement.created_at)}</p>
+            <p>
+              By {author} • {formatDate(announcement.created_at)}
+            </p>
           </div>
           <AnnouncementStatus isPublished={announcement.is_published} />
-          <button onClick={onClose} type="button" aria-label="Close"><X size={20} /></button>
+          <button onClick={onClose} type="button" aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
         {images.length > 0 ? (
           <div className="announcement-modal-images">
             {images.map((image, index) => (
               <button
                 key={image}
-                onClick={() => onImageView({ title: `Announcement image ${index + 1}`, url: image })}
+                onClick={() =>
+                  onImageView({
+                    title: `Announcement image ${index + 1}`,
+                    url: image,
+                  })
+                }
                 type="button"
               >
                 <img src={image} alt="Announcement attachment" />
@@ -742,15 +876,29 @@ function AnnouncementDetailsDialog({
         <div
           className="announcement-content-view rich-content-view"
           dangerouslySetInnerHTML={{
-            __html: richContentHtml(announcement.content) || "No announcement details available."
+            __html:
+              richContentHtml(announcement.content) ||
+              "No announcement details available.",
           }}
         />
         <div className="modal-actions">
-          <button className="danger-admin-button" onClick={() => onDelete(announcement)} type="button">Delete</button>
-          <button className="secondary-admin-button" onClick={() => onEdit(announcement)} type="button">Edit</button>
+          <button
+            className="danger-admin-button"
+            onClick={() => onDelete(announcement)}
+            type="button"
+          >
+            Delete
+          </button>
+          <button
+            className="secondary-admin-button"
+            onClick={() => onEdit(announcement)}
+            type="button"
+          >
+            Edit
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -758,7 +906,7 @@ function PanelHeader({
   icon: Icon,
   title,
   subtitle,
-  trailing
+  trailing,
 }: {
   icon: typeof Megaphone;
   title: string;
@@ -767,7 +915,9 @@ function PanelHeader({
 }) {
   return (
     <div className="announcement-section-header">
-      <span><Icon size={20} /></span>
+      <span>
+        <Icon size={20} />
+      </span>
       <div>
         <h3>{title}</h3>
         <p>{subtitle}</p>
@@ -779,13 +929,18 @@ function PanelHeader({
 
 function AnnouncementStatus({ isPublished }: { isPublished: boolean }) {
   return (
-    <span className={`announcement-status ${isPublished ? "published" : "draft"}`}>
+    <span
+      className={`status-badge announcement-status ${isPublished ? "published" : "draft"}`}
+    >
       {isPublished ? "Published" : "Draft"}
     </span>
   );
 }
 
-function announcementCreatorName(announcement: Announcement, authorNames: Map<string, string>) {
+function announcementCreatorName(
+  announcement: Announcement,
+  authorNames: Map<string, string>,
+) {
   const storedName = announcement.created_by_name?.trim();
   if (storedName) return storedName;
 
@@ -838,7 +993,7 @@ function plainText(content: string) {
             operation !== null &&
             "insert" in operation
               ? String((operation as { insert: unknown }).insert)
-              : ""
+              : "",
           )
           .join("")
           .trim();
@@ -866,7 +1021,8 @@ function plainText(content: string) {
 function richContentHtml(content: string) {
   const trimmed = content.trim();
   if (!trimmed) return "";
-  if (!trimmed.includes("<")) return escapeHtml(trimmed).replace(/\n/g, "<br />");
+  if (!trimmed.includes("<"))
+    return escapeHtml(trimmed).replace(/\n/g, "<br />");
 
   return sanitizeAnnouncementHtml(trimmed);
 }
@@ -888,6 +1044,6 @@ function formatDate(value?: string) {
   return parsed.toLocaleDateString("en-PH", {
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   });
 }

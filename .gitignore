@@ -11,3 +11,7 @@ pnpm-debug.log*
 
 .vercel
 *.tsbuildinfo
+# Local, synthetic CRM browser QA artifacts
+.next-qa
+playwright-report
+test-results

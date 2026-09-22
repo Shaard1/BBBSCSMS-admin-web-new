@@ -2,11 +2,17 @@
 
 import L from "leaflet";
 import { useEffect } from "react";
-import { MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import {
   normalizeReportStatus,
   reportStatusLabel,
-  shortReportCategory
+  shortReportCategory,
 } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
 
@@ -18,12 +24,16 @@ type ComplaintMapProps = {
   onSelect: (report: CommunityReport) => void;
 };
 
-export function ComplaintMap({ reports, selectedReport, onSelect }: ComplaintMapProps) {
+export function ComplaintMap({
+  reports,
+  selectedReport,
+  onSelect,
+}: ComplaintMapProps) {
   return (
     <MapContainer
       center={barangayCenter}
       zoom={13}
-      scrollWheelZoom
+      scrollWheelZoom={false}
       className="leaflet-map"
     >
       <TileLayer
@@ -34,12 +44,18 @@ export function ComplaintMap({ reports, selectedReport, onSelect }: ComplaintMap
       {reports.map((report) => (
         <Marker
           eventHandlers={{ click: () => onSelect(report) }}
-          icon={createPinIcon(statusColor(normalizeReportStatus(report.status)), selectedReport?.id === report.id)}
+          icon={createPinIcon(
+            statusColor(normalizeReportStatus(report.status)),
+            selectedReport?.id === report.id,
+          )}
+          title={`${shortReportCategory(report.category)}: ${report.reporter_name ?? "Resident"}`}
+          alt={`${shortReportCategory(report.category)} report marker`}
           key={report.id}
           position={[report.latitude!, report.longitude!]}
         >
           <Tooltip>
-            {shortReportCategory(report.category)} - {reportStatusLabel(normalizeReportStatus(report.status))}
+            {shortReportCategory(report.category)} -{" "}
+            {reportStatusLabel(normalizeReportStatus(report.status))}
           </Tooltip>
         </Marker>
       ))}
@@ -47,13 +63,21 @@ export function ComplaintMap({ reports, selectedReport, onSelect }: ComplaintMap
   );
 }
 
-function MapFocus({ selectedReport }: { selectedReport: CommunityReport | null }) {
+function MapFocus({
+  selectedReport,
+}: {
+  selectedReport: CommunityReport | null;
+}) {
   const map = useMap();
 
   useEffect(() => {
     if (selectedReport?.latitude != null && selectedReport.longitude != null) {
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
       map.flyTo([selectedReport.latitude, selectedReport.longitude], 16, {
-        duration: 0.65
+        animate: !reduceMotion,
+        duration: reduceMotion ? 0 : 0.65,
       });
     }
   }, [map, selectedReport]);
@@ -74,7 +98,7 @@ function createPinIcon(color: string, selected: boolean) {
       </div>
     `,
     iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2]
+    popupAnchor: [0, -size / 2],
   });
 }
 

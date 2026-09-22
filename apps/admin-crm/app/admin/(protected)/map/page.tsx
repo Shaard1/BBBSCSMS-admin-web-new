@@ -1,21 +1,28 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { Modal } from "@/components/modal";
+import { PageHeader } from "@/components/workspace-ui";
 import dynamic from "next/dynamic";
 import {
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
-  LocateFixed,
   MapPinned,
   Minus,
   Plus,
   RotateCcw,
   RefreshCw,
   Trash2,
-  X
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type WheelEvent,
+} from "react";
 import { deleteReport, fetchReports } from "@/lib/reports";
 import { useAdminRole } from "@/components/admin-role-context";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
@@ -25,16 +32,17 @@ import {
   normalizeReportCategory,
   normalizeReportStatus,
   reportStatusLabel,
-  shortReportCategory
+  shortReportCategory,
 } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
 
 const ComplaintMap = dynamic(
-  () => import("@/components/complaint-map").then((module) => module.ComplaintMap),
+  () =>
+    import("@/components/complaint-map").then((module) => module.ComplaintMap),
   {
     ssr: false,
-    loading: () => <AdminLoadingOverlay label="Loading map..." />
-  }
+    loading: () => <AdminLoadingOverlay label="Loading map..." />,
+  },
 );
 
 const categories = [
@@ -44,7 +52,7 @@ const categories = [
   "Broken Streetlight",
   "Drainage Issue",
   "Noise Complaint",
-  "Others"
+  "Others",
 ];
 
 const statusFilters = [
@@ -52,7 +60,7 @@ const statusFilters = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
   { label: "In Progress", value: "in progress" },
-  { label: "Resolved", value: "resolved" }
+  { label: "Resolved", value: "resolved" },
 ];
 
 export default function ComplaintMapPage() {
@@ -61,7 +69,9 @@ export default function ComplaintMapPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(null);
+  const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(
+    null,
+  );
   const [imageViewer, setImageViewer] = useState<{
     images: string[];
     index: number;
@@ -71,6 +81,7 @@ export default function ComplaintMapPage() {
   } | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const dragStateRef = useRef<{
     startX: number;
     startY: number;
@@ -83,11 +94,15 @@ export default function ComplaintMapPage() {
     try {
       const data = await fetchReports();
       setReports(data);
-      setSelectedReport((current) =>
-        current && data.some((report) => report.id === current.id) ? current : null
+      setSelectedReport(
+        (current) => data.find((report) => report.id === current?.id) ?? null,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to load complaint map data.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to load complaint map data.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -104,9 +119,12 @@ export default function ComplaintMapPage() {
       const status = normalizeReportStatus(report.status);
       const matchesStatus =
         selectedStatus === "all" ||
-        (selectedStatus === "active" ? status !== "resolved" : status === selectedStatus);
+        (selectedStatus === "active"
+          ? status !== "resolved"
+          : status === selectedStatus);
       const matchesCategory =
-        selectedCategory === "all" || normalizeReportCategory(report.category) === selectedCategory;
+        selectedCategory === "all" ||
+        normalizeReportCategory(report.category) === selectedCategory;
 
       return matchesStatus && matchesCategory;
     });
@@ -114,36 +132,49 @@ export default function ComplaintMapPage() {
 
   const metrics = useMemo(() => {
     return {
-      pending: reports.filter((report) => normalizeReportStatus(report.status) === "pending").length,
-      progress: reports.filter((report) => normalizeReportStatus(report.status) === "in progress").length,
-      resolved: reports.filter((report) => normalizeReportStatus(report.status) === "resolved").length,
-      mapped: mappedReports.length
+      pending: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "pending",
+      ).length,
+      progress: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "in progress",
+      ).length,
+      resolved: reports.filter(
+        (report) => normalizeReportStatus(report.status) === "resolved",
+      ).length,
+      mapped: mappedReports.length,
     };
   }, [mappedReports.length, reports]);
 
   async function handleDelete(report: CommunityReport) {
+    if (isDeleting) return;
     if (!canDelete) {
       setMessage("Only administrators can delete reports.");
       return;
     }
 
     const shouldDelete = window.confirm(
-      `Delete this report from ${report.reporter_name ?? "Unknown resident"}?`
+      `Delete this report from ${report.reporter_name ?? "Unknown resident"}?`,
     );
     if (!shouldDelete) return;
 
+    setIsDeleting(true);
     try {
       await deleteReport(report.id);
       setMessage("Report deleted.");
       setSelectedReport(null);
       await loadReports();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to delete report.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to delete report.",
+      );
+    } finally {
+      setIsDeleting(false);
     }
   }
 
   const activeSelectedReport =
-    selectedReport && visibleReports.some((report) => report.id === selectedReport.id)
+    selectedReport &&
+    visibleReports.some((report) => report.id === selectedReport.id)
       ? selectedReport
       : null;
 
@@ -154,7 +185,7 @@ export default function ComplaintMapPage() {
       index,
       zoom: 1,
       offsetX: 0,
-      offsetY: 0
+      offsetY: 0,
     });
   }
 
@@ -172,7 +203,7 @@ export default function ComplaintMapPage() {
         index: nextIndex,
         zoom: 1,
         offsetX: 0,
-        offsetY: 0
+        offsetY: 0,
       };
     });
   }
@@ -180,12 +211,15 @@ export default function ComplaintMapPage() {
   function changeZoom(delta: number) {
     setImageViewer((current) => {
       if (!current) return current;
-      const nextZoom = Math.min(3, Math.max(1, Number((current.zoom + delta).toFixed(2))));
+      const nextZoom = Math.min(
+        3,
+        Math.max(1, Number((current.zoom + delta).toFixed(2))),
+      );
       return {
         ...current,
         zoom: nextZoom,
         offsetX: nextZoom === 1 ? 0 : current.offsetX,
-        offsetY: nextZoom === 1 ? 0 : current.offsetY
+        offsetY: nextZoom === 1 ? 0 : current.offsetY,
       };
     });
   }
@@ -197,9 +231,9 @@ export default function ComplaintMapPage() {
             ...current,
             zoom: 1,
             offsetX: 0,
-            offsetY: 0
+            offsetY: 0,
           }
-        : current
+        : current,
     );
   }
 
@@ -216,7 +250,7 @@ export default function ComplaintMapPage() {
       startX: event.clientX,
       startY: event.clientY,
       baseOffsetX: imageViewer.offsetX,
-      baseOffsetY: imageViewer.offsetY
+      baseOffsetY: imageViewer.offsetY,
     };
 
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -226,17 +260,19 @@ export default function ComplaintMapPage() {
     const dragState = dragStateRef.current;
     if (!dragState) return;
 
-    const nextOffsetX = dragState.baseOffsetX + (event.clientX - dragState.startX);
-    const nextOffsetY = dragState.baseOffsetY + (event.clientY - dragState.startY);
+    const nextOffsetX =
+      dragState.baseOffsetX + (event.clientX - dragState.startX);
+    const nextOffsetY =
+      dragState.baseOffsetY + (event.clientY - dragState.startY);
 
     setImageViewer((current) =>
       current
         ? {
             ...current,
             offsetX: nextOffsetX,
-            offsetY: nextOffsetY
+            offsetY: nextOffsetY,
           }
-        : current
+        : current,
     );
   }
 
@@ -249,33 +285,59 @@ export default function ComplaintMapPage() {
 
   return (
     <section className="map-page">
-      <div className="map-command-header">
-        <div>
-          <h2>Complaint Map</h2>
-          <p>Geographic command view for active resident-submitted issues.</p>
-        </div>
-        <div className="map-header-pills">
-          <HeaderPill icon={LocateFixed} label="Visible Pins" value={visibleReports.length.toString()} />
-          <HeaderPill icon={ClipboardList} label="Total Cases" value={reports.length.toString()} />
-          <button aria-label="Refresh map" onClick={loadReports} type="button">
-            <RefreshCw size={18} />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Complaint map"
+        description="Locate reported concerns and connect field work with resident reports."
+      >
+        <span className="sync-note">
+          {visibleReports.length} of {mappedReports.length} mapped
+        </span>
+        <button
+          type="button"
+          className="secondary-admin-button"
+          disabled={isLoading}
+          onClick={loadReports}
+        >
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+      </PageHeader>
+      <p className="map-location-note">
+        {reports.length - mappedReports.length} reports without valid
+        coordinates are available in Community reports.
+      </p>
 
       {message ? (
         <div className="admin-message map-message">
           <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
+          <button onClick={() => setMessage("")} type="button">
+            Dismiss
+          </button>
         </div>
       ) : null}
 
       <div className="map-control-deck">
         <div className="map-metrics">
-          <MapMetric label="Pending Review" value={metrics.pending} tone="pending" />
-          <MapMetric label="In Progress" value={metrics.progress} tone="progress" />
-          <MapMetric label="Resolved" value={metrics.resolved} tone="resolved" />
-          <MapMetric label="Mapped Reports" value={metrics.mapped} tone="mapped" />
+          <MapMetric
+            label="Pending Review"
+            value={metrics.pending}
+            tone="pending"
+          />
+          <MapMetric
+            label="In Progress"
+            value={metrics.progress}
+            tone="progress"
+          />
+          <MapMetric
+            label="Resolved"
+            value={metrics.resolved}
+            tone="resolved"
+          />
+          <MapMetric
+            label="Mapped Reports"
+            value={metrics.mapped}
+            tone="mapped"
+          />
         </div>
         <div className="map-filters">
           <div className="map-filters-header">
@@ -284,7 +346,8 @@ export default function ComplaintMapPage() {
               <p>Narrow the map view by report status and issue category.</p>
             </div>
             <span className="map-filter-summary">
-              Showing {visibleReports.length} of {mappedReports.length} mapped reports
+              Showing {visibleReports.length} of {mappedReports.length} mapped
+              reports
             </span>
           </div>
           <section className="map-filter-group">
@@ -292,10 +355,11 @@ export default function ComplaintMapPage() {
             <div>
               {statusFilters.map((filter) => (
                 <button
+                  aria-pressed={selectedStatus === filter.value}
                   className={selectedStatus === filter.value ? "active" : ""}
                   key={filter.value}
                   onClick={() => setSelectedStatus(filter.value)}
-                type="button"
+                  type="button"
                 >
                   {filter.label}
                 </button>
@@ -307,12 +371,15 @@ export default function ComplaintMapPage() {
             <div>
               {categories.map((category) => (
                 <button
+                  aria-pressed={selectedCategory === category}
                   className={selectedCategory === category ? "active" : ""}
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                type="button"
+                  type="button"
                 >
-                  {category === "all" ? "All Categories" : shortReportCategory(category)}
+                  {category === "all"
+                    ? "All Categories"
+                    : shortReportCategory(category)}
                 </button>
               ))}
             </div>
@@ -332,38 +399,43 @@ export default function ComplaintMapPage() {
             {visibleReports.length === 0 ? (
               <div className="empty-map-overlay">
                 <MapPinned size={32} />
-                <strong>No mapped complaints match the selected filters.</strong>
+                <strong>
+                  No mapped complaints match the selected filters.
+                </strong>
               </div>
             ) : null}
-            {isLoading ? <AdminLoadingOverlay label="Loading complaint map data..." /> : null}
+            {isLoading ? (
+              <AdminLoadingOverlay label="Loading complaint map data..." />
+            ) : null}
           </>
         </div>
         <aside className="map-side-panel">
           {activeSelectedReport ? (
             <ReportDetailsPanel
               report={activeSelectedReport}
-              canDelete={canDelete}
+              canDelete={canDelete && !isDeleting}
               onClose={() => setSelectedReport(null)}
               onDelete={handleDelete}
               onPreviewImage={openImageViewer}
             />
           ) : (
-            <ReportQueuePanel reports={visibleReports} onSelect={setSelectedReport} />
+            <ReportQueuePanel
+              reports={visibleReports}
+              onSelect={setSelectedReport}
+            />
           )}
         </aside>
       </div>
 
       {imageViewer ? (
-        <div
-          className="modal-backdrop map-image-modal-backdrop"
-          onClick={closeImageViewer}
-          role="presentation"
+        <Modal
+          title="Complaint evidence"
+          onClose={closeImageViewer}
+          className="map-image-modal-backdrop"
         >
           <div
             className="map-image-modal"
             onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
             aria-label="Complaint image preview"
           >
             <div className="map-image-toolbar">
@@ -371,14 +443,26 @@ export default function ComplaintMapPage() {
                 Image {imageViewer.index + 1} of {imageViewer.images.length}
               </div>
               <div className="map-image-toolbar-actions">
-                <button onClick={() => changeZoom(-0.25)} type="button" aria-label="Zoom out">
+                <button
+                  onClick={() => changeZoom(-0.25)}
+                  type="button"
+                  aria-label="Zoom out"
+                >
                   <Minus size={18} />
                 </button>
                 <span>{Math.round(imageViewer.zoom * 100)}%</span>
-                <button onClick={() => changeZoom(0.25)} type="button" aria-label="Zoom in">
+                <button
+                  onClick={() => changeZoom(0.25)}
+                  type="button"
+                  aria-label="Zoom in"
+                >
                   <Plus size={18} />
                 </button>
-                <button onClick={resetZoom} type="button" aria-label="Reset zoom">
+                <button
+                  onClick={resetZoom}
+                  type="button"
+                  aria-label="Reset zoom"
+                >
                   <RotateCcw size={18} />
                 </button>
               </div>
@@ -426,38 +510,26 @@ export default function ComplaintMapPage() {
                 alt="Complaint evidence preview"
                 draggable={false}
                 style={{
-                  transform: `translate(${imageViewer.offsetX}px, ${imageViewer.offsetY}px) scale(${imageViewer.zoom})`
+                  transform: `translate(${imageViewer.offsetX}px, ${imageViewer.offsetY}px) scale(${imageViewer.zoom})`,
                 }}
               />
             </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
     </section>
   );
 }
 
-function HeaderPill({
-  icon: Icon,
+function MapMetric({
   label,
-  value
+  value,
+  tone,
 }: {
-  icon: typeof LocateFixed;
   label: string;
-  value: string;
+  value: number;
+  tone: string;
 }) {
-  return (
-    <span className="map-header-pill">
-      <Icon size={18} />
-      <span>
-        <small>{label}</small>
-        <strong>{value}</strong>
-      </span>
-    </span>
-  );
-}
-
-function MapMetric({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <article className={`map-metric ${tone}`}>
       <span>{value}</span>
@@ -470,16 +542,22 @@ function MapLegend() {
   return (
     <div className="map-legend">
       <strong>Pin Status</strong>
-      <span><i className="pending" /> Pending</span>
-      <span><i className="progress" /> In Progress</span>
-      <span><i className="resolved" /> Resolved</span>
+      <span>
+        <i className="pending" /> Pending
+      </span>
+      <span>
+        <i className="progress" /> In Progress
+      </span>
+      <span>
+        <i className="resolved" /> Resolved
+      </span>
     </div>
   );
 }
 
 function ReportQueuePanel({
   reports,
-  onSelect
+  onSelect,
 }: {
   reports: CommunityReport[];
   onSelect: (report: CommunityReport) => void;
@@ -498,7 +576,11 @@ function ReportQueuePanel({
           <div className="queue-empty">No mapped reports match this view.</div>
         ) : (
           reports.map((report) => (
-            <button key={report.id} onClick={() => onSelect(report)} type="button">
+            <button
+              key={report.id}
+              onClick={() => onSelect(report)}
+              type="button"
+            >
               <span>
                 <strong>{shortReportCategory(report.category)}</strong>
                 <StatusMini status={normalizeReportStatus(report.status)} />
@@ -518,7 +600,7 @@ function ReportDetailsPanel({
   report,
   onClose,
   onDelete,
-  onPreviewImage
+  onPreviewImage,
 }: {
   canDelete: boolean;
   report: CommunityReport;
@@ -570,9 +652,17 @@ function ReportDetailsPanel({
         <p className="map-description">
           {report.description?.trim() || "No description provided."}
         </p>
-        <Detail label="Reported by" value={report.reporter_name ?? "Unknown resident"} />
-        <Detail label="GPS" value={`Lat ${report.latitude?.toFixed(6)}, Lng ${report.longitude?.toFixed(6)}`} />
-        {report.admin_note?.trim() ? <Detail label="Staff note" value={report.admin_note.trim()} /> : null}
+        <Detail
+          label="Reported by"
+          value={report.reporter_name ?? "Unknown resident"}
+        />
+        <Detail
+          label="GPS"
+          value={`Lat ${report.latitude?.toFixed(6)}, Lng ${report.longitude?.toFixed(6)}`}
+        />
+        {report.admin_note?.trim() ? (
+          <Detail label="Staff note" value={report.admin_note.trim()} />
+        ) : null}
         <a
           className="open-map-link"
           href={`https://www.openstreetmap.org/?mlat=${report.latitude}&mlon=${report.longitude}#map=17/${report.latitude}/${report.longitude}`}
@@ -582,7 +672,11 @@ function ReportDetailsPanel({
           <MapPinned size={17} /> Open in OpenStreetMap
         </a>
         {canDelete ? (
-          <button className="map-delete-button" onClick={() => onDelete(report)} type="button">
+          <button
+            className="map-delete-button"
+            onClick={() => onDelete(report)}
+            type="button"
+          >
             <Trash2 size={17} /> Delete Report
           </button>
         ) : null}
@@ -600,13 +694,7 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusMini({
-  status,
-  variant
-}: {
-  status: string;
-  variant?: "date";
-}) {
+function StatusMini({ status, variant }: { status: string; variant?: "date" }) {
   const label = variant === "date" ? status : statusLabel(status);
   const className = variant === "date" ? "date" : status.replace(" ", "-");
 
@@ -657,6 +745,6 @@ function shortDate(value?: string) {
   return parsed.toLocaleDateString("en-PH", {
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   });
 }
