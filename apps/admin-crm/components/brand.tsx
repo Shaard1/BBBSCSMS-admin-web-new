@@ -13,9 +13,8 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       {!compact ? (
         <div>
           <strong>
-            Bancao<span>-Connect</span>
+            Bancao<br />Connect.
           </strong>
-          <small>Community, connected.</small>
         </div>
       ) : null}
     </div>

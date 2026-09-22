@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 80" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 80" fill="none">
   <title>Bancao-Connect</title>
   <rect x="8" y="8" width="64" height="64" rx="18" fill="#164EAD"/>
   <path d="M24 42V35L40 23L56 35V42M27 44V51C27 54.314 29.686 57 33 57H47C50.314 57 53 54.314 53 51V44" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M32 43H48" stroke="#71E0D0" stroke-width="4"/><circle cx="31" cy="43" r="5" fill="#71E0D0"/><circle cx="49" cy="43" r="5" fill="#71E0D0"/>
-  <text x="88" y="39" fill="#16304F" font-family="Arial, sans-serif" font-size="27" font-weight="700">Bancao-Connect</text>
-  <text x="89" y="60" fill="#53647A" font-family="Arial, sans-serif" font-size="13" letter-spacing=".7">Community, connected.</text>
+  <text x="88" y="34" fill="#006CBF" font-family="Public Sans, Segoe UI, sans-serif" font-size="35.2" font-weight="900"><tspan x="88">Bancao</tspan><tspan x="88" dy="31.68">Connect.</tspan></text>
 </svg>

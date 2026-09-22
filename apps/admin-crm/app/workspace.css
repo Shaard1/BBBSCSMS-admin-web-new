@@ -234,19 +234,13 @@ strong {
 }
 .bancao-brand strong {
   display: block;
-  font-size: 0.97rem;
-  letter-spacing: -0.035em;
+  font-family: "Public Sans", "Segoe UI", sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: normal;
   white-space: nowrap;
-  color: #16304f;
-}
-.bancao-brand strong span {
-  color: var(--blue);
-}
-.bancao-brand small {
-  display: block;
-  font-size: 0.65rem;
-  color: var(--muted);
-  letter-spacing: 0.02em;
+  color: #006cbf;
 }
 .workspace-identity {
   display: flex;
@@ -2338,9 +2332,6 @@ caption {
   right: -65px;
   bottom: -70px;
   pointer-events: none;
-}
-.office-login-story .bancao-brand strong {
-  font-size: 1.15rem;
 }
 .office-login-story h2 {
   font-size: clamp(1.9rem, 3vw, 2.6rem);
