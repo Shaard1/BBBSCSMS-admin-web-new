@@ -2344,22 +2344,6 @@ caption {
   max-width: 320px;
   font-size: 0.9rem;
 }
-.login-service-list {
-  margin-top: 2rem;
-  display: grid;
-  gap: 0.6rem;
-  color: #3f5c82;
-  font-size: 0.8rem;
-}
-.login-service-list span::before {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #3b8d83;
-  margin-right: 0.65rem;
-}
 .office-login-story > small {
   font-size: 0.7rem;
   color: #516b8c;

@@ -49,18 +49,12 @@ export function AdminLoginCard() {
       <section className="office-login-story">
         <Brand />
         <div>
-          <p className="eyebrow">Barangay Bancao-Bancao</p>
           <h2>
             Good service starts
             <br />
             with connection.
           </h2>
           <p>One workspace for the people who keep our community moving.</p>
-          <div className="login-service-list">
-            <span>Resident services</span>
-            <span>Community reports</span>
-            <span>Public announcements</span>
-          </div>
         </div>
         <small>Official staff &amp; administrator workspace</small>
       </section>
