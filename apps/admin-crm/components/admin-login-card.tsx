@@ -48,7 +48,7 @@ export function AdminLoginCard() {
     <div className="office-login-layout">
       <section className="office-login-story">
         <Brand />
-        <div>
+        <div className="office-login-copy">
           <h2>
             Good service starts
             <br />
