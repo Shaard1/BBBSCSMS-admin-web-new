@@ -2,7 +2,8 @@
 "use client";
 
 import { ExternalLink, Minus, Plus, RotateCcw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Modal } from "@/components/modal";
+import { useState } from "react";
 
 type ImageViewerProps = {
   imageUrl: string;
@@ -14,26 +15,23 @@ export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const safeImageUrl = toSafeImageUrl(imageUrl);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
   return (
-    <div className="image-viewer-backdrop" role="dialog" aria-modal="true">
+    <Modal title={title} onClose={onClose} className="image-viewer-backdrop">
       <div className="image-viewer-toolbar">
         <div>
           <strong>{title}</strong>
           <span>{Math.round(scale * 100)}%</span>
         </div>
-        <button type="button" onClick={() => setScale((value) => Math.max(0.5, value - 0.25))}>
+        <button
+          type="button"
+          onClick={() => setScale((value) => Math.max(0.5, value - 0.25))}
+        >
           <Minus size={18} /> Zoom out
         </button>
-        <button type="button" onClick={() => setScale((value) => Math.min(3, value + 0.25))}>
+        <button
+          type="button"
+          onClick={() => setScale((value) => Math.min(3, value + 0.25))}
+        >
           <Plus size={18} /> Zoom in
         </button>
         <button type="button" onClick={() => setScale(1)}>
@@ -60,7 +58,7 @@ export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
           <span>Image unavailable.</span>
         )}
       </button>
-    </div>
+    </Modal>
   );
 }
 

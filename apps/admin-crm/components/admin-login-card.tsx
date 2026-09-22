@@ -1,24 +1,18 @@
 "use client";
-
-import { ArrowLeft, Eye, EyeOff, X } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { RingLoader } from "@/components/ring-loader";
+import { type FormEvent, useState } from "react";
+import { Brand } from "@/components/brand";
 import {
   clearAdminServerSession,
   createAdminServerSession,
-  signInAsOfficeUser
+  signInAsOfficeUser,
 } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
-type AdminLoginCardProps = {
-  onClose?: () => void;
-};
-
-export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
-  const isModal = Boolean(onClose);
+export function AdminLoginCard() {
   const router = useRouter();
-  const [step, setStep] = useState<"chooser" | "form">(isModal ? "chooser" : "form");
-  const [loginMode, setLoginMode] = useState<"admin" | "staff">("admin");
+  const [loginMode, setLoginMode] = useState<"admin" | "staff">("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,120 +21,121 @@ export function AdminLoginCard({ onClose }: AdminLoginCardProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setMessage("");
-
-    const result = await signInAsOfficeUser(email, password);
-
-    if (!result.ok) {
+    try {
+      const result = await signInAsOfficeUser(email, password);
+      if (!result.ok) throw new Error(result.message);
+      const session = await createAdminServerSession(loginMode);
+      if (!session.ok) {
+        await Promise.all([clearAdminServerSession(), supabase.auth.signOut()]);
+        throw new Error(session.message);
+      }
+      router.replace("/admin/dashboard");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign in. Check your connection and try again.",
+      );
+    } finally {
       setIsSubmitting(false);
-      setMessage(result.message);
-      return;
     }
-
-    const sessionResult = await createAdminServerSession(loginMode);
-    if (!sessionResult.ok) {
-      setIsSubmitting(false);
-      await clearAdminServerSession();
-      setMessage(sessionResult.message);
-      return;
-    }
-
-    router.push("/admin/dashboard");
-  }
-
-  if (isModal && step === "chooser") {
-    return (
-      <section className="login-card modal-login-card modal-login-chooser modal-card-enter">
-        <button className="login-close-button" onClick={onClose} type="button" aria-label="Close admin login">
-          <X size={24} />
-        </button>
-        <div className="modal-login-heading">
-          <h1>Log in</h1>
-        </div>
-        <button
-          className="chooser-secondary"
-          onClick={() => {
-            setLoginMode("staff");
-            setStep("form");
-          }}
-          type="button"
-        >
-          Staff log in
-        </button>
-        <button
-          className="chooser-primary"
-          onClick={() => {
-            setLoginMode("admin");
-            setStep("form");
-          }}
-          type="button"
-        >
-          Admin log in
-        </button>
-      </section>
-    );
   }
 
   return (
-    <section
-      className={`login-card modal-card-enter ${isModal ? "modal-login-card" : ""} ${isModal ? `modal-login-form modal-login-${loginMode}` : ""}`}
-    >
-      {isSubmitting ? (
-        <div className="login-card-loading-overlay">
-          <RingLoader label="Checking access..." />
+    <div className="office-login-layout">
+      <section className="office-login-story">
+        <Brand />
+        <div className="office-login-copy">
+          <h2>
+            Good service starts
+            <br />
+            with connection.
+          </h2>
+          <p>One workspace for the people who keep our community moving.</p>
         </div>
-      ) : null}
-      {isModal ? (
-        <button className="login-back-button" onClick={() => setStep("chooser")} type="button" aria-label="Back to login options">
-          <ArrowLeft size={24} />
-        </button>
-      ) : null}
-      {onClose ? (
-        <button className="login-close-button" onClick={onClose} type="button" aria-label="Close admin login">
-          <X size={24} />
-        </button>
-      ) : null}
-      {isModal ? (
-        <div className="modal-login-heading">
-          <h1>{loginMode === "admin" ? "Administrator access" : "Staff Login"}</h1>
-          <p>{loginMode === "admin" ? "System configuration and security protocols" : "Access services and public record management"}</p>
-        </div>
-      ) : null}
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          autoComplete="email"
-          placeholder="Email"
-          aria-label="Email address"
-        />
-        <div className="password-field">
+        <small>Official staff &amp; administrator workspace</small>
+      </section>
+      <section className="office-login-card">
+        <span className="login-shield">
+          <ShieldCheck size={24} />
+        </span>
+        <h1>Welcome back</h1>
+        <p>Sign in with your assigned office account.</p>
+        <form onSubmit={handleSubmit}>
+          <fieldset className="login-role-choice" disabled={isSubmitting}>
+            <legend>Account access</legend>
+            {(["staff", "admin"] as const).map((mode) => (
+              <label key={mode}>
+                <input
+                  type="radio"
+                  name="access"
+                  value={mode}
+                  checked={loginMode === mode}
+                  onChange={() => setLoginMode(mode)}
+                />
+                <span>{mode === "staff" ? "Staff" : "Administrator"}</span>
+              </label>
+            ))}
+          </fieldset>
+          <label className="field-label" htmlFor="office-email">
+            Email address
+          </label>
           <input
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            id="office-email"
+            type="email"
+            autoComplete="username"
+            placeholder="you@barangay.gov.ph"
             required
-            autoComplete="current-password"
-            placeholder="Password"
-            aria-label="Password"
+            disabled={isSubmitting}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
+          <label className="field-label" htmlFor="office-password">
+            Password
+          </label>
+          <div className="office-password-field">
+            <input
+              id="office-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              required
+              disabled={isSubmitting}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {message ? (
+            <p className="form-message" role="alert">
+              {message}
+            </p>
+          ) : null}
           <button
-            type="button"
-            className="password-visibility-button"
-            onClick={() => setShowPassword((value) => !value)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="primary-admin-button login-submit"
+            disabled={isSubmitting}
+            type="submit"
           >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            {isSubmitting ? "Checking access…" : "Sign in"}
+            <ArrowRight size={18} />
           </button>
-        </div>
-        {message ? <p className="form-message">{message}</p> : null}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Checking access..." : "Log In"}
-        </button>
-      </form>
-    </section>
+        </form>
+        <p className="login-help">
+          Need access or a password reset? Contact your barangay administrator.
+        </p>
+        <small>
+          For authorized personnel only. Resident services are available in the
+          Bancao-Connect mobile app.
+        </small>
+      </section>
+    </div>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { Modal } from "@/components/modal";
+import { PageHeader } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
@@ -10,13 +12,13 @@ import {
   deleteOfficeAccount,
   fetchOfficeAccounts,
   updateOfficeRole,
-  type OfficeAccount
+  type OfficeAccount,
 } from "@/lib/office-accounts";
 import { canManageOfficeAccounts } from "@/lib/roles";
 
 const roleOptions = [
   { label: "Staff", value: "staff" },
-  { label: "Admin", value: "admin" }
+  { label: "Admin", value: "admin" },
 ];
 
 function getAccountStatusLabel(status?: string) {
@@ -26,7 +28,8 @@ function getAccountStatusLabel(status?: string) {
   if (normalizedStatus === "rejected") return "Rejected";
   if (normalizedStatus === "pending") return "Pending";
 
-  return "Approved";
+  if (normalizedStatus === "active") return "Active";
+  return "Inactive";
 }
 
 function getAccountStatusClassName(status?: string) {
@@ -35,7 +38,9 @@ function getAccountStatusClassName(status?: string) {
   if (normalizedStatus === "rejected") return "flagged";
   if (normalizedStatus === "pending") return "pending";
 
-  return "approved";
+  return normalizedStatus === "approved" || normalizedStatus === "active"
+    ? "approved"
+    : "flagged";
 }
 
 export default function StaffAccountsPage() {
@@ -45,11 +50,18 @@ export default function StaffAccountsPage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState("");
+  const visibleAccounts = accounts.filter((account) =>
+    `${account.full_name} ${account.email ?? ""} ${account.role}`
+      .toLowerCase()
+      .includes(query.toLowerCase().trim()),
+  );
   const [deleteTarget, setDeleteTarget] = useState<OfficeAccount | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    password: ""
+    password: "",
   });
 
   async function loadAccounts() {
@@ -58,7 +70,11 @@ export default function StaffAccountsPage() {
       const data = await fetchOfficeAccounts();
       setAccounts(data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load office accounts.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load office accounts.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +91,7 @@ export default function StaffAccountsPage() {
         if (account.role === "staff") summary.staff += 1;
         return summary;
       },
-      { admins: 0, staff: 0, total: accounts.length }
+      { admins: 0, staff: 0, total: accounts.length },
     );
   }, [accounts]);
 
@@ -89,17 +105,29 @@ export default function StaffAccountsPage() {
       await createStaffAccount(form);
       setForm({ fullName: "", email: "", password: "" });
       setMessage("Staff account created.");
+      setShowCreate(false);
       await loadAccounts();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to create staff account.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to create staff account.",
+      );
     } finally {
       setIsWorking(false);
     }
   }
 
-  async function handleRoleChange(account: OfficeAccount, nextRole: "admin" | "staff") {
+  async function handleRoleChange(
+    account: OfficeAccount,
+    nextRole: "admin" | "staff",
+  ) {
     if (!canManage || account.role === nextRole) return;
-    if (account.role === "admin" && nextRole === "staff" && counts.admins <= 1) {
+    if (
+      account.role === "admin" &&
+      nextRole === "staff" &&
+      counts.admins <= 1
+    ) {
       setMessage("At least one administrator account must remain assigned.");
       return;
     }
@@ -108,10 +136,14 @@ export default function StaffAccountsPage() {
     setMessage("");
     try {
       await updateOfficeRole(account.id, nextRole);
-      setMessage(`${account.full_name || account.id} role updated to ${nextRole}.`);
+      setMessage(
+        `${account.full_name || account.id} role updated to ${nextRole}.`,
+      );
       await loadAccounts();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to update role.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to update role.",
+      );
     } finally {
       setIsWorking(false);
     }
@@ -124,11 +156,17 @@ export default function StaffAccountsPage() {
     setMessage("");
     try {
       await deleteOfficeAccount(deleteTarget.id);
-      setMessage(`${deleteTarget.full_name || deleteTarget.id} account deleted.`);
+      setMessage(
+        `${deleteTarget.full_name || deleteTarget.id} account deleted.`,
+      );
       setDeleteTarget(null);
       await loadAccounts();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to delete office account.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete office account.",
+      );
     } finally {
       setIsWorking(false);
     }
@@ -136,11 +174,25 @@ export default function StaffAccountsPage() {
 
   return (
     <section className="admin-page residents-page staff-page">
-      <div className="page-heading">
-        <p>Office accounts</p>
-        <h2>Staff Account Management</h2>
-        <span>Create staff accounts and maintain admin/staff access assignments.</span>
-      </div>
+      <PageHeader
+        title="Staff accounts"
+        eyebrow="Administration"
+        description="Manage the people and permissions behind your barangay services."
+      >
+        {canManage ? (
+          <button
+            type="button"
+            className="primary-admin-button"
+            onClick={() => {
+              setMessage("");
+              setShowCreate(true);
+            }}
+          >
+            <UserPlus size={17} />
+            Add staff account
+          </button>
+        ) : null}
+      </PageHeader>
 
       <div className="report-stats staff-stats">
         <article className="report-stat dark">
@@ -158,71 +210,139 @@ export default function StaffAccountsPage() {
       </div>
 
       {message ? (
-        <div className="admin-message">
+        <div className="admin-message" role="status">
           <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
+          <button onClick={() => setMessage("")} type="button">
+            Dismiss
+          </button>
         </div>
       ) : null}
 
       {!canManage ? (
-        <div className="empty-state">Only administrators can manage office accounts.</div>
-      ) : (
-        <section className="announcement-panel staff-create-panel">
-          <div className="announcement-section-header">
-            <span><UserPlus size={20} /></span>
-            <div>
-              <h3>Create Staff Account</h3>
-              <p>Provision a new office account with staff access.</p>
+        <div className="empty-state">
+          Only administrators can manage office accounts.
+        </div>
+      ) : showCreate ? (
+        <Modal
+          title="Create staff account"
+          onClose={() => {
+            if (!isWorking) setShowCreate(false);
+          }}
+        >
+          <section className="announcement-panel staff-create-panel">
+            <div className="announcement-section-header">
+              <span>
+                <UserPlus size={20} />
+              </span>
+              <div>
+                <h3>Create Staff Account</h3>
+                <p>Provision a new office account with staff access.</p>
+              </div>
+              <em>Admin only</em>
             </div>
-            <em>Admin only</em>
-          </div>
-          <form className="announcement-form staff-form" onSubmit={handleSubmit}>
-            <label>
-              Full Name
-              <input
-                value={form.fullName}
-                onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
-                placeholder="Enter staff full name"
-                required
-              />
-            </label>
-            <label>
-              Email
-              <input
-                type="email"
-                value={form.email}
-                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                placeholder="staff@barangay.gov.ph"
-                required
-              />
-            </label>
-            <label>
-              Temporary Password
-              <input
-                type="password"
-                minLength={8}
-                value={form.password}
-                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-                placeholder="Minimum 8 characters"
-                required
-              />
-            </label>
-            <div className="announcement-form-footer">
-              <button className="primary-admin-button" disabled={isWorking} type="submit">
-                {isWorking ? "Creating..." : "Create Staff Account"}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
+            {message ? (
+              <div className="admin-message" role="status">
+                {message}
+              </div>
+            ) : null}
+            <form
+              className="announcement-form staff-form"
+              onSubmit={handleSubmit}
+            >
+              <label>
+                Full Name
+                <input
+                  value={form.fullName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter staff full name"
+                  required
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="staff@barangay.gov.ph"
+                  required
+                />
+              </label>
+              <label>
+                Temporary Password
+                <input
+                  type="password"
+                  minLength={8}
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Minimum 8 characters"
+                  required
+                />
+              </label>
+              <div className="announcement-form-footer">
+                <button
+                  className="secondary-admin-button"
+                  disabled={isWorking}
+                  onClick={() => setShowCreate(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primary-admin-button"
+                  disabled={isWorking}
+                  type="submit"
+                >
+                  {isWorking ? "Creating..." : "Create Staff Account"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </Modal>
+      ) : null}
 
       <div className="resident-panel staff-directory-panel">
         <div className="resident-panel-heading">
           <div>
             <h3>Office User Directory</h3>
-            <p>Review office accounts and update their assigned access level.</p>
+            <p>
+              Review office accounts and update their assigned access level.
+            </p>
           </div>
-          <button onClick={loadAccounts} type="button">Refresh</button>
+          <button disabled={isLoading} onClick={loadAccounts} type="button">
+            Refresh
+          </button>
+        </div>
+        <div className="directory-tools">
+          <label className="resident-search">
+            <input
+              aria-label="Search staff accounts"
+              placeholder="Search name, email, or role…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <span>{visibleAccounts.length} accounts</span>
+        </div>
+        <div className="role-guidance">
+          <strong>Staff</strong> handle daily services.{" "}
+          <strong>Administrators</strong> also manage analytics, office
+          accounts, and report deletion.
         </div>
         <div className="resident-table staff-directory-table">
           <div className="resident-table-head staff-directory-head">
@@ -232,28 +352,38 @@ export default function StaffAccountsPage() {
             <span>Actions</span>
           </div>
 
-          {accounts.length === 0 && !isLoading ? (
-            <div className="empty-state">No admin/staff profiles found.</div>
+          {visibleAccounts.length === 0 && !isLoading ? (
+            <div className="empty-state">
+              No office accounts match this search.
+            </div>
           ) : (
-            accounts.map((account) => (
-              <article className="resident-row staff-directory-row" key={account.id}>
+            visibleAccounts.map((account) => (
+              <article
+                className="resident-row staff-directory-row"
+                key={account.id}
+              >
                 <div className="resident-person">
                   <span className="resident-avatar fallback">
                     <ShieldCheck size={19} />
                   </span>
                   <div className="staff-directory-identity">
-                    <strong>{account.full_name || "Unnamed office user"}</strong>
+                    <strong>
+                      {account.full_name || "Unnamed office user"}
+                    </strong>
                     <span>{account.email?.trim() || "No email saved"}</span>
-                    <small>{account.id}</small>
                   </div>
                 </div>
                 <div className="staff-directory-cell">
-                  <span className={`status-badge ${getAccountStatusClassName(account.status)}`}>
+                  <span
+                    className={`status-badge ${getAccountStatusClassName(account.status)}`}
+                  >
                     {getAccountStatusLabel(account.status)}
                   </span>
                 </div>
                 <div className="staff-directory-cell">
-                  <span className={`status-badge ${account.role === "admin" ? "approved" : "info"}`}>
+                  <span
+                    className={`status-badge ${account.role === "admin" ? "approved" : "info"}`}
+                  >
                     {account.role === "admin" ? "Admin" : "Staff"}
                   </span>
                 </div>
@@ -263,13 +393,18 @@ export default function StaffAccountsPage() {
                     disabled={!canManage || isWorking}
                     options={roleOptions}
                     value={account.role}
-                    onChange={(nextRole) => handleRoleChange(account, nextRole as "admin" | "staff")}
+                    onChange={(nextRole) =>
+                      handleRoleChange(account, nextRole as "admin" | "staff")
+                    }
                   />
                   <button
                     className="staff-delete-button"
                     aria-label={`Delete ${account.full_name || "office account"}`}
                     disabled={isWorking}
-                    onClick={() => setDeleteTarget(account)}
+                    onClick={() => {
+                      setMessage("");
+                      setDeleteTarget(account);
+                    }}
                     title="Delete account"
                     type="button"
                   >
@@ -281,9 +416,12 @@ export default function StaffAccountsPage() {
           )}
         </div>
       </div>
-      {isLoading ? <AdminLoadingOverlay label="Loading office accounts..." /> : null}
+      {isLoading ? (
+        <AdminLoadingOverlay label="Loading office accounts..." />
+      ) : null}
       {deleteTarget ? (
         <DeleteOfficeAccountDialog
+          message={message}
           account={deleteTarget}
           isWorking={isWorking}
           onClose={() => setDeleteTarget(null)}
@@ -295,30 +433,41 @@ export default function StaffAccountsPage() {
 }
 
 function DeleteOfficeAccountDialog({
+  message,
   account,
   isWorking,
   onClose,
-  onConfirm
+  onConfirm,
 }: {
   account: OfficeAccount;
+  message: string;
   isWorking: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="reject-modal" onClick={(event) => event.stopPropagation()}>
+    <Modal title="Delete office account" onClose={onClose}>
+      <div
+        className="reject-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
             <h2>Delete Office Account</h2>
             <p>
-              Remove {account.full_name || "this account"} from the office directory and delete its login access?
+              Remove {account.full_name || "this account"} from the office
+              directory and delete its login access?
             </p>
           </div>
           <button onClick={onClose} type="button" aria-label="Close">
             <X size={20} />
           </button>
         </div>
+        {message ? (
+          <div className="admin-message" role="status">
+            {message}
+          </div>
+        ) : null}
         <div className="approval-summary">
           <div className="detail-item">
             <span>Full name</span>
@@ -334,14 +483,23 @@ function DeleteOfficeAccountDialog({
           </div>
         </div>
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onClose} type="button">
+          <button
+            className="secondary-admin-button"
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
-          <button className="danger-admin-button" disabled={isWorking} onClick={onConfirm} type="button">
+          <button
+            className="danger-admin-button"
+            disabled={isWorking}
+            onClick={onConfirm}
+            type="button"
+          >
             {isWorking ? "Deleting..." : "Delete account"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -8,18 +8,21 @@ type ReportLocationMapProps = {
   longitude: number;
 };
 
-export function ReportLocationMap({ latitude, longitude }: ReportLocationMapProps) {
+export function ReportLocationMap({
+  latitude,
+  longitude,
+}: ReportLocationMapProps) {
   return (
     <MapContainer
       center={[latitude, longitude]}
       zoom={17}
-      scrollWheelZoom
+      scrollWheelZoom={false}
       dragging
       doubleClickZoom
       touchZoom
       keyboard
       zoomControl
-      attributionControl={false}
+      attributionControl
       className="report-location-map"
     >
       <TileLayer
@@ -27,6 +30,10 @@ export function ReportLocationMap({ latitude, longitude }: ReportLocationMapProp
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Marker
+        title="Reported location"
+        alt="Reported location"
+        interactive={false}
+        keyboard={false}
         icon={createBluePinIcon()}
         position={[latitude, longitude]}
       />
@@ -47,6 +54,6 @@ function createBluePinIcon() {
       </div>
     `,
     iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2]
+    popupAnchor: [0, -size / 2],
   });
 }

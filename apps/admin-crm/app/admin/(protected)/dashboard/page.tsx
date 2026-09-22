@@ -1,525 +1,288 @@
 "use client";
-
+import Link from "next/link";
 import {
-  BellRing,
-  ClipboardCheck,
+  ArrowRight,
+  FileBadge2,
   FileText,
-  FileWarning,
   MapPinned,
   Megaphone,
-  RefreshCw,
-  ShieldAlert,
   ShieldCheck,
-  TrendingUp,
-  UsersRound
 } from "lucide-react";
-import Link from "next/link";
-import { ReactNode, useEffect, useMemo, useState } from "react";
-import { useAdminRole } from "@/components/admin-role-context";
+import { useEffect, useMemo, useState } from "react";
+import {
+  PageHeader,
+  Metric,
+  Panel,
+  Notice,
+  RefreshButton,
+} from "@/components/workspace-ui";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { fetchAnnouncements } from "@/lib/announcements";
+import { fetchDocumentRequests } from "@/lib/document-requests";
 import { fetchReports } from "@/lib/reports";
-import { normalizeReportStatus, shortReportCategory } from "@/lib/report-utils";
 import { fetchResidents } from "@/lib/residents";
-import { canViewAnalytics } from "@/lib/roles";
-import type { Announcement, CommunityReport, Resident } from "@/lib/types";
+import {
+  normalizeReportStatus,
+  reportStatusLabel,
+  shortReportCategory,
+} from "@/lib/report-utils";
+import { reportSnapshot } from "@/lib/workspace-metrics";
+import type {
+  Announcement,
+  CommunityReport,
+  DocumentRequest,
+  Resident,
+} from "@/lib/types";
 
 export default function AdminDashboardPage() {
-  const { role } = useAdminRole();
-  const allowAnalytics = canViewAnalytics(role);
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [documents, setDocuments] = useState<DocumentRequest[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
-
-  async function loadDashboard() {
+  const [lastUpdated, setLastUpdated] = useState("");
+  async function load() {
     setIsLoading(true);
     setMessage("");
-
     try {
-      const [nextReports, nextResidents, nextAnnouncements] = await Promise.all([
+      const [r, u, a, d] = await Promise.all([
         fetchReports(),
         fetchResidents(),
-        fetchAnnouncements()
+        fetchAnnouncements(),
+        fetchDocumentRequests(),
       ]);
-
-      setReports(nextReports);
-      setResidents(nextResidents);
-      setAnnouncements(nextAnnouncements);
-      setLastUpdatedAt(new Date().toISOString());
+      setReports(r);
+      setResidents(u);
+      setAnnouncements(a);
+      setDocuments(d);
+      setLastUpdated(
+        new Date().toLocaleTimeString("en-PH", {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load dashboard data.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to refresh the dashboard. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
   }
-
   useEffect(() => {
-    void loadDashboard();
+    void load();
   }, []);
-
-  const dashboard = useMemo(() => buildDashboardData(reports, residents, announcements), [announcements, reports, residents]);
-
+  const snapshot = useMemo(() => reportSnapshot(reports), [reports]);
+  const pendingResidents = residents.filter((r) => r.status === "pending");
+  const pendingDocuments = documents.filter((d) => d.status === "pending");
+  const readyDocuments = documents.filter(
+    (d) => d.status === "ready_for_release",
+  ).length;
+  const draftCount = announcements.filter((a) => !a.is_published).length;
+  const recentReports = [...reports]
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .slice(0, 5);
+  const queues = [
+    {
+      title: "Verify residents",
+      detail: "Check identity documents and registration details",
+      count: pendingResidents.length,
+      href: "/admin/residents",
+      icon: ShieldCheck,
+    },
+    {
+      title: "Review community reports",
+      detail: "Categorize concerns and start follow-up",
+      count: snapshot.pending,
+      href: "/admin/reports",
+      icon: FileText,
+    },
+    {
+      title: "Process document requests",
+      detail: "Review applications, fees, and requirements",
+      count: pendingDocuments.length,
+      href: "/admin/documents",
+      icon: FileBadge2,
+    },
+  ];
   return (
-    <section className="dashboard-page dashboard-page-enhanced">
-      <div className="dashboard-overview-hero">
-        <div className="dashboard-overview-copy">
-          <span>Barangay admin command center</span>
-          <h2>Dashboard Overview</h2>
-          <p>
-            Monitor urgent cases, resident verification workload, communications readiness, and field visibility from one
-            government-focused workspace.
-          </p>
-        </div>
-        <div className="dashboard-overview-side">
-          <div className="dashboard-overview-meta">
-            <article>
-              <strong>Open cases</strong>
-              <p>{dashboard.activeReports} active service concerns</p>
-            </article>
-            <article>
-              <strong>Last refreshed</strong>
-              <p>{lastUpdatedAt ? formatDateTime(lastUpdatedAt) : "Waiting for first sync"}</p>
-            </article>
-          </div>
-          <button aria-label="Refresh dashboard" onClick={loadDashboard} title="Refresh dashboard" type="button">
-            <RefreshCw size={18} />
-          </button>
-        </div>
-      </div>
-
-      {message ? (
-        <div className="admin-message">
-          <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
-        </div>
+    <section className="workspace-page overview-page" aria-busy={isLoading}>
+      <PageHeader
+        title="Community overview"
+        description="A clear view of today's workload and the people waiting for your help."
+      >
+        <span className="sync-note">
+          {lastUpdated ? `Updated ${lastUpdated}` : "Not yet refreshed"}
+        </span>
+        <RefreshButton loading={isLoading} onClick={load} />
+      </PageHeader>
+      <Notice message={message} onDismiss={() => setMessage("")} />
+      {isLoading ? (
+        <AdminLoadingOverlay label="Loading community overview…" />
       ) : null}
-
-      <div className="dashboard-stat-grid dashboard-stat-grid-enhanced">
-        <DashboardStat href="/admin/reports" icon={FileWarning} label="Pending Reports" tone="gold" value={dashboard.pendingReports} note={`${dashboard.progressReports} in progress`} />
-        <DashboardStat href="/admin/residents" icon={UsersRound} label="Pending Residents" tone="blue" value={dashboard.pendingResidents} note={`${dashboard.approvedResidents} approved residents`} />
-        <DashboardStat href="/admin/map" icon={MapPinned} label="Mapped Reports" tone="teal" value={dashboard.mappedReports} note={`${dashboard.mappedCoverage}% geotag coverage`} />
-        <DashboardStat href="/admin/announcements" icon={Megaphone} label="Published Notices" tone="green" value={dashboard.publishedAnnouncements} note={`${dashboard.draftAnnouncements} drafts waiting`} />
-        <DashboardStat href="/admin/reports" icon={ShieldAlert} label="Overdue Open Cases" tone="rose" value={dashboard.overdueOpenReports} note="Pending for 7+ days" />
-        <DashboardStat href={allowAnalytics ? "/admin/analytics" : "/admin/reports"} icon={TrendingUp} label="Top Concern" tone="sky" valueLabel={shortReportCategory(dashboard.topCategory)} note={`${dashboard.reportsThisMonth} reports this month`} />
-      </div>
-
-      <div className="dashboard-priority-grid">
-        <FeatureSummaryCard
-          badge={`${dashboard.pendingReports} for review`}
-          badgeTone="gold"
-          icon={ClipboardCheck}
-          title="Immediate Action Queue"
-          subtitle="The most urgent workload that needs barangay action today."
-          items={[
-            { label: "Pending reports", value: dashboard.pendingReports, href: "/admin/reports" },
-            { label: "Pending residents", value: dashboard.pendingResidents, href: "/admin/residents" },
-            { label: "Overdue open cases", value: dashboard.overdueOpenReports, href: "/admin/reports" },
-            { label: "Draft announcements", value: dashboard.draftAnnouncements, href: "/admin/announcements" }
-          ]}
+      <div className="workspace-metrics">
+        <Metric
+          label="Open reports"
+          value={snapshot.open}
+          note={`${snapshot.progress} currently in progress`}
+          href="/admin/reports"
         />
-        <FeatureSummaryCard
-          badge={`${dashboard.resolutionRate}% closure rate`}
-          badgeTone="blue"
-          icon={FileText}
-          title="Service Operations Snapshot"
-          subtitle="At-a-glance operational view of report handling across the barangay."
-          items={[
-            { label: "Total reports", value: dashboard.totalReports, href: "/admin/reports" },
-            { label: "In progress", value: dashboard.progressReports, href: "/admin/reports" },
-            { label: "Resolved", value: dashboard.resolvedReports, href: "/admin/reports" },
-            { label: "Unmapped open cases", value: dashboard.unmappedOpenReports, href: "/admin/map" }
-          ]}
+        <Metric
+          label="Awaiting verification"
+          value={pendingResidents.length}
+          note="Resident registrations to review"
+          href="/admin/residents"
+          tone="amber"
+        />
+        <Metric
+          label="Document review"
+          value={pendingDocuments.length}
+          note={`${readyDocuments} ready for release`}
+          href="/admin/documents"
+          tone="teal"
+        />
+        <Metric
+          label="Resolved reports"
+          value={snapshot.resolved}
+          note={`${snapshot.resolutionRate}% of all submitted reports`}
+          href="/admin/reports"
+          tone="green"
         />
       </div>
-
-      <div className="dashboard-grid dashboard-grid-enhanced">
-        <DashboardPanel actionHref="/admin/reports" actionLabel="Open reports" icon={ClipboardCheck} title="Recent Community Reports">
-          <div className="dashboard-list dashboard-list-large">
-            {dashboard.recentReports.length === 0 ? (
-              <EmptyDashboardText text="No reports submitted yet." />
+      <div className="overview-columns">
+        <Panel
+          title="Needs your attention"
+          description="Start with the queues waiting for review."
+        >
+          <div className="action-queue">
+            {queues.map((q) => (
+              <Link href={q.href} key={q.href}>
+                <span className="queue-icon">
+                  <q.icon size={21} />
+                </span>
+                <div>
+                  <h3>{q.title}</h3>
+                  <p>{q.detail}</p>
+                </div>
+                <strong>{q.count}</strong>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+          </div>
+          <div className="queue-footnote">
+            <span>
+              {snapshot.overdue} open reports are at least 7 days old.
+            </span>
+            <Link href="/admin/reports">
+              Review reports <ArrowRight size={14} />
+            </Link>
+          </div>
+        </Panel>
+        <Panel
+          title="Field & communications"
+          description="Keep local action and public updates connected."
+        >
+          <div className="operation-link">
+            <MapPinned size={22} />
+            <div>
+              <h3>Complaint map</h3>
+              <p>
+                {snapshot.mapped} mapped reports · {snapshot.unmappedOpen} open
+                reports without valid locations
+              </p>
+              <Link href="/admin/map">
+                Explore the map <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+          <div className="operation-link">
+            <Megaphone size={22} />
+            <div>
+              <h3>Public announcements</h3>
+              <p>
+                {announcements.length - draftCount} published · {draftCount}{" "}
+                drafts
+              </p>
+              <Link href="/admin/announcements">
+                Manage announcements <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </Panel>
+      </div>
+      <div className="overview-columns">
+        <Panel
+          title="Recent community reports"
+          description="Latest submissions across all statuses."
+          action={<Link href="/admin/reports">View all</Link>}
+        >
+          <div className="overview-list">
+            {recentReports.length ? (
+              recentReports.map((r) => (
+                <Link href="/admin/reports" key={r.id}>
+                  <span className="list-avatar">
+                    <FileText size={18} />
+                  </span>
+                  <div>
+                    <strong>{shortReportCategory(r.category)}</strong>
+                    <p>{r.description || "No description provided"}</p>
+                    <small>
+                      {r.reporter_name || "Resident"} ·{" "}
+                      {new Date(r.created_at).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </small>
+                  </div>
+                  <span
+                    className={`status-badge ${normalizeReportStatus(r.status).replace(" ", "-")}`}
+                  >
+                    {reportStatusLabel(normalizeReportStatus(r.status))}
+                  </span>
+                </Link>
+              ))
             ) : (
-              dashboard.recentReports.map((report) => <ReportPreview key={report.id} report={report} />)
+              <p className="empty-state">No community reports yet.</p>
             )}
           </div>
-        </DashboardPanel>
-
-        <DashboardPanel actionHref="/admin/residents" actionLabel="Review residents" icon={ShieldCheck} title="Resident Verification Queue">
-          <div className="dashboard-list dashboard-list-large">
-            {dashboard.recentResidents.length === 0 ? (
-              <EmptyDashboardText text="No resident registrations yet." />
-            ) : (
-              dashboard.recentResidents.map((resident) => <ResidentPreview key={resident.id} resident={resident} />)
-            )}
+        </Panel>
+        <Panel
+          title="Resident review queue"
+          description="Oldest pending registrations first."
+          action={<Link href="/admin/residents">View all</Link>}
+        >
+          <div className="overview-list">
+            {[...pendingResidents]
+              .sort(
+                (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+              )
+              .slice(0, 5)
+              .map((r) => (
+                <Link href="/admin/residents" key={r.id}>
+                  <span className="list-avatar">
+                    {r.full_name?.charAt(0) || "R"}
+                  </span>
+                  <div>
+                    <strong>{r.full_name || "Unnamed resident"}</strong>
+                    <p>{r.address || "Address not provided"}</p>
+                    <small>
+                      {new Date(r.created_at).toLocaleDateString("en-PH")}
+                    </small>
+                  </div>
+                  <ArrowRight size={16} />
+                </Link>
+              ))}
+            {!pendingResidents.length ? (
+              <p className="empty-state">
+                No registrations waiting for review.
+              </p>
+            ) : null}
           </div>
-        </DashboardPanel>
-
-        <DashboardPanel actionHref="/admin/announcements" actionLabel="Manage notices" icon={BellRing} title="Public Communications Board">
-          <div className="dashboard-list dashboard-list-large">
-            {dashboard.recentAnnouncements.length === 0 ? (
-              <EmptyDashboardText text="No announcements posted yet." />
-            ) : (
-              dashboard.recentAnnouncements.map((announcement) => <AnnouncementPreview key={announcement.id} announcement={announcement} />)
-            )}
-          </div>
-        </DashboardPanel>
-
-        <DashboardPanel actionHref={allowAnalytics ? "/admin/analytics" : undefined} actionLabel={allowAnalytics ? "View analytics" : undefined} icon={TrendingUp} title="Operational Indicators">
-          <div className="workload-snapshot workload-snapshot-large">
-            <SnapshotRow label="Pending reports" value={dashboard.pendingReports} max={dashboard.totalReports} tone="gold" />
-            <SnapshotRow label="In progress" value={dashboard.progressReports} max={dashboard.totalReports} tone="blue" />
-            <SnapshotRow label="Resolved" value={dashboard.resolvedReports} max={dashboard.totalReports} tone="green" />
-            <SnapshotRow label="Pending residents" value={dashboard.pendingResidents} max={dashboard.totalResidents} tone="rose" />
-          </div>
-        </DashboardPanel>
-      </div>
-
-      <div className="dashboard-utility-grid">
-        <UtilityPanel title="Quick Government Actions" subtitle="Go straight to the most common administrative tasks.">
-          <QuickActionLink href="/admin/residents" label="Approve pending residents" note={`${dashboard.pendingResidents} waiting`} />
-          <QuickActionLink href="/admin/reports" label="Review pending reports" note={`${dashboard.pendingReports} unresolved submissions`} />
-          <QuickActionLink href="/admin/map" label="Inspect map-based cases" note={`${dashboard.mappedReports} with valid coordinates`} />
-          <QuickActionLink href="/admin/announcements" label="Publish public updates" note={`${dashboard.draftAnnouncements} drafts available`} />
-        </UtilityPanel>
-
-        <UtilityPanel title="Registry and Communications" subtitle="Key registry and public information health indicators.">
-          <MiniMetricRow label="Resident approval rate" value={`${dashboard.approvalRate}%`} tone="blue" />
-          <MiniMetricRow label="Announcement publishing rate" value={`${dashboard.publishingRate}%`} tone="teal" />
-          <MiniMetricRow label="Report-to-resident ratio" value={`${dashboard.reportToResidentRatio}%`} tone="gold" />
-          <MiniMetricRow label="Reports this month" value={dashboard.reportsThisMonth.toString()} tone="rose" />
-        </UtilityPanel>
-      </div>
-
-      {isLoading ? <AdminLoadingOverlay label="Loading dashboard data..." /> : null}
-    </section>
-  );
-}
-
-function DashboardStat({
-  href,
-  icon: Icon,
-  label,
-  note,
-  tone,
-  value,
-  valueLabel
-}: {
-  href: string;
-  icon: typeof FileWarning;
-  label: string;
-  note: string;
-  tone: string;
-  value?: number;
-  valueLabel?: string;
-}) {
-  return (
-    <Link className={`dashboard-stat ${tone}`} href={href}>
-      <span><Icon size={24} /></span>
-      <strong>{typeof value === "number" ? value : valueLabel}</strong>
-      <h3>{label}</h3>
-      <p>{note}</p>
-    </Link>
-  );
-}
-
-function DashboardPanel({
-  actionHref,
-  actionLabel,
-  children,
-  icon: Icon,
-  title
-}: {
-  actionHref?: string;
-  actionLabel?: string;
-  children: ReactNode;
-  icon: typeof ClipboardCheck;
-  title: string;
-}) {
-  return (
-    <section className="dashboard-panel dashboard-panel-enhanced">
-      <div className="dashboard-panel-head">
-        <div>
-          <span><Icon size={18} /></span>
-          <h3>{title}</h3>
-        </div>
-        {actionHref && actionLabel ? <Link href={actionHref}>{actionLabel}</Link> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function FeatureSummaryCard({
-  badge,
-  badgeTone,
-  icon: Icon,
-  items,
-  subtitle,
-  title
-}: {
-  badge: string;
-  badgeTone: string;
-  icon: typeof ClipboardCheck;
-  items: Array<{ href: string; label: string; value: number }>;
-  subtitle: string;
-  title: string;
-}) {
-  return (
-    <section className="feature-summary-card">
-      <div className="feature-summary-head">
-        <div>
-          <span><Icon size={19} /></span>
-          <div>
-            <h3>{title}</h3>
-            <p>{subtitle}</p>
-          </div>
-        </div>
-        <em className={badgeTone}>{badge}</em>
-      </div>
-      <div className="feature-summary-list">
-        {items.map((item) => (
-          <Link className="feature-summary-item" href={item.href} key={item.label}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-          </Link>
-        ))}
+        </Panel>
       </div>
     </section>
   );
-}
-
-function UtilityPanel({ children, subtitle, title }: { children: ReactNode; subtitle: string; title: string }) {
-  return (
-    <section className="utility-panel">
-      <div className="utility-panel-head">
-        <h3>{title}</h3>
-        <p>{subtitle}</p>
-      </div>
-      <div className="utility-panel-body">{children}</div>
-    </section>
-  );
-}
-
-function QuickActionLink({ href, label, note }: { href: string; label: string; note: string }) {
-  return (
-    <Link className="quick-action-link" href={href}>
-      <div>
-        <strong>{label}</strong>
-        <span>{note}</span>
-      </div>
-      <em>Open</em>
-    </Link>
-  );
-}
-
-function MiniMetricRow({ label, tone, value }: { label: string; tone: string; value: string }) {
-  return (
-    <article className="mini-metric-row">
-      <div>
-        <strong>{label}</strong>
-        <span>{value}</span>
-      </div>
-      <i className={tone} />
-    </article>
-  );
-}
-
-function ReportPreview({ report }: { report: CommunityReport }) {
-  const category = shortReportCategory(report.category);
-  return (
-    <Link className="dashboard-preview dashboard-preview-enhanced" href="/admin/reports">
-      <div>
-        <strong>{report.description?.trim() || "Untitled community report"}</strong>
-        <span>{report.reporter_name ?? "Unknown resident"} | {category} | {shortDate(report.created_at)}</span>
-      </div>
-      <StatusPill status={normalizeReportStatus(report.status)} />
-    </Link>
-  );
-}
-
-function ResidentPreview({ resident }: { resident: Resident }) {
-  return (
-    <Link className="dashboard-preview dashboard-preview-enhanced" href="/admin/residents">
-      <div>
-        <strong>{resident.full_name || "Unnamed resident"}</strong>
-        <span>{resident.address || "No address provided"} | {shortDate(resident.created_at)}</span>
-      </div>
-      <StatusPill status={resident.status === "rejected" ? "flagged" : resident.status} />
-    </Link>
-  );
-}
-
-function AnnouncementPreview({ announcement }: { announcement: Announcement }) {
-  return (
-    <Link className="dashboard-preview dashboard-preview-enhanced" href="/admin/announcements">
-      <div>
-        <strong>{announcement.title || "Untitled announcement"}</strong>
-        <span>{shortDate(announcement.created_at)} | {announcement.is_published ? "Published" : "Draft"}</span>
-      </div>
-      <StatusPill status={announcement.is_published ? "published" : "draft"} />
-    </Link>
-  );
-}
-
-function SnapshotRow({
-  label,
-  max,
-  tone,
-  value
-}: {
-  label: string;
-  max: number;
-  tone: string;
-  value: number;
-}) {
-  const denominator = Math.max(max, 1);
-
-  return (
-    <div className="snapshot-row snapshot-row-enhanced">
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <i><b className={tone} style={{ width: `${Math.max(10, (value / denominator) * 100)}%` }} /></i>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const label =
-    status === "in progress"
-      ? "In Progress"
-      : status.charAt(0).toUpperCase() + status.slice(1);
-
-  return <em className={`dashboard-pill ${status.replace(" ", "-")}`}>{label}</em>;
-}
-
-function EmptyDashboardText({ text }: { text: string }) {
-  return <div className="dashboard-empty">{text}</div>;
-}
-
-function buildDashboardData(reports: CommunityReport[], residents: Resident[], announcements: Announcement[]) {
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  let pendingReports = 0;
-  let progressReports = 0;
-  let resolvedReports = 0;
-  let mappedReports = 0;
-  let overdueOpenReports = 0;
-  let unmappedOpenReports = 0;
-  let reportsThisMonth = 0;
-  const categoryCounts = new Map<string, number>();
-
-  reports.forEach((report) => {
-    const status = normalizeReportStatus(report.status);
-    if (status === "pending") pendingReports += 1;
-    if (status === "in progress") progressReports += 1;
-    if (status === "resolved") resolvedReports += 1;
-
-    const category = shortReportCategory(report.category);
-    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
-
-    const createdAt = new Date(report.created_at);
-    if (!Number.isNaN(createdAt.getTime())) {
-      if (createdAt <= sevenDaysAgo && status !== "resolved") overdueOpenReports += 1;
-      if (createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear) reportsThisMonth += 1;
-    }
-
-    const hasCoordinates =
-      typeof report.latitude === "number" &&
-      typeof report.longitude === "number" &&
-      Number.isFinite(report.latitude) &&
-      Number.isFinite(report.longitude) &&
-      !(report.latitude === 0 && report.longitude === 0);
-
-    if (hasCoordinates) {
-      mappedReports += 1;
-    } else if (status !== "resolved") {
-      unmappedOpenReports += 1;
-    }
-  });
-
-  let pendingResidents = 0;
-  let approvedResidents = 0;
-  residents.forEach((resident) => {
-    if (resident.status === "pending") pendingResidents += 1;
-    if (resident.status === "approved") approvedResidents += 1;
-  });
-
-  const publishedAnnouncements = announcements.filter((item) => item.is_published).length;
-  const draftAnnouncements = announcements.filter((item) => !item.is_published).length;
-
-  const topCategory =
-    categoryCounts.size === 0
-      ? "No reports"
-      : Array.from(categoryCounts.entries()).reduce((best, current) => {
-          if (best[1] === current[1]) return best[0].localeCompare(current[0]) <= 0 ? best : current;
-          return best[1] > current[1] ? best : current;
-        })[0];
-
-  const totalReports = reports.length;
-  const totalResidents = residents.length;
-  const activeReports = pendingReports + progressReports;
-  const mappedCoverage = totalReports === 0 ? 0 : Math.round((mappedReports / totalReports) * 100);
-  const resolutionRate = totalReports === 0 ? 0 : Math.round((resolvedReports / totalReports) * 100);
-  const approvalRate = totalResidents === 0 ? 0 : Math.round((approvedResidents / totalResidents) * 100);
-  const publishingRate = announcements.length === 0 ? 0 : Math.round((publishedAnnouncements / announcements.length) * 100);
-  const reportToResidentRatio = totalResidents === 0 ? 0 : Math.round((totalReports / totalResidents) * 100);
-
-  return {
-    activeReports,
-    approvalRate,
-    approvedResidents,
-    draftAnnouncements,
-    mappedCoverage,
-    mappedReports,
-    overdueOpenReports,
-    pendingResidents,
-    pendingReports,
-    progressReports,
-    publishedAnnouncements,
-    publishingRate,
-    recentAnnouncements: announcements.slice(0, 4),
-    recentReports: reports.slice(0, 5),
-    recentResidents: residents.slice(0, 5),
-    reportToResidentRatio,
-    reportsThisMonth,
-    resolvedReports,
-    resolutionRate,
-    topCategory,
-    totalReports,
-    totalResidents,
-    unmappedOpenReports
-  };
-}
-
-function formatDateTime(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
-
-function shortDate(value?: string) {
-  if (!value) return "Not provided";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
 }

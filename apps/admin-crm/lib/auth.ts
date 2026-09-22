@@ -1,12 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { isOfficeRole, type OfficeRole } from "@/lib/roles";
 
-export async function signInAsOfficeUser(
-  email: string,
-  password: string
-) {
+export async function signInAsOfficeUser(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  const normalizedPassword = password.trim();
+  const normalizedPassword = password;
 
   if (!normalizedEmail || !normalizedPassword) {
     return { ok: false, message: "Email and password are required." };
@@ -14,7 +11,7 @@ export async function signInAsOfficeUser(
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
-    password: normalizedPassword
+    password: normalizedPassword,
   });
 
   if (error || !data.user) {
@@ -26,7 +23,7 @@ export async function signInAsOfficeUser(
 
 export async function getCurrentOfficeRole() {
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return null;
@@ -49,7 +46,7 @@ export async function getCurrentOfficeRole() {
 
 export async function createAdminServerSession(expectedRole: OfficeRole) {
   const {
-    data: { session }
+    data: { session },
   } = await supabase.auth.getSession();
 
   const accessToken = session?.access_token?.trim() ?? "";
@@ -60,7 +57,7 @@ export async function createAdminServerSession(expectedRole: OfficeRole) {
   const response = await fetch("/api/admin/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken, expectedRole })
+    body: JSON.stringify({ accessToken, expectedRole }),
   });
 
   if (!response.ok) {
@@ -69,7 +66,7 @@ export async function createAdminServerSession(expectedRole: OfficeRole) {
     } | null;
     return {
       ok: false,
-      message: payload?.message ?? "Unable to create admin session."
+      message: payload?.message ?? "Unable to create admin session.",
     };
   }
 
@@ -79,7 +76,7 @@ export async function createAdminServerSession(expectedRole: OfficeRole) {
 export async function getAdminServerSession() {
   const response = await fetch("/api/admin/session", {
     method: "GET",
-    cache: "no-store"
+    cache: "no-store",
   });
 
   if (!response.ok) return null;
@@ -97,7 +94,7 @@ export async function getAdminServerSession() {
 
 export async function clearAdminServerSession() {
   await fetch("/api/admin/session", {
-    method: "DELETE"
+    method: "DELETE",
   }).catch(() => undefined);
 }
 

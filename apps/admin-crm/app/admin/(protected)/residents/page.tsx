@@ -1,19 +1,14 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import {
-  Check,
-  Eye,
-  RefreshCw,
-  Search,
-  UserRound,
-  X
-} from "lucide-react";
+import { Modal } from "@/components/modal";
+import { PageHeader } from "@/components/workspace-ui";
+import { Check, Eye, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   approveResident,
   fetchResidents,
-  rejectResident
+  rejectResident,
 } from "@/lib/residents";
 import { ImageViewer } from "@/components/image-viewer";
 import { useAdminRole } from "@/components/admin-role-context";
@@ -25,7 +20,7 @@ const filters = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
   { label: "Approved", value: "approved" },
-  { label: "Flagged", value: "flagged" }
+  { label: "Rejected", value: "flagged" },
 ];
 
 const rejectionOptions = [
@@ -33,7 +28,7 @@ const rejectionOptions = [
   "Blurry ID photo",
   "Incomplete information",
   "Address cannot be verified",
-  "Not a barangay resident"
+  "Not a barangay resident",
 ];
 
 type FilterValue = "all" | "pending" | "approved" | "flagged";
@@ -44,10 +39,19 @@ export default function ResidentsPage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterValue>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
-  const [viewingImage, setViewingImage] = useState<{ title: string; url: string } | null>(null);
-  const [approvingResident, setApprovingResident] = useState<Resident | null>(null);
-  const [rejectingResident, setRejectingResident] = useState<Resident | null>(null);
+  const [selectedResident, setSelectedResident] = useState<Resident | null>(
+    null,
+  );
+  const [viewingImage, setViewingImage] = useState<{
+    title: string;
+    url: string;
+  } | null>(null);
+  const [approvingResident, setApprovingResident] = useState<Resident | null>(
+    null,
+  );
+  const [rejectingResident, setRejectingResident] = useState<Resident | null>(
+    null,
+  );
   const [rejectionReason, setRejectionReason] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [message, setMessage] = useState("");
@@ -60,7 +64,9 @@ export default function ResidentsPage() {
       const data = await fetchResidents();
       setResidents(data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load residents.");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to load residents.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +92,7 @@ export default function ResidentsPage() {
           resident.id,
           resident.address,
           resident.contact_number,
-          resident.id_type
+          resident.id_type,
         ]
           .join(" ")
           .toLowerCase()
@@ -104,7 +110,7 @@ export default function ResidentsPage() {
       setMessage(
         result.profileSynced
           ? `${resident.full_name} was approved.`
-          : `${resident.full_name} was approved. ${result.warning}`
+          : `${resident.full_name} was approved. ${result.warning}`,
       );
       setApprovingResident(null);
       setSelectedResident(null);
@@ -118,7 +124,8 @@ export default function ResidentsPage() {
   async function handleReject() {
     if (!rejectingResident) return;
 
-    const reason = rejectionReason === "Other" ? customReason.trim() : rejectionReason;
+    const reason =
+      rejectionReason === "Other" ? customReason.trim() : rejectionReason;
     if (!reason) return;
 
     setIsWorking(true);
@@ -139,13 +146,10 @@ export default function ResidentsPage() {
 
   return (
     <section className="admin-page residents-page">
-      <div className="page-heading resident-heading-improved">
-        <p>Resident records</p>
-        <h2>Resident Verification</h2>
-        <span>
-          Review and process new community registrations to ensure accurate demographic records and a clean barangay registry.
-        </span>
-      </div>
+      <PageHeader
+        title="Resident verification"
+        description="Review identity documents and registration details before granting resident access."
+      />
 
       <div className="resident-summary-grid">
         <article className="resident-summary-card gold">
@@ -159,9 +163,9 @@ export default function ResidentsPage() {
           <p>Verified residents already in the registry</p>
         </article>
         <article className="resident-summary-card rose">
-          <span>Flagged</span>
+          <span>Rejected</span>
           <strong>{summary.flagged}</strong>
-          <p>Rejected or problematic submissions</p>
+          <p>Registrations returned with a reason</p>
         </article>
       </div>
 
@@ -169,6 +173,7 @@ export default function ResidentsPage() {
         <div className="filter-tabs resident-filter-tabs-improved">
           {filters.map((filter) => (
             <button
+              aria-pressed={selectedFilter === filter.value}
               className={selectedFilter === filter.value ? "active" : ""}
               key={filter.value}
               onClick={() => setSelectedFilter(filter.value as FilterValue)}
@@ -181,7 +186,8 @@ export default function ResidentsPage() {
         <label className="resident-search resident-search-improved">
           <Search size={18} />
           <input
-            placeholder="Search residents, ID, address..."
+            aria-label="Search resident applications"
+            placeholder="Search name, ID, or address…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -189,9 +195,11 @@ export default function ResidentsPage() {
       </div>
 
       {message ? (
-        <div className="admin-message">
+        <div className="admin-message" role="status">
           <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">Dismiss</button>
+          <button onClick={() => setMessage("")} type="button">
+            Dismiss
+          </button>
         </div>
       ) : null}
 
@@ -199,9 +207,12 @@ export default function ResidentsPage() {
         <div className="resident-panel-heading resident-panel-heading-improved">
           <div>
             <h3>Recent Submissions</h3>
-            <p>Open an application to review details and submitted images before approval.</p>
+            <p>
+              Open an application to review details and submitted images before
+              approval.
+            </p>
           </div>
-          <button onClick={loadResidents} type="button">
+          <button disabled={isLoading} onClick={loadResidents} type="button">
             <RefreshCw size={16} /> Refresh
           </button>
         </div>
@@ -209,12 +220,14 @@ export default function ResidentsPage() {
           <div className="resident-table-head resident-table-head-improved">
             <span>Resident Applicant</span>
             <span>Date Submitted</span>
-            <span>Doc Status</span>
+            <span>Application status</span>
             <span>Actions</span>
           </div>
 
           {filteredResidents.length === 0 && !isLoading ? (
-            <div className="empty-state">No resident submissions match this view.</div>
+            <div className="empty-state">
+              No resident submissions match this view.
+            </div>
           ) : (
             filteredResidents.map((resident) => (
               <ResidentRow
@@ -229,7 +242,9 @@ export default function ResidentsPage() {
           )}
         </div>
       </div>
-      {isLoading ? <AdminLoadingOverlay label="Loading resident submissions..." /> : null}
+      {isLoading ? (
+        <AdminLoadingOverlay label="Loading resident submissions..." />
+      ) : null}
 
       {selectedResident ? (
         <ResidentDetailsDialog
@@ -245,6 +260,7 @@ export default function ResidentsPage() {
 
       {approvingResident ? (
         <ApproveDialog
+          message={message}
           isWorking={isWorking}
           resident={approvingResident}
           onClose={() => setApprovingResident(null)}
@@ -254,6 +270,7 @@ export default function ResidentsPage() {
 
       {rejectingResident ? (
         <RejectDialog
+          message={message}
           customReason={customReason}
           isWorking={isWorking}
           reason={rejectionReason}
@@ -281,19 +298,26 @@ export default function ResidentsPage() {
 }
 
 function ApproveDialog({
+  message,
   isWorking,
   resident,
   onClose,
-  onSubmit
+  onSubmit,
 }: {
   isWorking: boolean;
   resident: Resident;
   onClose: () => void;
   onSubmit: () => void;
+  message: string;
 }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+    <Modal title="Approve resident" onClose={onClose}>
       <div className="approve-modal">
+        {message ? (
+          <div className="admin-message" role="status">
+            {message}
+          </div>
+        ) : null}
         <div className="modal-header">
           <span className="approval-icon">
             <Check size={22} />
@@ -301,7 +325,8 @@ function ApproveDialog({
           <div>
             <h2>Approve Resident?</h2>
             <p>
-              {displayValue(resident.full_name)} will be marked as approved and can access the resident dashboard.
+              {displayValue(resident.full_name)} will be marked as approved and
+              can access the resident dashboard.
             </p>
           </div>
           <button onClick={onClose} type="button" aria-label="Close">
@@ -313,15 +338,24 @@ function ApproveDialog({
           <DetailItem label="ID type" value={resident.id_type} />
         </div>
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onClose} type="button">
+          <button
+            className="secondary-admin-button"
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
-          <button className="primary-admin-button" disabled={isWorking} onClick={onSubmit} type="button">
+          <button
+            className="primary-admin-button"
+            disabled={isWorking}
+            onClick={onSubmit}
+            type="button"
+          >
             {isWorking ? "Approving..." : "Approve"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -330,7 +364,7 @@ function ResidentRow({
   resident,
   onApprove,
   onReject,
-  onView
+  onView,
 }: {
   canManageApprovals: boolean;
   resident: Resident;
@@ -342,7 +376,10 @@ function ResidentRow({
   const showActions = canManageApprovals && status === "pending";
 
   return (
-    <article className="resident-row resident-row-improved" onClick={() => onView(resident)}>
+    <article
+      className="resident-row resident-row-improved"
+      onClick={() => onView(resident)}
+    >
       <div className="resident-person">
         <ResidentAvatar resident={resident} />
         <div>
@@ -353,15 +390,27 @@ function ResidentRow({
       <time>{formatSubmittedAt(resident.created_at)}</time>
       <StatusBadge status={status} />
       <div className="row-actions" onClick={(event) => event.stopPropagation()}>
-        <button aria-label="View resident" onClick={() => onView(resident)} type="button">
+        <button
+          aria-label="View resident"
+          onClick={() => onView(resident)}
+          type="button"
+        >
           <Eye size={18} />
         </button>
         {showActions ? (
           <>
-            <button aria-label="Approve resident" onClick={() => onApprove(resident)} type="button">
+            <button
+              aria-label="Approve resident"
+              onClick={() => onApprove(resident)}
+              type="button"
+            >
               <Check size={18} />
             </button>
-            <button aria-label="Reject resident" onClick={() => onReject(resident)} type="button">
+            <button
+              aria-label="Reject resident"
+              onClick={() => onReject(resident)}
+              type="button"
+            >
               <X size={18} />
             </button>
           </>
@@ -378,7 +427,7 @@ function ResidentDetailsDialog({
   onApprove,
   onClose,
   onImageView,
-  onReject
+  onReject,
 }: {
   canManageApprovals: boolean;
   resident: Resident;
@@ -390,15 +439,23 @@ function ResidentDetailsDialog({
 }) {
   const status = normalizeStatus(resident);
   const showActions = canManageApprovals && status === "pending";
-  const profileImage = resident.profile_image_original || resident.profile_image || "";
+  const profileImage =
+    resident.profile_image_original || resident.profile_image || "";
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="resident-modal" onClick={(event) => event.stopPropagation()}>
+    <Modal title="Resident registration details" onClose={onClose}>
+      <div
+        className="resident-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
             <h2>{displayValue(resident.full_name)}</h2>
-            <p>{showActions ? "Review resident registration details before approval." : "View resident registration details."}</p>
+            <p>
+              {showActions
+                ? "Review resident registration details before approval."
+                : "View resident registration details."}
+            </p>
           </div>
           <StatusBadge status={status} />
           <button onClick={onClose} type="button" aria-label="Close">
@@ -407,40 +464,76 @@ function ResidentDetailsDialog({
         </div>
 
         <div className="detail-grid">
-          <DetailItem label="Birthdate" value={formatDate(resident.birthdate)} />
+          <DetailItem
+            label="Birthdate"
+            value={formatDate(resident.birthdate)}
+          />
           <DetailItem label="Email" value={resident.email} />
           <DetailItem label="Gender" value={resident.gender} />
           <DetailItem label="Civil status" value={resident.civil_status} />
           <DetailItem label="Address" value={resident.address} />
           <DetailItem label="Contact number" value={resident.contact_number} />
           <DetailItem label="ID type" value={resident.id_type} />
-          <DetailItem label="Rejection reason" value={resident.rejection_reason} />
+          <DetailItem
+            label="Rejection reason"
+            value={resident.rejection_reason}
+          />
         </div>
 
+        <div className="review-guidance">
+          <strong>Before you approve</strong>
+          <p>
+            Compare the name, photo, and address with the submitted ID. Check
+            that the document is readable and belongs to the applicant.
+          </p>
+        </div>
         <div className="image-review-grid">
-          <ImagePreview title="Profile image" imageUrl={profileImage} onView={onImageView} />
-          <ImagePreview title="ID image (Front)" imageUrl={resident.id_image_front || resident.id_image || ""} onView={onImageView} />
-          <ImagePreview title="ID image (Back)" imageUrl={resident.id_image_back || ""} onView={onImageView} />
+          <ImagePreview
+            title="Profile image"
+            imageUrl={profileImage}
+            onView={onImageView}
+          />
+          <ImagePreview
+            title="ID image (Front)"
+            imageUrl={resident.id_image_front || resident.id_image || ""}
+            onView={onImageView}
+          />
+          <ImagePreview
+            title="ID image (Back)"
+            imageUrl={resident.id_image_back || ""}
+            onView={onImageView}
+          />
         </div>
 
         <div className="modal-actions">
           {showActions ? (
             <>
-              <button className="danger-admin-button" disabled={isWorking} onClick={() => onReject(resident)} type="button">
+              <button
+                className="danger-admin-button"
+                disabled={isWorking}
+                onClick={() => onReject(resident)}
+                type="button"
+              >
                 Reject
               </button>
-              <button className="primary-admin-button" disabled={isWorking} onClick={() => onApprove(resident)} type="button">
+              <button
+                className="primary-admin-button"
+                disabled={isWorking}
+                onClick={() => onApprove(resident)}
+                type="button"
+              >
                 Approve
               </button>
             </>
           ) : null}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function RejectDialog({
+  message,
   customReason,
   isWorking,
   reason,
@@ -448,7 +541,7 @@ function RejectDialog({
   onClose,
   onCustomReasonChange,
   onReasonChange,
-  onSubmit
+  onSubmit,
 }: {
   customReason: string;
   isWorking: boolean;
@@ -458,13 +551,21 @@ function RejectDialog({
   onCustomReasonChange: (value: string) => void;
   onReasonChange: (value: string) => void;
   onSubmit: () => void;
+  message: string;
 }) {
   const isCustom = reason === "Other";
-  const canSubmit = isCustom ? customReason.trim().length > 0 : reason.length > 0;
+  const canSubmit = isCustom
+    ? customReason.trim().length > 0
+    : reason.length > 0;
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+    <Modal title="Reject resident" onClose={onClose}>
       <div className="reject-modal">
+        {message ? (
+          <div className="admin-message" role="status">
+            {message}
+          </div>
+        ) : null}
         <div className="modal-header">
           <div>
             <h2>Reject {displayValue(resident.full_name)}?</h2>
@@ -477,6 +578,7 @@ function RejectDialog({
         <div className="reason-options">
           {[...rejectionOptions, "Other"].map((option) => (
             <button
+              aria-pressed={reason === option}
               className={reason === option ? "active" : ""}
               key={option}
               onClick={() => onReasonChange(option)}
@@ -488,12 +590,18 @@ function RejectDialog({
         </div>
         <textarea
           disabled={!isCustom}
+          aria-label="Custom rejection reason"
+          maxLength={500}
           placeholder="Explain why this registration was rejected"
           value={customReason}
           onChange={(event) => onCustomReasonChange(event.target.value)}
         />
         <div className="modal-actions">
-          <button className="secondary-admin-button" onClick={onClose} type="button">
+          <button
+            className="secondary-admin-button"
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
           <button
@@ -506,7 +614,7 @@ function RejectDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -522,7 +630,7 @@ function DetailItem({ label, value }: { label: string; value?: string }) {
 function ImagePreview({
   title,
   imageUrl,
-  onView
+  onView,
 }: {
   title: string;
   imageUrl: string;
@@ -558,8 +666,17 @@ function ResidentAvatar({ resident }: { resident: Resident }) {
   );
 }
 
-function StatusBadge({ status }: { status: ReturnType<typeof normalizeStatus> }) {
-  const label = status === "flagged" ? "Flagged" : status === "approved" ? "Approved" : "Pending";
+function StatusBadge({
+  status,
+}: {
+  status: ReturnType<typeof normalizeStatus>;
+}) {
+  const label =
+    status === "flagged"
+      ? "Rejected"
+      : status === "approved"
+        ? "Approved"
+        : "Pending";
 
   return <span className={`status-badge ${status}`}>{label}</span>;
 }
@@ -600,7 +717,7 @@ function formatDate(value?: string) {
   return parsed.toLocaleDateString("en-PH", {
     year: "numeric",
     month: "short",
-    day: "2-digit"
+    day: "2-digit",
   });
 }
 
@@ -615,6 +732,6 @@ function formatSubmittedAt(value?: string) {
     month: "short",
     day: "2-digit",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
