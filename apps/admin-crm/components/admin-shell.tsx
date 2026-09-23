@@ -451,13 +451,6 @@ export function AdminShell({ children }: AdminShellProps) {
           <X size={20} />
         </button>
         <Brand />
-        <div className="workspace-identity">
-          <span>BB</span>
-          <div>
-            <strong>Bancao-Bancao</strong>
-            <small>Barangay workspace</small>
-          </div>
-        </div>
         <p className="sidebar-label">Workspace</p>
         <nav aria-label="Main navigation">
           {visibleNavItems.map((item) => {

@@ -286,6 +286,27 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   await page.keyboard.press("Escape");
   await expect(dropdown).toHaveAttribute("aria-expanded", "false");
   await expect(dropdown).toBeFocused();
+
+  const category = page.getByRole("combobox", {
+    name: "Change report category",
+    exact: true,
+  });
+  await page.setViewportSize({ width: 900, height: 520 });
+  await category.click();
+  const menu = page.getByRole("listbox", { name: "Change report category" });
+  await expect(menu).toBeVisible();
+  await expect(menu.locator("svg")).toHaveCount(0);
+  const triggerBox = await category.boundingBox();
+  const menuBox = await menu.boundingBox();
+  expect(triggerBox).not.toBeNull();
+  expect(menuBox).not.toBeNull();
+  expect(Math.abs(menuBox!.width - triggerBox!.width)).toBeLessThan(2);
+  expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(
+    page.viewportSize()!.width,
+  );
+  await expect(menu.getByRole("option", { name: "Road Damage" })).toBeInViewport();
+  await expect(menu.getByRole("option", { name: "Others" })).toBeInViewport();
 });
 
 test("resident review: evidence, accessible confirmation and approval", async ({

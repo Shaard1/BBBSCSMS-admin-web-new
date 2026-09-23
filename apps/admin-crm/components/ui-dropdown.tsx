@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
-  type CSSProperties,
   type KeyboardEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -36,10 +36,9 @@ export function UiDropdown({
     0,
   );
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const selectedOption = options[selectedIndex];
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
 
     const menu = menuRef.current;
@@ -54,25 +53,30 @@ export function UiDropdown({
       const gap = 6;
       const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
       const spaceAbove = rect.top - viewportPadding;
-      const opensUpward = spaceBelow < 208 && spaceAbove > spaceBelow;
-      const availableSpace = opensUpward ? spaceAbove : spaceBelow;
-      const width = Math.min(
-        Math.max(rect.width, 168),
-        window.innerWidth - viewportPadding * 2,
-      );
+      const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
       const left = Math.min(
         Math.max(viewportPadding, rect.left),
         window.innerWidth - width - viewportPadding,
       );
 
-      setMenuStyle({
-        left,
-        width,
-        maxHeight: Math.min(304, Math.max(120, availableSpace - gap)),
-        ...(opensUpward
-          ? { bottom: window.innerHeight - rect.top + gap, top: "auto" }
-          : { bottom: "auto", top: rect.bottom + gap }),
-      });
+      menuElement.style.left = `${left}px`;
+      menuElement.style.width = `${width}px`;
+      menuElement.style.maxHeight = "none";
+      const desiredHeight = Math.min(
+        menuElement.scrollHeight,
+        360,
+        window.innerHeight - viewportPadding * 2,
+      );
+      const opensUpward =
+        spaceBelow < desiredHeight + gap && spaceAbove > spaceBelow;
+      const availableSpace = opensUpward ? spaceAbove : spaceBelow;
+      menuElement.style.maxHeight = `${Math.max(0, Math.min(desiredHeight, availableSpace - gap))}px`;
+      menuElement.style.top = opensUpward ? "auto" : `${rect.bottom + gap}px`;
+      menuElement.style.bottom = opensUpward
+        ? `${window.innerHeight - rect.top + gap}px`
+        : "auto";
+
+      return { availableSpace, desiredHeight, opensUpward, gap };
     }
 
     function closeWhenClickingAway(event: PointerEvent) {
@@ -82,12 +86,21 @@ export function UiDropdown({
       }
     }
 
-    positionMenu();
     if (
       typeof menuElement.showPopover === "function" &&
       !menuElement.matches(":popover-open")
     ) {
       menuElement.showPopover();
+    }
+    const { availableSpace, desiredHeight, opensUpward, gap } = positionMenu();
+    if (availableSpace < desiredHeight + gap) {
+      const amount = desiredHeight + gap - availableSpace + 8;
+      window.scrollBy({
+        top: opensUpward ? -amount : amount,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
     }
     document.addEventListener("pointerdown", closeWhenClickingAway);
     window.addEventListener("resize", positionMenu);
@@ -194,7 +207,6 @@ export function UiDropdown({
         aria-label={ariaLabel}
         data-open={isOpen ? "" : undefined}
         popover="manual"
-        style={menuStyle}
       >
         {options.map((option, index) => {
           const isSelected = option.value === value;
@@ -210,7 +222,6 @@ export function UiDropdown({
               onPointerEnter={() => setActiveIndex(index)}
               onClick={() => chooseOption(index)}
             >
-              <Check aria-hidden="true" size={15} />
               <span>{option.label}</span>
             </div>
           );
