@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { monthlyActivity, reportSnapshot } from "../lib/workspace-metrics";
 
@@ -42,6 +42,18 @@ async function audit(page: Page) {
       nodes: v.nodes.map((n) => n.target),
     })),
   ).toEqual([]);
+}
+
+async function chooseDropdownOption(
+  page: Page,
+  scope: Page | Locator,
+  label: string,
+  option: string,
+) {
+  const trigger = scope.getByRole("combobox", { name: label, exact: true });
+  await trigger.click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+  return trigger;
 }
 test.beforeEach(async ({ page, request }) => {
   await request.post(origin + "/__reset");
@@ -170,23 +182,22 @@ test("document requests: consecutive updates, rejection validation, failure reco
     .click();
   const dialog = page.getByRole("dialog", { name: "Document request details" });
   await audit(page);
-  await dialog
-    .getByRole("combobox", { name: "Update status", exact: true })
-    .selectOption("processing");
+  await chooseDropdownOption(page, dialog, "Update status", "Processing");
   await dialog.getByRole("button", { name: "Update request" }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
     "Processing",
   );
-  await dialog
-    .getByRole("combobox", { name: "Update status", exact: true })
-    .selectOption("ready_for_release");
+  await chooseDropdownOption(
+    page,
+    dialog,
+    "Update status",
+    "Ready for Release",
+  );
   await dialog.getByRole("button", { name: "Update request" }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
     "Ready for Release",
   );
-  await dialog
-    .getByRole("combobox", { name: "Update status", exact: true })
-    .selectOption("rejected");
+  await chooseDropdownOption(page, dialog, "Update status", "Rejected");
   await expect(
     dialog.getByRole("button", { name: "Update request" }),
   ).toBeDisabled();
@@ -231,10 +242,13 @@ test("reports: keyboard details, note and status update, category filter", async
   await expect(
     page.getByRole("dialog", { name: "Edit staff note" }),
   ).toHaveCount(0);
-  await card.getByLabel("Change report status").selectOption("in progress");
-  await expect(card.getByLabel("Change report status")).toHaveValue(
-    "in progress",
+  const reportStatus = await chooseDropdownOption(
+    page,
+    card,
+    "Change report status",
+    "In Progress",
   );
+  await expect(reportStatus).toHaveAttribute("data-value", "in progress");
   await card
     .getByRole("button", {
       name: "Road surface damaged near the community center",
@@ -243,6 +257,35 @@ test("reports: keyboard details, note and status update, category filter", async
   await expect(page.getByRole("dialog")).toContainText(
     "Inspection scheduled for tomorrow.",
   );
+});
+
+test("dropdown menus support keyboard selection and dismissal", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/admin/reports");
+  await page.getByLabel("Search community reports").fill("Road surface");
+  const dropdown = page.getByRole("combobox", {
+    name: "Change report status",
+    exact: true,
+  });
+
+  await dropdown.focus();
+  await page.keyboard.press("Enter");
+  await expect(dropdown).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("option", { name: "Pending", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await audit(page);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(dropdown).toHaveAttribute("data-value", "in progress");
+
+  await dropdown.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(dropdown).toHaveAttribute("aria-expanded", "false");
+  await expect(dropdown).toBeFocused();
 });
 
 test("resident review: evidence, accessible confirmation and approval", async ({
@@ -305,7 +348,12 @@ test("staff: searchable directory, create form and role guard", async ({
     .click();
   await expect(dialog).toHaveCount(0);
   await page.getByLabel("Search staff accounts").fill("Alex");
-  await page.getByLabel("Change role for Alex Reyes").selectOption("staff");
+  await chooseDropdownOption(
+    page,
+    page,
+    "Change role for Alex Reyes",
+    "Staff",
+  );
   await expect(
     page.getByRole("status").filter({ hasText: "At least one administrator" }),
   ).toBeVisible();
@@ -398,7 +446,7 @@ test("failed document updates remain visible in the dialog and can be retried", 
   await page.goto("/admin/documents");
   await page.getByRole("button", { name: "View details", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Document request details" });
-  await dialog.getByRole("combobox", { name: "Update status", exact: true }).selectOption("processing");
+  await chooseDropdownOption(page, dialog, "Update status", "Processing");
   await page.route("**/api/admin/document-requests/*", route => route.fulfill({ status: 503, json: { message: "Connection interrupted. Please try again." } }));
   await dialog.getByRole("button", { name: "Update request" }).click();
   await expect(dialog.getByRole("status").filter({ hasText: "Connection interrupted" })).toBeVisible();

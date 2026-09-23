@@ -8,6 +8,7 @@ import {
   RefreshButton,
 } from "@/components/workspace-ui";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
+import { UiDropdown } from "@/components/ui-dropdown";
 import { fetchReports } from "@/lib/reports";
 import { fetchResidents } from "@/lib/residents";
 import { monthlyActivity, reportSnapshot } from "@/lib/workspace-metrics";
@@ -116,19 +117,18 @@ export default function AnalyticsPage() {
         title="Monthly activity"
         description={`Submissions created in ${year}. Changing the year affects this chart only.`}
         action={
-          <label className="year-picker">
-            Year
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-            >
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="year-picker">
+            <span>Year</span>
+            <UiDropdown
+              ariaLabel="Select analytics year"
+              options={years.map((yearOption) => ({
+                label: String(yearOption),
+                value: String(yearOption),
+              }))}
+              value={String(year)}
+              onChange={(nextYear) => setYear(Number(nextYear))}
+            />
+          </div>
         }
       >
         <div className="chart-key">

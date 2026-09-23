@@ -3,6 +3,7 @@
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/workspace-ui";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
+import { UiDropdown } from "@/components/ui-dropdown";
 import { FileBadge2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -441,22 +442,21 @@ function DocumentRequestDialog({
             onStatusChange(request, nextStatus, reason.trim());
           }}
         >
-          <label>
-            Update status
-            <select
+          <div className="field-group">
+            <span className="field-label">Update status</span>
+            <UiDropdown
+              ariaLabel="Update status"
               value={nextStatus}
               disabled={isWorking}
-              onChange={(event) =>
-                setNextStatus(event.target.value as DocumentRequestStatus)
+              options={statusOptions.map((option) => ({
+                label: statusLabel(option.value),
+                value: option.value,
+              }))}
+              onChange={(nextValue) =>
+                setNextStatus(nextValue as DocumentRequestStatus)
               }
-            >
-              {statusOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {statusLabel(option.value)}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           {nextStatus === "rejected" ? (
             <label className="rejection-field">
               Reason shown to the resident
