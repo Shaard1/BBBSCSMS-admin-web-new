@@ -4,7 +4,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="bancao-brand">
       <Image
-        src="/assets/bancao-connect-mark-modern.svg"
+        src="/assets/bancao-connect-mark-community.svg"
         width={40}
         height={40}
         alt={compact ? "Bancao-Connect" : ""}
