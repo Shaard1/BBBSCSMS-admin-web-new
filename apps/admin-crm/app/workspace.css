@@ -917,6 +917,13 @@ a.workspace-metric:hover {
   background: transparent;
   font-size: 0.8rem;
 }
+.resident-search:focus-within {
+  border-color: #3178d9;
+  box-shadow: 0 0 0 1px #3178d9;
+}
+.resident-search input:focus-visible {
+  outline: none;
+}
 .report-list {
   display: grid;
   gap: 1rem;
@@ -1175,7 +1182,7 @@ a.workspace-metric:hover {
   align-items: center;
   gap: 0.35rem;
 }
-.row-actions button {
+.row-actions > button {
   width: 44px;
   padding: 0.5rem;
 }
@@ -2910,7 +2917,7 @@ caption {
   .row-actions {
     gap: 0.25rem;
   }
-  .row-actions button {
+  .row-actions > button {
     width: 40px;
   }
   .resident-avatar {
