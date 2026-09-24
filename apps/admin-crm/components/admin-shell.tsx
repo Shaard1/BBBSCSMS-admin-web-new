@@ -22,6 +22,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AdminRoleProvider } from "@/components/admin-role-context";
 import { RingLoader } from "@/components/ring-loader";
+import { useViewportPopover } from "@/components/use-viewport-popover";
 import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
 import {
   fetchGlobalSearchResults,
@@ -93,7 +94,30 @@ export function AdminShell({ children }: AdminShellProps) {
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const notificationRef = useRef<HTMLDivElement | null>(null);
+  const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
+  const searchPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useViewportPopover({
+    align: "end",
+    anchorRef: notificationRef,
+    panelRef: notificationPanelRef,
+    isOpen: isNotificationOpen,
+    setIsOpen: setIsNotificationOpen,
+    minWidth: 360,
+    maxWidth: 420,
+    maxHeight: 480,
+  });
+  useViewportPopover({
+    align: "end",
+    anchorRef: searchRef,
+    panelRef: searchPanelRef,
+    isOpen: isSearchOpen,
+    setIsOpen: setIsSearchOpen,
+    minWidth: 360,
+    maxWidth: 420,
+    maxHeight: 480,
+  });
 
   useEffect(() => {
     if (!isSidebarOpen) return;
@@ -536,9 +560,11 @@ export function AdminShell({ children }: AdminShellProps) {
             </div>
             {isSearchOpen ? (
               <div
+                ref={searchPanelRef}
                 className="topbar-search-panel"
                 role="region"
                 aria-label="Global search results"
+                popover="manual"
               >
                 {isSearchLoading ? (
                   <div className="topbar-search-state">Searching...</div>
@@ -611,9 +637,11 @@ export function AdminShell({ children }: AdminShellProps) {
             </button>
             {isNotificationOpen ? (
               <div
+                ref={notificationPanelRef}
                 className="notification-panel"
                 role="dialog"
                 aria-label="Notifications"
+                popover="manual"
               >
                 <div className="notification-panel-header">
                   <div>

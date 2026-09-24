@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useViewportPopover } from "@/components/use-viewport-popover";
 
 type UiDropdownProps = {
   ariaLabel: string;
@@ -38,46 +39,22 @@ export function UiDropdown({
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const selectedOption = options[selectedIndex];
 
-  useLayoutEffect(() => {
-    if (!isOpen) return;
+  useViewportPopover({
+    anchorRef: triggerRef,
+    panelRef: menuRef,
+    isOpen,
+    setIsOpen,
+    minWidth: 184,
+    maxHeight: 320,
+  });
 
+  useEffect(() => {
+    if (!isOpen) return;
     const menu = menuRef.current;
     const trigger = triggerRef.current;
     if (!menu || !trigger) return;
     const menuElement = menu;
     const triggerElement = trigger;
-
-    function positionMenu() {
-      const rect = triggerElement.getBoundingClientRect();
-      const viewportPadding = 8;
-      const gap = 6;
-      const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const spaceAbove = rect.top - viewportPadding;
-      const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        window.innerWidth - width - viewportPadding,
-      );
-
-      menuElement.style.left = `${left}px`;
-      menuElement.style.width = `${width}px`;
-      menuElement.style.maxHeight = "none";
-      const desiredHeight = Math.min(
-        menuElement.scrollHeight,
-        360,
-        window.innerHeight - viewportPadding * 2,
-      );
-      const opensUpward =
-        spaceBelow < desiredHeight + gap && spaceAbove > spaceBelow;
-      const availableSpace = opensUpward ? spaceAbove : spaceBelow;
-      menuElement.style.maxHeight = `${Math.max(0, Math.min(desiredHeight, availableSpace - gap))}px`;
-      menuElement.style.top = opensUpward ? "auto" : `${rect.bottom + gap}px`;
-      menuElement.style.bottom = opensUpward
-        ? `${window.innerHeight - rect.top + gap}px`
-        : "auto";
-
-      return { availableSpace, desiredHeight, opensUpward, gap };
-    }
 
     function closeWhenClickingAway(event: PointerEvent) {
       const target = event.target as Node;
@@ -85,39 +62,22 @@ export function UiDropdown({
         setIsOpen(false);
       }
     }
-
-    if (
-      typeof menuElement.showPopover === "function" &&
-      !menuElement.matches(":popover-open")
-    ) {
-      menuElement.showPopover();
-    }
-    const { availableSpace, desiredHeight, opensUpward, gap } = positionMenu();
-    if (availableSpace < desiredHeight + gap) {
-      const amount = desiredHeight + gap - availableSpace + 8;
-      window.scrollBy({
-        top: opensUpward ? -amount : amount,
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-      });
-    }
     document.addEventListener("pointerdown", closeWhenClickingAway);
-    window.addEventListener("resize", positionMenu);
-    window.addEventListener("scroll", positionMenu, true);
-
     return () => {
       document.removeEventListener("pointerdown", closeWhenClickingAway);
-      window.removeEventListener("resize", positionMenu);
-      window.removeEventListener("scroll", positionMenu, true);
-      if (
-        typeof menuElement.hidePopover === "function" &&
-        menuElement.matches(":popover-open")
-      ) {
-        menuElement.hidePopover();
-      }
     };
   }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const menu = menuRef.current;
+    const option = menu?.children[activeIndex] as HTMLElement | undefined;
+    if (!menu || !option) return;
+    const menuRect = menu.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    if (optionRect.top < menuRect.top) menu.scrollTop -= menuRect.top - optionRect.top;
+    if (optionRect.bottom > menuRect.bottom) menu.scrollTop += optionRect.bottom - menuRect.bottom;
+  }, [activeIndex, isOpen]);
 
   useEffect(() => {
     if (disabled) setIsOpen(false);

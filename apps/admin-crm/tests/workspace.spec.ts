@@ -55,6 +55,34 @@ async function chooseDropdownOption(
   await page.getByRole("option", { name: option, exact: true }).click();
   return trigger;
 }
+
+async function expectMenuInViewport(menu: Locator) {
+  await expect(menu).toBeVisible();
+  await expect.poll(() => menu.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const left = viewport?.offsetLeft ?? 0;
+    const top = viewport?.offsetTop ?? 0;
+    const right = left + (viewport?.width ?? window.innerWidth);
+    const bottom = top + (viewport?.height ?? window.innerHeight);
+    return rect.width > 0 && rect.height > 0 &&
+      rect.left >= left - 1 && rect.top >= top - 1 &&
+      rect.right <= right + 1 && rect.bottom <= bottom + 1;
+  })).toBe(true);
+}
+
+async function expectMenuAnchored(trigger: Locator, menu: Locator) {
+  await expect.poll(async () => {
+    const triggerBox = await trigger.boundingBox();
+    const menuBox = await menu.boundingBox();
+    if (!triggerBox || !menuBox) return false;
+    const placement = await menu.getAttribute("data-placement");
+    const distance = placement === "top"
+      ? triggerBox.y - (menuBox.y + menuBox.height)
+      : menuBox.y - (triggerBox.y + triggerBox.height);
+    return distance >= 3 && distance <= 7;
+  }).toBe(true);
+}
 test.beforeEach(async ({ page, request }) => {
   await request.post(origin + "/__reset");
   await page.route("**/*", async (route) => {
@@ -300,13 +328,133 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   const menuBox = await menu.boundingBox();
   expect(triggerBox).not.toBeNull();
   expect(menuBox).not.toBeNull();
-  expect(Math.abs(menuBox!.width - triggerBox!.width)).toBeLessThan(2);
+  expect(menuBox!.width).toBeGreaterThanOrEqual(triggerBox!.width - 1);
   expect(menuBox!.x).toBeGreaterThanOrEqual(0);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(
     page.viewportSize()!.width,
   );
   await expect(menu.getByRole("option", { name: "Road Damage" })).toBeInViewport();
   await expect(menu.getByRole("option", { name: "Others" })).toBeInViewport();
+});
+
+test("dropdown panel flips and scrolls within small viewports", async ({ page }, testInfo) => {
+  await login(page);
+  await page.goto("/admin/reports");
+  await page.getByLabel("Search community reports").fill("Road surface");
+  const trigger = page.getByRole("combobox", { name: "Change report category" });
+  const wrapper = trigger.locator("..");
+  const menu = page.getByRole("listbox", { name: "Change report category" });
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.locator(".report-card").evaluate((card) => {
+    card.style.overflow = "hidden";
+  });
+  await wrapper.evaluate((element) => {
+    element.style.cssText = "position:fixed;bottom:4px;right:3px;width:126px;z-index:1";
+  });
+  await trigger.click();
+  await expectMenuInViewport(menu);
+  await expect(menu).toHaveAttribute("data-placement", "top");
+  await page.screenshot({ path: testInfo.outputPath("dropdown-panel-mobile.png") });
+  expect((await menu.boundingBox())!.y + (await menu.boundingBox())!.height)
+    .toBeLessThanOrEqual((await trigger.boundingBox())!.y);
+
+  await page.keyboard.press("Escape");
+  await wrapper.evaluate((element) => {
+    element.style.cssText = "position:fixed;top:4px;left:3px;width:126px;z-index:1";
+  });
+  await trigger.click();
+  await expectMenuInViewport(menu);
+  await expect(menu).toHaveAttribute("data-placement", "bottom");
+
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 320, height: 260 });
+  await wrapper.evaluate((element) => {
+    element.style.cssText = "position:fixed;bottom:4px;right:3px;width:126px;z-index:1";
+  });
+  await trigger.click();
+  await expectMenuInViewport(menu);
+  expect(await menu.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("option", { name: "Others" })).toBeInViewport();
+  await page.setViewportSize({ width: 420, height: 500 });
+  await expectMenuInViewport(menu);
+  await page.keyboard.press("Escape");
+  await wrapper.evaluate((element) => {
+    element.style.cssText = "position:fixed;top:4px;left:3px;width:126px;z-index:1";
+  });
+  await trigger.click();
+  await expectMenuInViewport(menu);
+  const device = await page.context().newCDPSession(page);
+  await device.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1.5 });
+  await expectMenuInViewport(menu);
+  await device.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  await device.detach();
+});
+
+test("dropdown follows its trigger in a scrolling card", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/reports");
+  await page.getByLabel("Search community reports").fill("Road surface");
+  const card = page.locator(".report-card");
+  await card.evaluate((element) => {
+    element.style.height = "135px";
+    element.style.overflowY = "auto";
+  });
+  const trigger = card.getByRole("combobox", { name: "Change report category" });
+  await trigger.click();
+  const menu = page.getByRole("listbox", { name: "Change report category" });
+  await expectMenuInViewport(menu);
+  await expectMenuAnchored(trigger, menu);
+  await card.evaluate((element) => {
+    element.scrollTop = Math.max(0, element.scrollTop - 8);
+  });
+  await expectMenuAnchored(trigger, menu);
+  await expectMenuInViewport(menu);
+});
+
+test("dropdowns stay visible in tables and a modal", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/staff");
+  const staff = page.getByRole("combobox", { name: "Change role for Alex Reyes" });
+  await staff.click();
+  await expectMenuInViewport(page.getByRole("listbox", { name: "Change role for Alex Reyes" }));
+  await page.keyboard.press("Escape");
+
+  await page.goto("/admin/analytics");
+  const year = page.getByRole("combobox", { name: "Select analytics year" });
+  await year.click();
+  await expectMenuInViewport(page.getByRole("listbox", { name: "Select analytics year" }));
+  await page.keyboard.press("Escape");
+
+  await page.goto("/admin/documents");
+  await page.getByRole("button", { name: "View details", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  const status = dialog.getByRole("combobox", { name: "Update status" });
+  await status.click();
+  const statusMenu = page.getByRole("listbox", { name: "Update status" });
+  await expectMenuInViewport(statusMenu);
+  await expectMenuAnchored(status, statusMenu);
+  await dialog.evaluate((element) => { element.scrollTop += 100; });
+  await expectMenuInViewport(statusMenu);
+  await expectMenuAnchored(status, statusMenu);
+});
+
+test("header search and notification panels fit a mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 420 });
+  await login(page);
+  const search = page.getByRole("textbox", { name: "Search across the admin portal" });
+  await search.fill("Road");
+  const results = page.getByRole("region", { name: "Global search results" });
+  await expectMenuInViewport(results);
+  await page.setViewportSize({ width: 320, height: 260 });
+  await expectMenuInViewport(results);
+
+  await search.fill("");
+  await page.getByRole("button", { name: "Open notifications" }).click();
+  const notifications = page.getByRole("dialog", { name: "Notifications" });
+  await expectMenuInViewport(notifications);
+  await page.setViewportSize({ width: 360, height: 420 });
+  await expectMenuInViewport(notifications);
 });
 
 test("resident review: evidence, accessible confirmation and approval", async ({
