@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Bancao Connect Admin",
   description: "Staff and administrator workspace for Barangay Bancao-Bancao.",
   icons: {
-    icon: "/assets/bancao-connect-mark.svg",
+    icon: "/assets/bancao-connect-mark-modern.svg",
   },
 };
 
