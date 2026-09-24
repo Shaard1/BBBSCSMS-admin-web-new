@@ -1,14 +1,15 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
-  type CSSProperties,
   type KeyboardEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { useViewportPopover } from "@/components/use-viewport-popover";
 
 type UiDropdownProps = {
   ariaLabel: string;
@@ -36,44 +37,24 @@ export function UiDropdown({
     0,
   );
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const selectedOption = options[selectedIndex];
+
+  useViewportPopover({
+    anchorRef: triggerRef,
+    panelRef: menuRef,
+    isOpen,
+    setIsOpen,
+    minWidth: 184,
+    maxHeight: 320,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
-
     const menu = menuRef.current;
     const trigger = triggerRef.current;
     if (!menu || !trigger) return;
     const menuElement = menu;
     const triggerElement = trigger;
-
-    function positionMenu() {
-      const rect = triggerElement.getBoundingClientRect();
-      const viewportPadding = 8;
-      const gap = 6;
-      const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const spaceAbove = rect.top - viewportPadding;
-      const opensUpward = spaceBelow < 208 && spaceAbove > spaceBelow;
-      const availableSpace = opensUpward ? spaceAbove : spaceBelow;
-      const width = Math.min(
-        Math.max(rect.width, 168),
-        window.innerWidth - viewportPadding * 2,
-      );
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        window.innerWidth - width - viewportPadding,
-      );
-
-      setMenuStyle({
-        left,
-        width,
-        maxHeight: Math.min(304, Math.max(120, availableSpace - gap)),
-        ...(opensUpward
-          ? { bottom: window.innerHeight - rect.top + gap, top: "auto" }
-          : { bottom: "auto", top: rect.bottom + gap }),
-      });
-    }
 
     function closeWhenClickingAway(event: PointerEvent) {
       const target = event.target as Node;
@@ -81,30 +62,22 @@ export function UiDropdown({
         setIsOpen(false);
       }
     }
-
-    positionMenu();
-    if (
-      typeof menuElement.showPopover === "function" &&
-      !menuElement.matches(":popover-open")
-    ) {
-      menuElement.showPopover();
-    }
     document.addEventListener("pointerdown", closeWhenClickingAway);
-    window.addEventListener("resize", positionMenu);
-    window.addEventListener("scroll", positionMenu, true);
-
     return () => {
       document.removeEventListener("pointerdown", closeWhenClickingAway);
-      window.removeEventListener("resize", positionMenu);
-      window.removeEventListener("scroll", positionMenu, true);
-      if (
-        typeof menuElement.hidePopover === "function" &&
-        menuElement.matches(":popover-open")
-      ) {
-        menuElement.hidePopover();
-      }
     };
   }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const menu = menuRef.current;
+    const option = menu?.children[activeIndex] as HTMLElement | undefined;
+    if (!menu || !option) return;
+    const menuRect = menu.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    if (optionRect.top < menuRect.top) menu.scrollTop -= menuRect.top - optionRect.top;
+    if (optionRect.bottom > menuRect.bottom) menu.scrollTop += optionRect.bottom - menuRect.bottom;
+  }, [activeIndex, isOpen]);
 
   useEffect(() => {
     if (disabled) setIsOpen(false);
@@ -194,7 +167,6 @@ export function UiDropdown({
         aria-label={ariaLabel}
         data-open={isOpen ? "" : undefined}
         popover="manual"
-        style={menuStyle}
       >
         {options.map((option, index) => {
           const isSelected = option.value === value;
@@ -210,7 +182,6 @@ export function UiDropdown({
               onPointerEnter={() => setActiveIndex(index)}
               onClick={() => chooseOption(index)}
             >
-              <Check aria-hidden="true" size={15} />
               <span>{option.label}</span>
             </div>
           );
