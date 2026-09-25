@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Smartphone,
   UserCheck,
-  UsersRound,
 } from "lucide-react";
 import Image from "next/image";
 import { SiteHeader } from "@/components/site-header";
@@ -172,87 +171,45 @@ export default function Home() {
 function Hero() {
   return (
     <section className="hero" id="top" aria-labelledby="hero-heading">
-      <div className="container hero-grid">
-        <div className="hero-copy">
-          <p className="eyebrow">
-            <span className="eyebrow-line" /> For the people of Bancao-Bancao
-          </p>
-          <h1 id="hero-heading">
-            Your barangay.
-            <br />
-            <span>Closer to you.</span>
-          </h1>
-          <p className="hero-description">
-            Less time in line. More time for what matters. Access barangay
-            services, share a concern, and stay connected with your community
-            through Bancao Connect.
-          </p>
-          <div className="button-row">
-            <a className="button button-primary" href="#download">
-              <Smartphone size={18} aria-hidden="true" /> Get the resident app{" "}
-              <ArrowUpRight size={17} aria-hidden="true" />
-            </a>
-            <a className="button button-secondary" href="#features">
-              Explore services <ArrowDown size={17} aria-hidden="true" />
-            </a>
-          </div>
-          <p className="hero-location">
-            <MapPin size={15} aria-hidden="true" /> Barangay Bancao-Bancao,
-            Puerto Princesa City
-          </p>
-        </div>
-        <div className="hero-visual">
-          <div className="visual-orbit" aria-hidden="true" />
-          <div className="service-preview">
-            <div className="preview-banner">
-              <span className="preview-label">
-                <span /> Your resident connection
+      <div className="hero-stage">
+        <div className="container hero-grid">
+          <div className="hero-copy">
+            <p className="official-kicker">Official Digital Services Portal</p>
+            <h1 id="hero-heading">
+              <span className="hero-title-line">
+                <strong>One</strong> Barangay.
+              </span>{" "}
+              <span className="hero-title-line">
+                <strong>One</strong> Digital Home.
               </span>
-              <Image
-                className="preview-watermark"
-                src="/assets/bancao-connect-mark-community.svg"
-                width={172}
-                height={172}
-                alt=""
-              />
-              <h2>
-                One community.
-                <br />
-                Connected.
-              </h2>
-              <p>Barangay services, within reach.</p>
-            </div>
-            <div className="preview-content">
-              <div className="preview-heading">
-                <h3>How can we help you?</h3>
-                <span>Resident services</span>
-              </div>
-              <div className="preview-services">
-                {services.map(({ id, icon: Icon, label, tone }) => (
-                  <a key={id} href={`#${id}`} className="preview-service">
-                    <span className={`icon-box tone-${tone}`}>
-                      <Icon size={21} aria-hidden="true" />
-                    </span>
-                    <span>{label}</span>
-                    <ArrowUpRight size={15} aria-hidden="true" />
-                  </a>
-                ))}
-              </div>
-              <a className="preview-footer" href="#how-it-works">
-                <ShieldCheck size={17} aria-hidden="true" />
-                <span>New here? Let’s get you started.</span>
-                <ArrowRight size={17} aria-hidden="true" />
+            </h1>
+            <p className="hero-description">
+              Bringing Bancao-Bancao services closer to every resident through a
+              faster, safer, and more connected digital experience.
+            </p>
+            <div className="button-row">
+              <a className="button button-primary" href="#download">
+                <Smartphone size={18} aria-hidden="true" /> Get the resident app{" "}
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </a>
+              <a className="button button-secondary" href="#features">
+                Explore services <ArrowDown size={17} aria-hidden="true" />
               </a>
             </div>
+            <p className="hero-location">
+              <MapPin size={15} aria-hidden="true" /> Barangay Bancao-Bancao,
+              Puerto Princesa City
+            </p>
           </div>
-          <div className="community-note">
-            <span className="icon-box tone-green">
-              <UsersRound size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <strong>Made for our community</strong>
-              <span>Every resident. Every connection.</span>
-            </div>
+          <div className="hero-phone">
+            <Image
+              src="/assets/Holding-the-phone.png"
+              alt="A hand holding a phone displaying the Bancao Connect resident app."
+              width={1920}
+              height={1080}
+              sizes="(min-width: 107.15em) 1200px, (min-width: 64em) 70vw, (min-width: 44em) 1056px, (min-width: 28em) 150vw, 672px"
+              priority
+            />
           </div>
         </div>
       </div>

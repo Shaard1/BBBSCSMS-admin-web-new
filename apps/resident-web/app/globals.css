@@ -307,243 +307,88 @@ svg {
   color: #fff;
 }
 
-/* The service overview is real navigation, not a simulated signed-in account. */
+/* Keep the original headline and phone artwork as the resident landing identity. */
 .hero {
   overflow: hidden;
-  background: var(--page);
+  background: #f7f8fb;
   border-bottom: 1px solid var(--border);
+}
+.hero-stage {
+  position: relative;
 }
 .hero-grid {
   display: grid;
-  gap: 3.5rem;
-  padding-top: clamp(3.5rem, 6vw, 6rem);
-  padding-bottom: 3.5rem;
+  gap: 1.5rem;
+  padding-top: clamp(3rem, 6vw, 5rem);
 }
 .hero-copy {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
-.hero-copy .eyebrow {
-  display: flex;
+.official-kicker {
+  display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 0.66rem;
-}
-.eyebrow-line {
-  display: inline-block;
-  width: 23px;
-  height: 2px;
-  background: var(--blue);
+  min-height: 34px;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid #b9d8f1;
+  border-radius: 999px;
+  background: #fff;
+  color: #005dad;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 .hero h1 {
-  margin-top: 1.5rem;
-  font-size: clamp(2.8rem, 5.2vw, 4.45rem);
-  line-height: 1.08;
-  letter-spacing: -0.06em;
-  font-weight: 650;
+  margin-top: 1.75rem;
+  color: #101114;
+  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-size: clamp(2rem, 7.3vw, 3.75rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-wrap: initial;
 }
-.hero h1 span {
-  color: var(--blue);
+.hero-title-line {
+  display: block;
+}
+.hero h1 strong {
+  color: #0077d9;
+  font-weight: 900;
 }
 .hero-description {
-  max-width: 31rem;
-  font-size: 1.03rem;
-  line-height: 1.85;
+  max-width: 36rem;
   margin-top: 1.5rem;
+  color: #484d55;
+  font-size: clamp(1.05rem, 1.45vw, 1.375rem);
+  line-height: 1.5;
 }
 .hero .button-row {
-  margin-top: 2rem;
+  margin-top: 1.75rem;
 }
 .hero-location {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin-top: 1.4rem;
+  margin-top: 1.25rem;
   font-size: 0.75rem;
 }
-.hero-visual {
+.hero-phone {
+  --phone-image-width: clamp(42rem, 150vw, 66rem);
   position: relative;
-  width: min(100%, 31rem);
-  justify-self: center;
+  width: calc(100% + 2.5rem);
+  height: calc(var(--phone-image-width) * 9 / 16);
+  margin-inline: -1.25rem;
 }
-.visual-orbit {
+.hero-phone img {
+  /* The source includes transparent space on the left; center the phone itself. */
   position: absolute;
-  inset: -1.5rem -2rem 1rem;
-  border: 1px solid #dce6f4;
-  border-radius: 50%;
-  transform: rotate(-22deg);
-}
-.visual-orbit::before {
-  content: "";
-  position: absolute;
-  inset: -1.6rem 1.5rem;
-  border: 1px solid #e2e9f3;
-  border-radius: 50%;
-}
-.visual-orbit::after {
-  content: "";
-  position: absolute;
-  top: 20%;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  border: 3px solid var(--page);
-  background: #c89430;
-  border-radius: 50%;
-}
-.service-preview {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #d6e0ef;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 15px 38px rgb(26 47 76 / 9%);
-}
-.preview-banner {
-  position: relative;
-  overflow: hidden;
-  padding: 1.5rem 1.75rem;
-  background: var(--blue);
-  color: #fff;
-}
-.preview-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-  z-index: 1;
-  font-size: 0.64rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-.preview-label > span {
-  width: 6px;
-  height: 6px;
-  background: #9ce6cc;
-  border-radius: 50%;
-}
-.preview-banner h2 {
-  position: relative;
-  margin-top: 1rem;
-  font-size: 1.75rem;
-  letter-spacing: -0.045em;
-  font-weight: 600;
-}
-.preview-banner p {
-  position: relative;
-  color: #dce7fa;
-  font-size: 0.75rem;
-  margin-top: 0.6rem;
-}
-.preview-watermark {
-  position: absolute;
-  right: -1.9rem;
-  top: 2rem;
-  opacity: 0.15;
-  transform: rotate(-15deg);
-}
-.preview-content {
-  padding: 1.25rem;
-}
-.preview-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-.preview-heading h3 {
-  font-size: 0.875rem;
-  font-weight: 650;
-}
-.preview-heading > span {
-  color: var(--muted);
-  font-size: 0.625rem;
-}
-.preview-services {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-.preview-service {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  align-items: flex-start;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 0.85rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  transition:
-    border-color 150ms,
-    background 150ms;
-}
-.preview-service:hover {
-  background: var(--page);
-  border-color: #a9bfdd;
-}
-.preview-service .icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-}
-.preview-service > svg {
-  position: absolute;
-  top: 0.85rem;
-  right: 0.7rem;
-  color: var(--soft);
-}
-.preview-footer {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 44px;
-  margin-top: 1rem;
-  color: var(--blue);
-  font-size: 0.7rem;
-}
-.preview-footer > svg:last-child {
-  margin-left: auto;
-}
-.preview-footer:hover span {
-  text-decoration: underline;
-}
-.community-note {
-  /* Stay in flow so wrapping never pushes the badge over the service links. */
-  position: relative;
-  left: -1rem;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: -0.5rem;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.85rem 1rem;
-  box-shadow: 0 6px 20px rgb(26 47 76 / 7%);
-}
-.community-note .icon-box {
-  width: 37px;
-  height: 37px;
-  border-radius: 50%;
-}
-.community-note strong,
-.community-note div > span {
-  display: block;
-}
-.community-note strong {
-  font-size: 0.75rem;
-  font-weight: 650;
-}
-.community-note div > span {
-  color: var(--muted);
-  font-size: 0.64rem;
-  margin-top: 0.15rem;
+  left: 50%;
+  width: var(--phone-image-width);
+  max-width: none;
+  height: auto;
+  transform: translateX(-40%);
 }
 .assurance-strip {
   display: flex;
@@ -1025,8 +870,9 @@ details[open] > summary > svg:last-child {
   .assurance-strip {
     justify-content: space-between;
   }
-  .hero-visual {
-    width: min(90%, 31rem);
+  .hero-phone {
+    width: calc(100% + 4rem);
+    margin-inline: -2rem;
   }
 }
 
@@ -1062,21 +908,31 @@ details[open] > summary > svg:last-child {
     display: none;
   }
   .hero-grid {
-    grid-template-columns: 1.1fr 1fr;
+    display: flex;
     align-items: center;
-    gap: 4rem;
-    padding-bottom: 4.5rem;
+    min-height: clamp(36rem, 46vw, 46rem);
+    padding-block: 4.5rem;
   }
-  .hero-visual {
+  .hero-copy {
+    width: 59%;
+    max-width: 46rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 4.45vw, 4.75rem);
+  }
+  .hero-phone {
+    position: absolute;
+    top: 50%;
+    left: calc(50% - 5rem);
+    width: min(70vw, 75rem);
+    height: auto;
+    margin: 0;
+    transform: translateY(-50%);
+  }
+  .hero-phone img {
+    position: static;
     width: 100%;
-    max-width: 29rem;
-    justify-self: end;
-  }
-  .hero-copy .eyebrow {
-    font-size: 0.7rem;
-  }
-  .community-note {
-    left: -1.5rem;
+    transform: none;
   }
   .assurance-strip {
     justify-content: flex-start;
@@ -1169,19 +1025,13 @@ details[open] > summary > svg:last-child {
   .utility-bar {
     font-size: 0.6rem;
   }
-  .preview-heading > span {
-    display: none;
-  }
   .hero .button-row {
     align-items: stretch;
     flex-direction: column;
   }
-  .preview-content {
-    padding: 1rem;
-  }
-  .preview-service {
-    font-size: 0.7rem;
-    padding: 0.75rem;
+  .hero-phone {
+    width: calc(100% + 2rem);
+    margin-inline: -1rem;
   }
   .privacy-card > .icon-box {
     float: none;
