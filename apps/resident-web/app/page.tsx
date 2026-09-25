@@ -209,19 +209,27 @@ function Hero() {
           </div>
         </div>
       </div>
-      <div className="container assurance-strip">
-        <div>
-          <Building2 size={19} aria-hidden="true" />
-          <span>Your barangay, online</span>
-        </div>
-        <div>
-          <ShieldCheck size={19} aria-hidden="true" />
-          <span>Verified resident access</span>
-        </div>
-        <div>
-          <ClipboardList size={19} aria-hidden="true" />
-          <span>Clearer request follow-ups</span>
-        </div>
+      <div className="hero-shortcuts">
+        <nav
+          className="container service-shortcuts"
+          aria-label="Service guides"
+        >
+          <a href="#documents">
+            <FileText size={22} aria-hidden="true" />
+            <span>Document requests</span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
+          <a href="#concerns">
+            <MapPinned size={22} aria-hidden="true" />
+            <span>Community concerns</span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
+          <a href="#tracking">
+            <ClipboardList size={22} aria-hidden="true" />
+            <span>Track a request</span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
+        </nav>
       </div>
     </section>
   );

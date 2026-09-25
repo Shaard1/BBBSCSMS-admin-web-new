@@ -359,25 +359,43 @@ svg {
   height: auto;
   transform: translateX(-40%);
 }
-.assurance-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  column-gap: 2.5rem;
-  row-gap: 0.8rem;
+.hero-shortcuts {
+  position: relative;
+  background: var(--panel);
   border-top: 1px solid var(--border);
-  padding-block: 1.25rem;
 }
-.assurance-strip div {
+.service-shortcuts {
+  display: grid;
+}
+.service-shortcuts a {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 0.75rem;
+  gap: 0.85rem;
+  min-height: 68px;
+  padding: 1rem 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition:
+    background 160ms,
+    color 160ms;
+}
+.service-shortcuts a + a {
+  border-top: 1px solid var(--border);
+}
+.service-shortcuts a > svg:first-child {
+  color: var(--blue);
+}
+.service-shortcuts a > svg:last-child {
+  margin-left: auto;
   color: var(--muted);
 }
-.assurance-strip svg {
+.service-shortcuts a:hover {
+  background: var(--page);
   color: var(--blue);
+}
+.service-shortcuts a:hover span {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .heading-row {
@@ -812,12 +830,24 @@ details[open] > summary > svg:last-child {
   .registration-note {
     align-items: center;
   }
-  .assurance-strip {
-    justify-content: space-between;
-  }
   .hero-phone {
     width: calc(100% + 4rem);
     margin-inline: -2rem;
+  }
+}
+
+@media (min-width: 48em) {
+  .service-shortcuts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-block: 0.75rem;
+  }
+  .service-shortcuts a {
+    min-height: 64px;
+    padding-inline: clamp(0.75rem, 2vw, 1.75rem);
+  }
+  .service-shortcuts a + a {
+    border-top: 0;
+    border-left: 1px solid var(--border);
   }
 }
 
@@ -878,15 +908,6 @@ details[open] > summary > svg:last-child {
     position: static;
     width: 100%;
     transform: none;
-  }
-  .assurance-strip {
-    justify-content: flex-start;
-    gap: 3rem;
-    padding-block: 1.4rem;
-  }
-  .assurance-strip div + div {
-    border-left: 1px solid #cdd7e5;
-    padding-left: 3rem;
   }
   .service-card {
     padding: 2rem;
