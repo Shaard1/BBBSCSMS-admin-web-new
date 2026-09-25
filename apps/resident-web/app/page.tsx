@@ -1,414 +1,536 @@
-"use client";
-
 import {
-  AlignJustify,
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpRight,
   Bell,
   Building2,
+  Check,
+  ChevronDown,
   ClipboardList,
   Clock3,
   FileCheck2,
   FileText,
-  Landmark,
-  LockKeyhole,
+  MapPin,
   MapPinned,
-  Megaphone,
-  PhoneCall,
   ShieldCheck,
+  Smartphone,
   UserCheck,
-  UsersRound
+  UsersRound,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { SiteHeader } from "@/components/site-header";
 
-const navLinks = [
-  { label: "Office", href: "#about" },
-  { label: "Services", href: "#features" },
-  { label: "Process", href: "#how-it-works" },
-  { label: "Privacy", href: "#security" },
-  { label: "Help", href: "#faq" }
-];
-
-const footerLinks = [
-  { label: "Barangay Office", href: "#about" },
-  { label: "Available Services", href: "#features" },
-  { label: "Account Process", href: "#how-it-works" },
-  { label: "Privacy and Security", href: "#security" }
-];
-
-const contactItems = [
-  { label: "Barangay Office", value: "Bancao-Bancao, Puerto Princesa City", icon: Building2 },
-  { label: "Service Hours", value: "Monday to Friday, regular office hours", icon: Clock3 },
-  { label: "Urgent Concerns", value: "Coordinate directly with barangay personnel", icon: PhoneCall }
-];
-
-const values = [
-  { title: "Official barangay channel", icon: Landmark, tone: "blue" },
-  { title: "Verified resident records", icon: FileCheck2, tone: "green" },
-  { title: "Faster office coordination", icon: Clock3, tone: "yellow" },
-  { title: "Resident-centered service", icon: UserCheck, tone: "red" }
-];
-
-const problems = [
+const services = [
   {
-    title: "Office Queueing",
+    id: "documents",
+    number: "01",
+    title: "Request a document",
+    label: "Documents",
     description:
-      "Residents can prepare requests and check updates before visiting the barangay office.",
-    icon: UsersRound,
-    tone: "red"
-  },
-  {
-    title: "Paper Records",
-    description: "Digital submission helps the office keep cleaner records for reports and requests.",
+      "Start your certificate or clearance request before your visit to the barangay office.",
     icon: FileText,
-    tone: "yellow"
+    tone: "blue",
+    guide: "How to request a document",
+    steps: [
+      "Sign in to your verified account in the Bancao Connect app.",
+      "Open document requests, choose the document you need, and provide the required details.",
+      "Submit your request and check the app for the office’s review and collection instructions.",
+    ],
+    note: "Requirements and processing depend on the document requested.",
   },
   {
-    title: "Status Follow-ups",
+    id: "concerns",
+    number: "02",
+    title: "Report a community concern",
+    label: "Community reports",
     description:
-      "Residents can see whether a concern is pending, in progress, or resolved.",
+      "Let the barangay know about road, drainage, waste, streetlight, or other local concerns.",
+    icon: MapPinned,
+    tone: "green",
+    guide: "How to submit a report",
+    steps: [
+      "Sign in to the app and open community reports.",
+      "Describe the concern and include its location and a photo when available.",
+      "Submit your report and follow its progress in the app.",
+    ],
+    note: "For urgent concerns, contact barangay personnel directly.",
+  },
+  {
+    id: "announcements",
+    number: "03",
+    title: "Stay in the loop",
+    label: "Announcements",
+    description:
+      "Find barangay advisories, community activities, and public service updates in one place.",
+    icon: Bell,
+    tone: "yellow",
+    guide: "Where to find announcements",
+    steps: [
+      "Sign in to your verified account in the app.",
+      "Open announcements to read notices published by the barangay.",
+      "Check each notice for dates, locations, and any instructions from the office.",
+    ],
+    note: "Check the app regularly for the latest published notices.",
+  },
+  {
+    id: "tracking",
+    number: "04",
+    title: "Follow your request",
+    label: "Progress tracking",
+    description:
+      "Check the latest status of your submitted reports and document requests without another trip.",
     icon: ClipboardList,
-    tone: "blue"
+    tone: "red",
+    guide: "How to check your progress",
+    steps: [
+      "Sign in using the account you used to submit your request or report.",
+      "Open your document requests or community reports and select the relevant entry.",
+      "Review its latest status and any instructions from barangay staff.",
+    ],
+    note: "Need help with a submission? Coordinate with the barangay office.",
   },
-  {
-    title: "Public Advisories",
-    description:
-      "Official barangay announcements are kept in one verified digital channel.",
-    icon: Megaphone,
-    tone: "green"
-  }
-];
-
-const features = [
-  {
-    title: "Community Concern Reporting",
-    description: "Report road issues, waste concerns, drainage problems, streetlights, and other local matters.",
-    icon: MapPinned
-  },
-  {
-    title: "Barangay Document Requests",
-    description: "Start requests for certificates and clearances with organized details for office review.",
-    icon: FileText
-  },
-  {
-    title: "Official Announcements",
-    description: "Receive advisories, reminders, activity notices, and public safety updates from the barangay.",
-    icon: Bell
-  },
-  {
-    title: "Resident Verification",
-    description: "Submit account details and valid identification for barangay staff validation.",
-    icon: UserCheck
-  },
-  {
-    title: "Request and Case Tracking",
-    description: "Monitor submitted reports and requests from review to completion.",
-    icon: ClipboardList
-  },
-  {
-    title: "Barangay Staff Workspace",
-    description: "Authorized staff can review residents, manage reports, publish notices, and monitor workload.",
-    icon: ShieldCheck
-  }
-];
+] as const;
 
 const steps = [
   {
     number: "01",
-    title: "Register as a Resident",
-    description: "Create an account with your name, contact details, address, and supporting identification."
+    icon: ArrowDownToLine,
+    title: "Get the app",
+    description:
+      "Download Bancao Connect on your Android phone to get started.",
   },
   {
     number: "02",
-    title: "Barangay Staff Verification",
-    description: "The office checks submitted details before granting resident access."
+    icon: UserCheck,
+    title: "Register & get verified",
+    description:
+      "Submit your resident details and identification for the barangay to review.",
   },
   {
     number: "03",
-    title: "Use Digital Services",
+    icon: FileCheck2,
+    title: "Connect with your barangay",
     description:
-      "Approved residents can submit reports, request services, and receive official updates."
-  }
-];
-
-const security = [
-  {
-    title: "Verified Resident Access",
-    description: "Resident services are available only after barangay account approval.",
-    icon: UserCheck
+      "Once approved, send requests, report concerns, and keep up with community updates.",
   },
-  {
-    title: "Role-Based Office Access",
-    description: "Residents and authorized staff use separate access levels.",
-    icon: ShieldCheck
-  },
-  {
-    title: "Secure Sign In",
-    description: "Account sessions are protected through authenticated access.",
-    icon: LockKeyhole
-  },
-  {
-    title: "Controlled Records Handling",
-    description:
-      "Submitted information is handled through organized barangay review workflows.",
-    icon: ClipboardList
-  }
 ];
 
 const faqs = [
   {
-    question: "What is Bancao Connect?",
-    answer:
-      "Bancao Connect is the digital service portal for Barangay Bancao-Bancao residents to access selected services, reports, requests, and official announcements."
-  },
-  {
     question: "Who can use Bancao Connect?",
     answer:
-      "It is intended for Barangay Bancao-Bancao residents with verified resident accounts."
+      "Bancao Connect is for residents of Barangay Bancao-Bancao, Puerto Princesa City. Register in the Android app and submit your details for barangay verification to access resident services.",
+  },
+  {
+    question: "Can I submit a request on this website?",
+    answer:
+      "This website helps you explore services and get started. Document requests, community reports, account registration, and progress tracking are available in the Bancao Connect Android app.",
+  },
+  {
+    question: "What do I need to register?",
+    answer:
+      "Prepare your name, contact details, residential address, and valid identification. Follow the registration instructions in the app and provide the information requested for residency verification.",
   },
   {
     question: "Why does my account need approval?",
     answer:
-      "Approval helps the barangay confirm that account access is granted to valid residents."
+      "Barangay staff review your details to confirm your residency before granting access. If your account is still pending or you need to correct your information, coordinate with the barangay office.",
   },
   {
-    question: "Can I track my submitted reports?",
+    question: "Is the app available for iPhone?",
     answer:
-      "Yes. Residents can view the progress of submitted community concerns and follow their latest status."
+      "The download provided here is an Android APK. It cannot be installed on an iPhone. You can still use this website to learn about services and visit the barangay office for assistance.",
   },
   {
-    question: "Can I request barangay documents through the app?",
+    question: "What if my concern is urgent?",
     answer:
-      "Yes. Residents can start document requests through the app, subject to barangay office review and processing."
-  }
+      "Contact barangay personnel directly for urgent concerns. Reports submitted in the app are reviewed through the barangay’s regular workflow and are not an emergency response channel.",
+  },
 ];
 
 export default function Home() {
   return (
-    <main>
-      <Navbar />
-      <Hero />
-      <About />
-      <ProblemSection />
-      <FeaturesSection />
-      <HowItWorks />
-      <SecuritySection />
-      <FaqSection />
-      <CtaSection />
+    <>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <SiteHeader />
+      <main id="main-content" tabIndex={-1}>
+        <Hero />
+        <Services />
+        <GettingStarted />
+        <ResidentCare />
+        <Help />
+        <Download />
+      </main>
       <Footer />
-    </main>
-  );
-}
-
-function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  function closeMenu() {
-    setIsMenuOpen(false);
-  }
-
-  return (
-    <header className="navbar">
-      <div className="nav-inner">
-        <a className="brand" href="#top" aria-label="Bancao Connect home">
-          <Image src="/assets/BBBC.png" alt="" width={42} height={42} />
-          <span>Bancao<br />Connect.</span>
-        </a>
-        <nav className="nav-links" aria-label="Main navigation">
-          {navLinks.map((link) => (
-            <a key={link.label} href={link.href}>{link.label}</a>
-          ))}
-        </nav>
-        <div className="nav-actions">
-          <a className="download-outline-button" href="/downloads/BancaoConnect.apk" download>
-            Download App
-          </a>
-        </div>
-        <button
-          aria-controls="mobile-navigation"
-          aria-expanded={isMenuOpen}
-          aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          className={`mobile-menu-toggle ${isMenuOpen ? "open" : ""}`}
-          onClick={() => setIsMenuOpen((value) => !value)}
-          type="button"
-        >
-          <AlignJustify size={22} />
-        </button>
-      </div>
-      <div className={`mobile-nav-panel ${isMenuOpen ? "open" : ""}`} id="mobile-navigation">
-        <nav className="mobile-nav-links" aria-label="Mobile navigation">
-          {navLinks.map((link) => (
-            <a key={link.label} href={link.href} onClick={closeMenu}>
-              {link.label}
-            </a>
-          ))}
-        </nav>
-        <div className="mobile-nav-actions">
-          <a
-            className="download-outline-button"
-            href="/downloads/BancaoConnect.apk"
-            download
-            onClick={closeMenu}
-          >
-            Download App
-          </a>
-        </div>
-      </div>
-  </header>
+    </>
   );
 }
 
 function Hero() {
   return (
-    <section className="hero" id="top">
-      <div className="hero-copy">
-        <span className="official-kicker">Official Digital Services Portal</span>
-        <h1><strong>One</strong> Barangay.<br /><strong>One</strong> Digital Home.</h1>
-        <p>
-          Bringing Bancao-Bancao services closer to every resident through a faster,
-          safer, and more connected digital experience.
-        </p>
+    <section className="hero" id="top" aria-labelledby="hero-heading">
+      <div className="container hero-grid">
+        <div className="hero-copy">
+          <p className="eyebrow">
+            <span className="eyebrow-line" /> For the people of Bancao-Bancao
+          </p>
+          <h1 id="hero-heading">
+            Your barangay.
+            <br />
+            <span>Closer to you.</span>
+          </h1>
+          <p className="hero-description">
+            Less time in line. More time for what matters. Access barangay
+            services, share a concern, and stay connected with your community
+            through Bancao Connect.
+          </p>
+          <div className="button-row">
+            <a className="button button-primary" href="#download">
+              <Smartphone size={18} aria-hidden="true" /> Get the resident app{" "}
+              <ArrowUpRight size={17} aria-hidden="true" />
+            </a>
+            <a className="button button-secondary" href="#features">
+              Explore services <ArrowDown size={17} aria-hidden="true" />
+            </a>
+          </div>
+          <p className="hero-location">
+            <MapPin size={15} aria-hidden="true" /> Barangay Bancao-Bancao,
+            Puerto Princesa City
+          </p>
+        </div>
+        <div className="hero-visual">
+          <div className="visual-orbit" aria-hidden="true" />
+          <div className="service-preview">
+            <div className="preview-banner">
+              <span className="preview-label">
+                <span /> Your resident connection
+              </span>
+              <Image
+                className="preview-watermark"
+                src="/assets/bancao-connect-mark-community.svg"
+                width={172}
+                height={172}
+                alt=""
+              />
+              <h2>
+                One community.
+                <br />
+                Connected.
+              </h2>
+              <p>Barangay services, within reach.</p>
+            </div>
+            <div className="preview-content">
+              <div className="preview-heading">
+                <h3>How can we help you?</h3>
+                <span>Resident services</span>
+              </div>
+              <div className="preview-services">
+                {services.map(({ id, icon: Icon, label, tone }) => (
+                  <a key={id} href={`#${id}`} className="preview-service">
+                    <span className={`icon-box tone-${tone}`}>
+                      <Icon size={21} aria-hidden="true" />
+                    </span>
+                    <span>{label}</span>
+                    <ArrowUpRight size={15} aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
+              <a className="preview-footer" href="#how-it-works">
+                <ShieldCheck size={17} aria-hidden="true" />
+                <span>New here? Let’s get you started.</span>
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <div className="community-note">
+            <span className="icon-box tone-green">
+              <UsersRound size={22} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>Made for our community</strong>
+              <span>Every resident. Every connection.</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="hero-phone" aria-hidden="true">
-        <Image
-          src="/assets/Holding-the-phone.png"
-          alt=""
-          width={760}
-          height={620}
-          priority
-        />
+      <div className="container assurance-strip">
+        <div>
+          <Building2 size={19} aria-hidden="true" />
+          <span>Your barangay, online</span>
+        </div>
+        <div>
+          <ShieldCheck size={19} aria-hidden="true" />
+          <span>Verified resident access</span>
+        </div>
+        <div>
+          <ClipboardList size={19} aria-hidden="true" />
+          <span>Clearer request follow-ups</span>
+        </div>
       </div>
     </section>
   );
 }
 
-function About() {
+function Services() {
   return (
-    <section className="section section-white" id="about">
-      <div className="section-inner about-grid">
-        <div>
-          <SectionHeading eyebrow="Barangay office" title="Digital service support for local governance" align="left" />
-          <p className="lead-text">
-            Bancao Connect helps Barangay Bancao-Bancao provide clearer access to
-            resident services, community issue reporting, and official public
-            information. It supports office staff with organized records while
-            giving residents a practical way to coordinate with the barangay.
+    <section
+      className="section services-section"
+      id="features"
+      aria-labelledby="services-heading"
+    >
+      <div className="container">
+        <div className="section-heading heading-row">
+          <div>
+            <p className="eyebrow">Resident services</p>
+            <h2 id="services-heading">What can we help you with?</h2>
+          </div>
+          <p>
+            Everyday barangay services.
+            <br />
+            One familiar place to start.
           </p>
-          <div className="contact-strip">
-            {contactItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.label}>
-                  <Icon size={18} />
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>{item.value}</small>
+        </div>
+        <div className="services-grid">
+          {services.map(
+            ({
+              id,
+              number,
+              title,
+              description,
+              icon: Icon,
+              tone,
+              guide,
+              steps: guideSteps,
+              note,
+            }) => (
+              <article className="service-card" id={id} key={id}>
+                <div className="service-card-top">
+                  <span className={`icon-box tone-${tone}`}>
+                    <Icon size={24} aria-hidden="true" />
+                  </span>
+                  <span className="service-number" aria-hidden="true">
+                    {number}
                   </span>
                 </div>
-              );
-            })}
-          </div>
+                <h3>{title}</h3>
+                <p>{description}</p>
+                <details className="service-guide">
+                  <summary>
+                    {guide}
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </summary>
+                  <div className="guide-content">
+                    <ol>
+                      {guideSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                    <p>{note}</p>
+                    <a className="text-link" href="#download">
+                      Get the Android app{" "}
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </a>
+                  </div>
+                </details>
+              </article>
+            ),
+          )}
         </div>
-        <div className="value-grid">
-          {values.map((value) => <ValueCard key={value.title} {...value} />)}
-        </div>
+        <p className="service-footnote">
+          <Smartphone size={17} aria-hidden="true" /> These services are
+          available in the Bancao Connect app after account approval.
+        </p>
       </div>
     </section>
   );
 }
 
-function ProblemSection() {
+function GettingStarted() {
   return (
-    <section className="section section-muted">
-      <div className="section-inner">
-        <SectionHeading
-          eyebrow="Public service needs"
-          title="Built for everyday barangay transactions"
-          description="The portal supports common resident concerns that require clear records, accountable follow-up, and official communication."
-        />
-        <div className="card-grid four-columns">
-          {problems.map((item) => <InfoCard key={item.title} {...item} />)}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeaturesSection() {
-  return (
-    <section className="section section-white" id="features">
-      <div className="section-inner">
-        <SectionHeading
-          eyebrow="Services"
-          title="Barangay services available through the portal"
-          description="Residents can start key transactions digitally while authorized barangay staff manage verification, reporting, and public notices."
-        />
-        <div className="card-grid three-columns">
-          {features.map((item) => <InfoCard key={item.title} {...item} tone="blue" />)}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  return (
-    <section className="section section-muted" id="how-it-works">
-      <div className="section-inner">
-        <SectionHeading
-          eyebrow="Process"
-          title="How resident access is approved"
-          description="The flow is designed to protect barangay records while keeping residents informed about what happens next."
-        />
-        <div className="steps">
-          {steps.map((step) => <StepCard key={step.number} {...step} />)}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SecuritySection() {
-  return (
-    <section className="section security-section" id="security">
-      <div className="section-inner security-grid">
-        <div>
-          <SectionHeading
-            eyebrow="Privacy and security"
-            title="Resident data is handled through controlled access"
-            align="left"
-          />
-          <p className="lead-text">
-            The portal separates resident access from staff access, limits
-            administrative tools to authorized accounts, and keeps submitted
-            records inside structured barangay workflows.
+    <section
+      className="section getting-started"
+      id="how-it-works"
+      aria-labelledby="steps-heading"
+    >
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">A little setup. A closer connection.</p>
+          <h2 id="steps-heading">Your first steps start here.</h2>
+          <p>
+            From download to your first request, here’s how to get connected.
           </p>
-          <div className="security-badge">
-            <ShieldCheck size={20} />
-            <span>Verified access and role-based controls</span>
-          </div>
         </div>
-        <div className="card-grid two-columns">
-          {security.map((item) => <InfoCard key={item.title} {...item} tone="blue" compact />)}
+        <ol className="steps-grid">
+          {steps.map(({ number, icon: Icon, title, description }) => (
+            <li key={number} className="step">
+              <div className="step-top">
+                <span className="step-number">{number}</span>
+                <Icon size={23} aria-hidden="true" />
+              </div>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="registration-note">
+          <span className="icon-box tone-blue">
+            <UserCheck size={23} aria-hidden="true" />
+          </span>
+          <div>
+            <h3>Before you begin</h3>
+            <p>
+              Have your contact details, Bancao-Bancao address, and valid
+              identification ready.
+            </p>
+          </div>
+          <a className="text-link" href="#faq">
+            Registration help <ArrowUpRight size={17} aria-hidden="true" />
+          </a>
         </div>
       </div>
     </section>
   );
 }
 
-function FaqSection() {
+function ResidentCare() {
   return (
-    <section className="section section-white" id="faq">
-      <div className="section-inner faq-wrap">
-        <SectionHeading
-          eyebrow="Help"
-          title="Common resident questions"
-          description="Short answers for residents using Bancao Connect for the first time."
-        />
+    <section
+      className="section community-section"
+      id="about"
+      aria-labelledby="community-heading"
+    >
+      <div className="container community-grid">
+        <div className="office-card">
+          <p className="eyebrow">Here for our barangay</p>
+          <h2 id="community-heading">
+            Digital convenience.
+            <br />A familiar helping hand.
+          </h2>
+          <p>
+            Bancao Connect brings everyday services closer. And when you need a
+            little extra help, your barangay office is still here for you.
+          </p>
+          <div className="office-detail">
+            <MapPin size={21} aria-hidden="true" />
+            <div>
+              <h3>Barangay Bancao-Bancao</h3>
+              <p>Puerto Princesa City, Palawan</p>
+            </div>
+          </div>
+          <div className="office-detail">
+            <Clock3 size={21} aria-hidden="true" />
+            <div>
+              <h3>Visit during regular office hours</h3>
+              <p>
+                Monday to Friday. Confirm availability with the office before
+                your visit.
+              </p>
+            </div>
+          </div>
+          <a className="text-link" href="#faq">
+            Find answers before your visit{" "}
+            <ArrowRight size={17} aria-hidden="true" />
+          </a>
+        </div>
+        <div className="privacy-card" id="security">
+          <span className="icon-box tone-green">
+            <ShieldCheck size={26} aria-hidden="true" />
+          </span>
+          <p className="eyebrow">Built on trust</p>
+          <h2>
+            Your information.
+            <br />
+            Handled with care.
+          </h2>
+          <p>
+            Resident verification helps the barangay connect the right people
+            with the right services.
+          </p>
+          <ul className="trust-list">
+            <li>
+              <Check size={17} aria-hidden="true" />
+              <div>
+                <strong>Verified resident accounts</strong>
+                <span>
+                  Barangay staff review registration details before granting
+                  access.
+                </span>
+              </div>
+            </li>
+            <li>
+              <Check size={17} aria-hidden="true" />
+              <div>
+                <strong>Access for authorized staff</strong>
+                <span>
+                  Office tools and resident services have separate access
+                  levels.
+                </span>
+              </div>
+            </li>
+            <li>
+              <Check size={17} aria-hidden="true" />
+              <div>
+                <strong>Your account, your updates</strong>
+                <span>
+                  Sign in to view your own submitted reports and requests.
+                </span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Help() {
+  return (
+    <section
+      className="section help-section"
+      id="faq"
+      aria-labelledby="help-heading"
+    >
+      <div className="container help-grid">
+        <div className="section-heading">
+          <p className="eyebrow">A helping hand</p>
+          <h2 id="help-heading">
+            A few things
+            <br />
+            you might be asking.
+          </h2>
+          <p>
+            Getting started should feel simple. Here are answers to common
+            resident questions.
+          </p>
+          <div className="help-note">
+            <Building2 size={22} aria-hidden="true" />
+            <div>
+              <strong>Still need assistance?</strong>
+              <p>
+                Visit the barangay office for help with your account or a
+                submitted request.
+              </p>
+              <a className="text-link" href="#about">
+                Barangay office details{" "}
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+        </div>
         <div className="faq-list">
-          {faqs.map((faq) => (
-            <details key={faq.question}>
-              <summary>{faq.question}</summary>
-              <p>{faq.answer}</p>
+          {faqs.map(({ question, answer }, index) => (
+            <details key={question} name="resident-faq">
+              <summary>
+                <span className="faq-number" aria-hidden="true">
+                  0{index + 1}
+                </span>
+                <span>{question}</span>
+                <ChevronDown size={18} aria-hidden="true" />
+              </summary>
+              <p>{answer}</p>
             </details>
           ))}
         </div>
@@ -417,26 +539,54 @@ function FaqSection() {
   );
 }
 
-function CtaSection() {
+function Download() {
   return (
-    <section className="section section-muted" id="download">
-      <div className="section-inner">
-        <div className="cta">
+    <section
+      className="download-section"
+      id="download"
+      aria-labelledby="download-heading"
+    >
+      <div className="container">
+        <div className="download-panel">
           <div>
-            <h2>Use the official barangay digital service channel</h2>
+            <p className="eyebrow">Your barangay, in your pocket</p>
+            <h2 id="download-heading">Let’s get you connected.</h2>
             <p>
-              Download Bancao Connect to register as a resident, submit
-              community concerns, request services, and receive verified
-              barangay announcements.
+              Download Bancao Connect and take the first step toward easier
+              everyday barangay services.
             </p>
-            <div className="cta-actions">
-              <a className="light-button" href="/downloads/BancaoConnect.apk" download>
-                Download App
+            <div className="button-row">
+              <a
+                className="button button-light"
+                href="/downloads/BancaoConnect.apk"
+                download
+              >
+                <ArrowDownToLine size={19} aria-hidden="true" /> Download for
+                Android <ArrowUpRight size={17} aria-hidden="true" />
               </a>
-              <a className="outline-button" href="#faq">Need Help?</a>
+              <a className="download-help" href="#how-it-works">
+                Getting started guide{" "}
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
             </div>
+            <p className="download-note">
+              Android APK · Resident account approval required
+            </p>
           </div>
-          <Image src="/assets/Holding-the-phone.png" alt="" width={340} height={250} />
+          <div className="download-brand" aria-hidden="true">
+            <Image
+              src="/assets/bancao-connect-mark-community.svg"
+              alt=""
+              width={100}
+              height={100}
+            />
+            <strong>
+              Bancao
+              <br />
+              Connect.
+            </strong>
+            <span>Closer to your community.</span>
+          </div>
         </div>
       </div>
     </section>
@@ -445,104 +595,61 @@ function CtaSection() {
 
 function Footer() {
   return (
-    <footer className="footer">
-      <div className="footer-inner">
-        <div>
-          <a className="brand footer-brand" href="#top">
-            <Image src="/assets/BBBC.png" alt="" width={42} height={42} />
-            <span>Bancao<br />Connect.</span>
+    <footer className="site-footer">
+      <div className="container">
+        <div className="footer-grid">
+          <div>
+            <a className="brand" href="#top" aria-label="Bancao Connect home">
+              <Image
+                src="/assets/bancao-connect-mark-community.svg"
+                alt=""
+                width={40}
+                height={40}
+              />
+              <span>
+                Bancao
+                <br />
+                Connect.
+              </span>
+            </a>
+            <p>
+              A closer connection between
+              <br />
+              our barangay and our community.
+            </p>
+          </div>
+          <nav aria-label="Resident services">
+            <h2>Explore</h2>
+            <a href="#features">Resident services</a>
+            <a href="#how-it-works">Getting started</a>
+            <a href="#download">Download the app</a>
+          </nav>
+          <nav aria-label="Help and information">
+            <h2>We’re here to help</h2>
+            <a href="#about">Barangay office</a>
+            <a href="#faq">Common questions</a>
+            <a href="#security">Privacy & access</a>
+          </nav>
+          <div className="footer-location">
+            <span className="icon-box tone-blue">
+              <Building2 size={23} aria-hidden="true" />
+            </span>
+            <h2>Barangay Bancao-Bancao</h2>
+            <p>
+              Puerto Princesa City
+              <br />
+              Palawan, Philippines
+            </p>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>© {new Date().getFullYear()} Bancao Connect.</span>
+          <span>Built for a more connected barangay.</span>
+          <a href="#top">
+            Back to top <ArrowUpRight size={15} aria-hidden="true" />
           </a>
-          <p>Official digital service support for Barangay Bancao-Bancao residents.</p>
-        </div>
-        <div>
-          <h3>Portal links</h3>
-          {footerLinks.map((link) => <a key={link.label} href={link.href}>{link.label}</a>)}
-        </div>
-        <div>
-          <h3>Barangay office</h3>
-          <p>Barangay Bancao-Bancao, Puerto Princesa City</p>
         </div>
       </div>
-      <div className="copyright">© 2026 Bancao Connect. All rights reserved.</div>
     </footer>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  align = "center"
-}: {
-  eyebrow: string;
-  title: string;
-  description?: string;
-  align?: "left" | "center";
-}) {
-  return (
-    <div className={`section-heading ${align === "left" ? "align-left" : ""}`}>
-      <span>{eyebrow}</span>
-      <h2>{title}</h2>
-      {description ? <p>{description}</p> : null}
-    </div>
-  );
-}
-
-function ValueCard({
-  title,
-  icon: Icon,
-  tone
-}: {
-  title: string;
-  icon: typeof UsersRound;
-  tone: string;
-}) {
-  return (
-    <article className={`value-card tone-${tone}`}>
-      <span><Icon size={21} /></span>
-      <h3>{title}</h3>
-    </article>
-  );
-}
-
-function InfoCard({
-  title,
-  description,
-  icon: Icon,
-  tone = "blue",
-  compact = false
-}: {
-  title: string;
-  description: string;
-  icon: typeof UsersRound;
-  tone?: string;
-  compact?: boolean;
-}) {
-  return (
-    <article className={`info-card ${compact ? "compact" : ""}`}>
-      <span className={`icon-badge tone-${tone}`}><Icon size={21} /></span>
-      <div>
-        <h3>{title}</h3>
-        <p>{description}</p>
-      </div>
-    </article>
-  );
-}
-
-function StepCard({
-  number,
-  title,
-  description
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="step-card">
-      <span>{number}</span>
-      <h3>{title}</h3>
-      <p>{description}</p>
-    </article>
   );
 }
