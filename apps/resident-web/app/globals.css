@@ -210,30 +210,6 @@ svg {
 }
 
 /* A familiar CRM identity with a public-facing navigation. */
-.utility-bar {
-  color: #e2eafa;
-  background: var(--deep-blue);
-  font-size: 0.6875rem;
-}
-.utility-bar .container {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.utility-bar span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.utility-divider {
-  color: #a6bde3;
-  margin-inline: 0.3rem;
-}
-.utility-bar .container > span:last-child {
-  display: none;
-}
 .site-header {
   position: sticky;
   top: 0;
@@ -367,13 +343,6 @@ svg {
 .hero .button-row {
   margin-top: 1.75rem;
 }
-.hero-location {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-top: 1.25rem;
-  font-size: 0.75rem;
-}
 .hero-phone {
   --phone-image-width: clamp(42rem, 150vw, 66rem);
   position: relative;
@@ -412,14 +381,7 @@ svg {
 }
 
 .heading-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-}
-.heading-row > p {
-  font-size: 0.9rem;
+  display: block;
 }
 .services-grid {
   display: grid;
@@ -505,14 +467,6 @@ details[open] > summary > svg:last-child {
   margin-block: 0.8rem 0.25rem;
   font-size: 0.8rem;
 }
-.service-footnote {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  font-size: 0.775rem;
-}
 .getting-started {
   background: var(--page);
   border-block: 1px solid var(--border);
@@ -585,9 +539,6 @@ details[open] > summary > svg:last-child {
   border: 1px solid var(--border);
   background: var(--page);
 }
-.office-card > .eyebrow {
-  margin-bottom: 1rem;
-}
 .office-card > p:not(.eyebrow),
 .privacy-card > p:not(.eyebrow) {
   font-size: 0.9rem;
@@ -620,9 +571,6 @@ details[open] > summary > svg:last-child {
 .privacy-card > .icon-box {
   float: right;
   margin-left: 0.75rem;
-}
-.privacy-card > .eyebrow {
-  margin-block: 0.15rem 1rem;
 }
 .trust-list {
   display: grid;
@@ -850,9 +798,6 @@ details[open] > summary > svg:last-child {
   .container {
     width: min(100% - 4rem, 75rem);
   }
-  .utility-bar .container > span:last-child {
-    display: inline-flex;
-  }
   .services-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
@@ -1021,9 +966,6 @@ details[open] > summary > svg:last-child {
   .brand img {
     width: 36px;
     height: 36px;
-  }
-  .utility-bar {
-    font-size: 0.6rem;
   }
   .hero .button-row {
     align-items: stretch;

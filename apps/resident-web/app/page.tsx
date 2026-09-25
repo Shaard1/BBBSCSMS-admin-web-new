@@ -196,10 +196,6 @@ function Hero() {
                 Explore services <ArrowDown size={17} aria-hidden="true" />
               </a>
             </div>
-            <p className="hero-location">
-              <MapPin size={15} aria-hidden="true" /> Barangay Bancao-Bancao,
-              Puerto Princesa City
-            </p>
           </div>
           <div className="hero-phone">
             <Image
@@ -240,15 +236,7 @@ function Services() {
     >
       <div className="container">
         <div className="section-heading heading-row">
-          <div>
-            <p className="eyebrow">Resident services</p>
-            <h2 id="services-heading">What can we help you with?</h2>
-          </div>
-          <p>
-            Everyday barangay services.
-            <br />
-            One familiar place to start.
-          </p>
+          <h2 id="services-heading">What can we help you with?</h2>
         </div>
         <div className="services-grid">
           {services.map(
@@ -296,10 +284,6 @@ function Services() {
             ),
           )}
         </div>
-        <p className="service-footnote">
-          <Smartphone size={17} aria-hidden="true" /> These services are
-          available in the Bancao Connect app after account approval.
-        </p>
       </div>
     </section>
   );
@@ -314,7 +298,6 @@ function GettingStarted() {
     >
       <div className="container">
         <div className="section-heading">
-          <p className="eyebrow">A little setup. A closer connection.</p>
           <h2 id="steps-heading">Your first steps start here.</h2>
           <p>
             From download to your first request, here’s how to get connected.
@@ -361,7 +344,6 @@ function ResidentCare() {
     >
       <div className="container community-grid">
         <div className="office-card">
-          <p className="eyebrow">Here for our barangay</p>
           <h2 id="community-heading">
             Digital convenience.
             <br />A familiar helping hand.
@@ -396,7 +378,6 @@ function ResidentCare() {
           <span className="icon-box tone-green">
             <ShieldCheck size={26} aria-hidden="true" />
           </span>
-          <p className="eyebrow">Built on trust</p>
           <h2>
             Your information.
             <br />
@@ -452,7 +433,6 @@ function Help() {
     >
       <div className="container help-grid">
         <div className="section-heading">
-          <p className="eyebrow">A helping hand</p>
           <h2 id="help-heading">
             A few things
             <br />
@@ -506,7 +486,6 @@ function Download() {
       <div className="container">
         <div className="download-panel">
           <div>
-            <p className="eyebrow">Your barangay, in your pocket</p>
             <h2 id="download-heading">Let’s get you connected.</h2>
             <p>
               Download Bancao Connect and take the first step toward easier

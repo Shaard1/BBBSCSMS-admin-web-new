@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, MapPin, Menu, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const links = [
@@ -53,102 +53,88 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   return (
-    <>
-      <div className="utility-bar">
-        <div className="container">
-          <span>
-            Barangay Bancao-Bancao <span className="utility-divider">/</span>{" "}
-            Resident services
-          </span>
-          <span>
-            <MapPin size={13} aria-hidden="true" /> Puerto Princesa City,
-            Palawan
-          </span>
-        </div>
-      </div>
-      <header className="site-header">
-        <div className="container header-inner">
-          <a
-            className="brand"
-            href="#top"
-            aria-label="Bancao Connect home"
-            onClick={() => setMenuOpen(false)}
-          >
-            <Image
-              src="/assets/bancao-connect-mark-community.svg"
-              width={42}
-              height={42}
-              alt=""
-              priority
-            />
-            <span>
-              Bancao
-              <br />
-              Connect.
-            </span>
-          </a>
-          <nav className="desktop-navigation" aria-label="Main navigation">
-            {links.map(({ label, id }) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                aria-current={activeSection === id ? "location" : undefined}
-              >
-                {label}
-              </a>
-            ))}
-          </nav>
-          <a
-            className="button button-primary header-download"
-            href="#download"
-            onClick={() => setMenuOpen(false)}
-          >
-            Get the app <ArrowUpRight size={16} aria-hidden="true" />
-          </a>
-          <button
-            ref={menuButton}
-            className="menu-toggle"
-            type="button"
-            aria-label={
-              menuOpen ? "Close navigation menu" : "Open navigation menu"
-            }
-            aria-controls="mobile-navigation"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            {menuOpen ? (
-              <X size={23} aria-hidden="true" />
-            ) : (
-              <Menu size={23} aria-hidden="true" />
-            )}
-          </button>
-        </div>
-        <nav
-          id="mobile-navigation"
-          className="mobile-navigation"
-          aria-label="Mobile navigation"
-          hidden={!menuOpen}
+    <header className="site-header">
+      <div className="container header-inner">
+        <a
+          className="brand"
+          href="#top"
+          aria-label="Bancao Connect home"
+          onClick={() => setMenuOpen(false)}
         >
+          <Image
+            src="/assets/bancao-connect-mark-community.svg"
+            width={42}
+            height={42}
+            alt=""
+            priority
+          />
+          <span>
+            Bancao
+            <br />
+            Connect.
+          </span>
+        </a>
+        <nav className="desktop-navigation" aria-label="Main navigation">
           {links.map(({ label, id }) => (
             <a
               key={id}
               href={`#${id}`}
               aria-current={activeSection === id ? "location" : undefined}
-              onClick={() => setMenuOpen(false)}
             >
               {label}
-              <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           ))}
+        </nav>
+        <a
+          className="button button-primary header-download"
+          href="#download"
+          onClick={() => setMenuOpen(false)}
+        >
+          Get the app <ArrowUpRight size={16} aria-hidden="true" />
+        </a>
+        <button
+          ref={menuButton}
+          className="menu-toggle"
+          type="button"
+          aria-label={
+            menuOpen ? "Close navigation menu" : "Open navigation menu"
+          }
+          aria-controls="mobile-navigation"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          {menuOpen ? (
+            <X size={23} aria-hidden="true" />
+          ) : (
+            <Menu size={23} aria-hidden="true" />
+          )}
+        </button>
+      </div>
+      <nav
+        id="mobile-navigation"
+        className="mobile-navigation"
+        aria-label="Mobile navigation"
+        hidden={!menuOpen}
+      >
+        {links.map(({ label, id }) => (
           <a
-            className="mobile-download"
-            href="#download"
+            key={id}
+            href={`#${id}`}
+            aria-current={activeSection === id ? "location" : undefined}
             onClick={() => setMenuOpen(false)}
           >
-            Get the Android app <ArrowUpRight size={16} aria-hidden="true" />
+            {label}
+            <ArrowUpRight size={16} aria-hidden="true" />
           </a>
-        </nav>
-      </header>
-    </>
+        ))}
+        <a
+          className="mobile-download"
+          href="#download"
+          onClick={() => setMenuOpen(false)}
+        >
+          Get the Android app <ArrowUpRight size={16} aria-hidden="true" />
+        </a>
+      </nav>
+    </header>
   );
 }
