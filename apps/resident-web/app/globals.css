@@ -291,6 +291,46 @@ svg {
 }
 .hero-stage {
   position: relative;
+  isolation: isolate;
+}
+.hero-network {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Keep the network most visible at the edges, away from the main copy. */
+  mask-image: radial-gradient(
+    ellipse at 32% 43%,
+    rgb(0 0 0 / 18%) 12%,
+    #000 75%
+  );
+}
+.hero-motion-toggle {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  visibility: hidden;
+  color: var(--muted);
+  background: rgb(255 255 255 / 92%);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  transition:
+    color 180ms,
+    background 180ms;
+}
+.hero-network[data-ready="true"] + .hero-motion-toggle {
+  visibility: visible;
+}
+.hero-motion-toggle:hover {
+  color: var(--blue);
+  background: #fff;
 }
 .hero-grid {
   display: grid;
@@ -346,6 +386,7 @@ svg {
 .hero-phone {
   --phone-image-width: clamp(42rem, 150vw, 66rem);
   position: relative;
+  pointer-events: none;
   width: calc(100% + 2.5rem);
   height: calc(var(--phone-image-width) * 9 / 16);
   margin-inline: -1.25rem;
@@ -412,9 +453,6 @@ svg {
   border-radius: var(--radius);
   background: #fff;
   box-shadow: var(--shadow);
-}
-.service-card:target {
-  border-color: var(--blue);
 }
 .service-card-top {
   display: flex;
@@ -550,12 +588,10 @@ details[open] > summary > svg:last-child {
 }
 .office-card,
 .privacy-card {
-  border-radius: var(--radius);
-  padding: clamp(1.5rem, 3vw, 2.75rem);
-}
-.office-card {
   border: 1px solid var(--border);
-  background: var(--page);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: clamp(1.5rem, 3vw, 2.75rem);
 }
 .office-card > p:not(.eyebrow),
 .privacy-card > p:not(.eyebrow) {
@@ -582,9 +618,6 @@ details[open] > summary > svg:last-child {
 }
 .office-card > a {
   margin-top: 1.25rem;
-}
-.privacy-card {
-  border: 1px solid var(--border);
 }
 .privacy-card > .icon-box {
   float: right;
@@ -624,6 +657,7 @@ details[open] > summary > svg:last-child {
 }
 .help-grid {
   display: grid;
+  align-items: start;
   gap: 2rem;
   border-top: 1px solid var(--border);
   padding-top: clamp(3.75rem, 6vw, 5.5rem);
@@ -658,7 +692,7 @@ details[open] > summary > svg:last-child {
   font-size: 0.8rem;
 }
 .faq-list {
-  border-top: 1px solid var(--border);
+  width: 100%;
 }
 .faq-list details {
   border-bottom: 1px solid var(--border);
@@ -812,6 +846,114 @@ details[open] > summary > svg:last-child {
   color: var(--blue);
 }
 
+/* Small responses to deliberate interaction; card borders stay consistent. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Play once on page load, keeping the headline's existing line breaks. */
+  .hero-copy > .official-kicker,
+  .hero-title-line,
+  .hero-description,
+  .hero-copy > .button-row {
+    animation: hero-copy-enter 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .hero-title-line:first-child {
+    animation-delay: 100ms;
+  }
+  .hero-title-line:last-child {
+    animation-delay: 220ms;
+  }
+  .hero-description {
+    animation-delay: 340ms;
+  }
+  .hero-copy > .button-row {
+    animation-delay: 440ms;
+  }
+  .hero-copy:focus-within > .official-kicker,
+  .hero-copy:focus-within .hero-title-line,
+  .hero-copy:focus-within > .hero-description,
+  .hero-copy:focus-within > .button-row {
+    /* Keyboard users can interact immediately, even during the entrance. */
+    animation-duration: 0s;
+    animation-delay: 0s;
+  }
+  .button {
+    transition:
+      background 180ms,
+      border-color 180ms,
+      box-shadow 180ms,
+      transform 180ms;
+  }
+  .button svg,
+  .text-link svg,
+  .download-help svg,
+  .service-shortcuts a > svg:last-child,
+  .service-card .icon-box {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .service-card,
+  .office-card,
+  .privacy-card {
+    transition: box-shadow 240ms;
+  }
+  .faq-list summary {
+    transition:
+      color 160ms,
+      background 160ms;
+  }
+  details[open] > .guide-content,
+  .faq-list details[open] > p {
+    animation: detail-enter 240ms ease-out;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgb(22 78 173 / 14%);
+  }
+  .button:active {
+    transform: translateY(0);
+  }
+  .button:hover > svg:last-child,
+  .text-link:hover > svg:last-child,
+  .download-help:hover > svg:last-child,
+  .service-shortcuts a:hover > svg:last-child {
+    transform: translateX(3px);
+  }
+  .service-card:hover,
+  .office-card:hover,
+  .privacy-card:hover {
+    box-shadow: 0 8px 24px rgb(26 47 76 / 8%);
+  }
+  .service-card:hover .icon-box {
+    transform: translateY(-3px);
+  }
+  .faq-list summary:hover {
+    background: var(--page);
+  }
+}
+
+@keyframes hero-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detail-enter {
+  from {
+    opacity: 0.5;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (min-width: 40em) {
   .container {
     width: min(100% - 4rem, 75rem);
@@ -913,11 +1055,16 @@ details[open] > summary > svg:last-child {
     padding: 2rem;
   }
   .community-grid {
-    grid-template-columns: 1.05fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .help-grid {
-    grid-template-columns: 0.8fr 1.2fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5rem;
+  }
+  .faq-list details:first-child summary {
+    min-height: auto;
+    padding-top: 0;
+    padding-bottom: 1.35rem;
   }
   .download-panel {
     grid-template-columns: 1.6fr 0.65fr;
@@ -1003,6 +1150,9 @@ details[open] > summary > svg:last-child {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .hero-motion-toggle {
+    display: none;
+  }
   html {
     scroll-behavior: auto;
   }

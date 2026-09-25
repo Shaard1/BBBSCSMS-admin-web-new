@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { SiteHeader } from "@/components/site-header";
+import { HeroNetwork } from "@/components/hero-network";
+import { ResidentMotion } from "@/components/resident-motion";
 
 const services = [
   {
@@ -155,14 +157,14 @@ export default function Home() {
         Skip to main content
       </a>
       <SiteHeader />
-      <main id="main-content" tabIndex={-1}>
+      <ResidentMotion>
         <Hero />
         <Services />
         <GettingStarted />
         <ResidentCare />
         <Help />
         <Download />
-      </main>
+      </ResidentMotion>
       <Footer />
     </>
   );
@@ -172,6 +174,7 @@ function Hero() {
   return (
     <section className="hero" id="top" aria-labelledby="hero-heading">
       <div className="hero-stage">
+        <HeroNetwork />
         <div className="container hero-grid">
           <div className="hero-copy">
             <p className="official-kicker">Official Digital Services Portal</p>
@@ -243,7 +246,7 @@ function Services() {
       aria-labelledby="services-heading"
     >
       <div className="container">
-        <div className="section-heading heading-row">
+        <div className="section-heading heading-row" data-reveal>
           <h2 id="services-heading">What can we help you with?</h2>
         </div>
         <div className="services-grid">
@@ -259,7 +262,7 @@ function Services() {
               steps: guideSteps,
               note,
             }) => (
-              <article className="service-card" id={id} key={id}>
+              <article className="service-card" id={id} key={id} data-reveal>
                 <div className="service-card-top">
                   <span className={`icon-box tone-${tone}`}>
                     <Icon size={24} aria-hidden="true" />
@@ -305,7 +308,7 @@ function GettingStarted() {
       aria-labelledby="steps-heading"
     >
       <div className="container">
-        <div className="section-heading">
+        <div className="section-heading" data-reveal>
           <h2 id="steps-heading">Your first steps start here.</h2>
           <p>
             From download to your first request, here’s how to get connected.
@@ -313,7 +316,7 @@ function GettingStarted() {
         </div>
         <ol className="steps-grid">
           {steps.map(({ number, icon: Icon, title, description }) => (
-            <li key={number} className="step">
+            <li key={number} className="step" data-reveal>
               <div className="step-top">
                 <span className="step-number">{number}</span>
                 <Icon size={23} aria-hidden="true" />
@@ -323,7 +326,7 @@ function GettingStarted() {
             </li>
           ))}
         </ol>
-        <div className="registration-note">
+        <div className="registration-note" data-reveal>
           <span className="icon-box tone-blue">
             <UserCheck size={23} aria-hidden="true" />
           </span>
@@ -350,7 +353,7 @@ function ResidentCare() {
       id="about"
       aria-labelledby="community-heading"
     >
-      <div className="container community-grid">
+      <div className="container community-grid" data-reveal>
         <div className="office-card">
           <h2 id="community-heading">
             Digital convenience.
@@ -439,7 +442,7 @@ function Help() {
       id="faq"
       aria-labelledby="help-heading"
     >
-      <div className="container help-grid">
+      <div className="container help-grid" data-reveal>
         <div className="section-heading">
           <h2 id="help-heading">
             A few things
@@ -492,7 +495,7 @@ function Download() {
       aria-labelledby="download-heading"
     >
       <div className="container">
-        <div className="download-panel">
+        <div className="download-panel" data-reveal>
           <div>
             <h2 id="download-heading">Let’s get you connected.</h2>
             <p>
