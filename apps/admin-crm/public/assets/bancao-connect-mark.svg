@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <title>Bancao-Connect — connected neighborhood</title>
-  <rect width="64" height="64" rx="18" fill="#164EAD"/>
+  <rect width="64" height="64" rx="18" fill="#006CBF"/>
   <path d="M16 34V27L32 15L48 27V34" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M19 36V43C19 46.314 21.686 49 25 49H39C42.314 49 45 46.314 45 43V36" stroke="white" stroke-width="5" stroke-linecap="round"/>
   <path d="M24 35H40" stroke="#71E0D0" stroke-width="4" stroke-linecap="round"/>
