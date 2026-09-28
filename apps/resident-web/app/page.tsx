@@ -516,9 +516,6 @@ function Download() {
                 <ArrowRight size={17} aria-hidden="true" />
               </a>
             </div>
-            <p className="download-note">
-              Android APK · Resident account approval required
-            </p>
           </div>
           <div className="download-brand" aria-hidden="true">
             <Image
