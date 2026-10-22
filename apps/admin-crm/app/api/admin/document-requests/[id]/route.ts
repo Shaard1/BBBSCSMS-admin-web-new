@@ -6,30 +6,14 @@ import {
 } from "@/lib/admin-session";
 import { canApproveResidents } from "@/lib/roles";
 import { rejectCrossOriginMutation } from "@/lib/request-security";
+import { parseDocumentReview } from "@/lib/document-workflow";
 import type { DocumentRequestStatus } from "@/lib/types";
 
 type DocumentRequestActionPayload = {
   expectedStatus?: DocumentRequestStatus;
   status?: DocumentRequestStatus;
   rejectionReason?: string | null;
-};
-
-type LooseDatabase = {
-  public: {
-    Tables: Record<
-      string,
-      {
-        Row: Record<string, unknown>;
-        Insert: Record<string, unknown>;
-        Update: Record<string, unknown>;
-        Relationships: never[];
-      }
-    >;
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-  };
+  review?: unknown;
 };
 
 type RouteContext = {
@@ -57,7 +41,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return adminClientResponse.error;
   }
 
-  const { client } = adminClientResponse;
+  const { client, actorId } = adminClientResponse;
   const { id } = await context.params;
   const requestId = id?.trim() ?? "";
 
@@ -68,9 +52,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const payload = (await request.json().catch(() => null)) as DocumentRequestActionPayload | null;
   const expectedStatus = payload?.expectedStatus;
   const status = payload?.status;
+  const review = parseDocumentReview(payload?.review);
 
   if (
+    !review ||
     !status ||
+    (status === "awaiting_payment" && expectedStatus !== "awaiting_payment") ||
     !allowedStatuses.includes(status) ||
     !expectedStatus ||
     !allowedStatuses.includes(expectedStatus)
@@ -88,22 +75,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { data, error } = await client
-    .from("document_requests")
-    .update({
-      status,
-      rejection_reason: rejectionReason,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", requestId)
-    .eq("status", expectedStatus)
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await client.rpc("review_office_document", {
+    p_request_id: requestId, p_actor_id: actorId,
+    p_expected_status: expectedStatus, p_status: status,
+    p_identity_checked: review.identityChecked, p_residency_checked: review.residencyChecked,
+    p_authorization_checked: review.authorizationChecked, p_payment_status: review.paymentStatus,
+    p_fee_amount: review.feeAmount, p_receipt: review.receipt, p_no_fee_reason: review.noFeeReason,
+    p_pickup_confirmed: review.pickupConfirmed, p_collected_by: review.collectedBy,
+    p_rejection_reason: rejectionReason,
+  });
 
   if (error) {
     return NextResponse.json(
       { message: error.message || "Unable to update document request." },
-      { status: 400 }
+      { status: error.code === '40001' ? 409 : 400 }
     );
   }
 
@@ -143,7 +128,8 @@ async function getAdminClientForDocumentRequest(request: NextRequest) {
   }
 
   return {
-    client: createClient<LooseDatabase>(supabaseUrl, serviceRoleKey, {
+    actorId: session.userId,
+    client: createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false

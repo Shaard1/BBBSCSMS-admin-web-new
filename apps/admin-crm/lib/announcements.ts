@@ -33,22 +33,6 @@ export async function fetchAnnouncements(options: FetchAnnouncementsOptions = {}
   return (data ?? []) as Announcement[];
 }
 
-export async function fetchAnnouncementSummary() {
-  const { data, error } = await supabase.from("announcements").select("is_published");
-
-  if (error) throw error;
-
-  return (data ?? []).reduce(
-    (summary, announcement) => {
-      summary.total += 1;
-      if (announcement.is_published) summary.published += 1;
-
-      return summary;
-    },
-    { published: 0, total: 0 }
-  );
-}
-
 export async function createAnnouncement(input: {
   title: string;
   content: string;

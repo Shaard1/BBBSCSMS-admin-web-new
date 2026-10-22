@@ -5,6 +5,7 @@
   "scripts": {
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
     "dev": "next dev",
+    "dev:test": "node scripts/run-test-env.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

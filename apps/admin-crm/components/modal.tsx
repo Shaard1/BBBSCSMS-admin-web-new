@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /** Native modal provides focus containment, Escape and an inert background. */
 export function Modal({
@@ -9,12 +9,23 @@ export function Modal({
   onClose,
   className = "",
 }: {
-  children: ReactNode;
+  children: ReactNode | ((close:()=>void)=>ReactNode);
   title: string;
   onClose: () => void;
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const closingRef=useRef(false);
+  const [closing,setClosing]=useState(false);
+  function requestClose(){
+    if(closingRef.current)return;
+    // Existing callers may have unsaved-change guards. Their close remains synchronous.
+    if(typeof children!=='function'||window.matchMedia('(prefers-reduced-motion: reduce)').matches){onClose();return;}
+    closingRef.current=true;setClosing(true);
+    // Only visual dismissal waits; network mutations and navigation are never queued here.
+    timer.current=setTimeout(onClose,140);
+  }
   useEffect(() => {
     const dialog = ref.current;
     const previous =
@@ -23,6 +34,7 @@ export function Modal({
         : null;
     dialog?.showModal();
     return () => {
+      if(timer.current)clearTimeout(timer.current);
       dialog?.close();
       previous?.focus();
     };
@@ -30,17 +42,19 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      data-closing={closing}
+      inert={closing}
       className={`workspace-dialog ${className}`}
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        requestClose();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
-      {children}
+      {typeof children==='function'?children(requestClose):children}
     </dialog>
   );
 }

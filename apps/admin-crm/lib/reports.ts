@@ -1,16 +1,17 @@
 import { supabase } from "@/lib/supabase";
-import { hasValidReportLocation, normalizeReportStatus } from "@/lib/report-utils";
+import { resolvePrivateFiles } from "@/lib/private-files";
 import type { CommunityReport } from "@/lib/types";
 
 type FetchReportsOptions = {
   limit?: number;
+  images?: boolean;
 };
 
 export async function fetchReports(options: FetchReportsOptions = {}) {
   let query = supabase
     .from("reports")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select<string>(options.images === false ? 'id,user_id,description,category,status,admin_note,latitude,longitude,created_at' : '*')
+    .order("created_at", { ascending: false }).returns<CommunityReport[]>();
 
   if (options.limit) {
     query = query.limit(options.limit);
@@ -60,44 +61,17 @@ export async function fetchReports(options: FetchReportsOptions = {}) {
     });
   }
 
-  return rows.map((row) => ({
+  const records = rows.map((row) => ({
     ...row,
     reporter_name: row.user_id
       ? nameByUserId.get(row.user_id) ?? "Unknown resident"
       : "Unknown resident"
   }));
+  return options.images === false ? records : resolvePrivateFiles(records);
 }
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-export async function fetchReportSummary() {
-  const { data, error } = await supabase.from("reports").select("status, latitude, longitude");
-
-  if (error) throw error;
-
-  const rows = (data ?? []) as Array<{
-    latitude?: number | null;
-    longitude?: number | null;
-    status?: string | null;
-  }>;
-
-  return rows.reduce(
-    (summary, report) => {
-      const status = normalizeReportStatus(report.status ?? undefined);
-      summary.total += 1;
-      if (status === "pending") summary.pending += 1;
-      if (status === "in progress") summary.progress += 1;
-      if (status === "resolved") summary.resolved += 1;
-      if (hasValidReportLocation(report.latitude, report.longitude)) {
-        summary.mapped += 1;
-      }
-
-      return summary;
-    },
-    { mapped: 0, pending: 0, progress: 0, resolved: 0, total: 0 }
-  );
 }
 
 export async function updateReportStatus(reportId: string, status: string) {

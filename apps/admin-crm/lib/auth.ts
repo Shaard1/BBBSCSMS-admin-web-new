@@ -21,29 +21,6 @@ export async function signInAsOfficeUser(email: string, password: string) {
   return { ok: true, message: "Signed in successfully." };
 }
 
-export async function getCurrentOfficeRole() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    return roleFromUserMetadata(user.user_metadata);
-  }
-
-  const role = data?.role?.toLowerCase().trim();
-  if (isOfficeRole(role)) return role;
-
-  return roleFromUserMetadata(user.user_metadata);
-}
-
 export async function createAdminServerSession(expectedRole: OfficeRole) {
   const {
     data: { session },
@@ -96,14 +73,4 @@ export async function clearAdminServerSession() {
   await fetch("/api/admin/session", {
     method: "DELETE",
   }).catch(() => undefined);
-}
-
-function roleFromUserMetadata(metadata: unknown): OfficeRole | null {
-  if (!metadata || typeof metadata !== "object") return null;
-
-  const role = (metadata as { role?: unknown }).role;
-  if (typeof role !== "string") return null;
-
-  const normalizedRole = role.toLowerCase().trim();
-  return isOfficeRole(normalizedRole) ? normalizedRole : null;
 }

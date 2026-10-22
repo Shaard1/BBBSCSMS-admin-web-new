@@ -1,737 +1,167 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
-
-import { Modal } from "@/components/modal";
-import { PageHeader } from "@/components/workspace-ui";
-import { Check, Eye, RefreshCw, Search, UserRound, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import {
-  approveResident,
-  fetchResidents,
-  rejectResident,
-} from "@/lib/residents";
-import { ImageViewer } from "@/components/image-viewer";
-import { useAdminRole } from "@/components/admin-role-context";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
-import { canApproveResidents } from "@/lib/roles";
-import type { Resident } from "@/lib/types";
-
-const filters = [
-  { label: "All", value: "all" },
-  { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "flagged" },
-];
-
-const rejectionOptions = [
-  "Invalid ID",
-  "Blurry ID photo",
-  "Incomplete information",
-  "Address cannot be verified",
-  "Not a barangay resident",
-];
-
-type FilterValue = "all" | "pending" | "approved" | "flagged";
-
+import Link from 'next/link';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import {useSearchParams} from 'next/navigation';
+import { Eye, RefreshCw, Search, UserRound, X } from 'lucide-react';
+import { Modal } from '@/components/modal';
+import { ImageViewer } from '@/components/image-viewer';
+import { PageHeader } from '@/components/workspace-ui';
+import { useAdminRole } from '@/components/admin-role-context';
+import { fetchResidentDirectory, fetchResidentDetails, fetchResidentHistory, setResidentAccess, approveResident, rejectResident, type ResidentDirectory, type ResidentHistory } from '@/lib/residents';
+import { residentAccess, residentPhoneState, accessLabels, summarizeResidents } from '@/lib/resident-state';
+import type { Resident } from '@/lib/types';
+const empty: ResidentDirectory = { items: [], filteredTotal: 0, summary: summarizeResidents([]), testAccess: false, serverPaged: true };
 export default function ResidentsPage() {
-  const { role } = useAdminRole();
-  const canManageApprovals = canApproveResidents(role);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState<FilterValue>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedResident, setSelectedResident] = useState<Resident | null>(
-    null,
-  );
-  const [viewingImage, setViewingImage] = useState<{
-    title: string;
-    url: string;
-  } | null>(null);
-  const [approvingResident, setApprovingResident] = useState<Resident | null>(
-    null,
-  );
-  const [rejectingResident, setRejectingResident] = useState<Resident | null>(
-    null,
-  );
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [customReason, setCustomReason] = useState("");
-  const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isWorking, setIsWorking] = useState(false);
-
-  async function loadResidents() {
-    setIsLoading(true);
-    try {
-      const data = await fetchResidents();
-      setResidents(data);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Unable to load residents.",
-      );
-    } finally {
-      setIsLoading(false);
+ return <Suspense fallback={<p role="status">Loading resident accounts…</p>}><ResidentDirectoryPage/></Suspense>;
+}
+function ResidentDirectoryPage() {
+    const targetId=useSearchParams().get("resident");
+    const { role } = useAdminRole();
+    const [directory, setDirectory] = useState(empty);
+    const [search, setSearch] = useState('');
+    const [access, setAccess] = useState('all');
+    const [phone, setPhone] = useState('all');
+    const [page, setPage] = useState(0);
+    const [revision, setRevision] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [working, setWorking] = useState(false);
+    const [message, setMessage] = useState('');
+    const [selected, setSelected] = useState<Resident | null>(null);
+    const [history, setHistory] = useState<ResidentHistory | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailsReady, setDetailsReady] = useState(false);
+    const [action, setAction] = useState<'access' | 'approve' | 'reject' | null>(null);
+    const [reason, setReason] = useState('');
+    const [image, setImage] = useState<{
+        title: string;
+        url: string;
+    } | null>(null);
+    const detailRequest = useRef(0);
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        const timer = setTimeout(() => {
+            fetchResidentDirectory({ search, access, phone, page }).then(data => { if (!cancelled)
+                setDirectory(data); })
+                .catch(error => { if (!cancelled)
+                setMessage(error instanceof Error ? error.message : 'Unable to load resident accounts.'); })
+                .finally(() => { if (!cancelled)
+                setLoading(false); });
+        }, 200);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [search, access, phone, page, revision]);
+    useEffect(() => {
+        const id = targetId;
+        if (!id)
+            return;
+        let cancelled = false;
+        void fetchResidentDirectory({ search: id }).then(data => { const resident = data.items.find(r => r.id === id); if (!cancelled && resident)
+            void openResident(resident); }).catch(error => { if (!cancelled)
+            setMessage(error instanceof Error ? error.message : "Unable to open resident account."); });
+        return () => { cancelled = true; };
+    }, [targetId]);
+    async function openResident(resident: Resident) {
+        const request = ++detailRequest.current;
+        setSelected(resident);
+        setHistory(null);
+        setDetailLoading(true);
+        setDetailsReady(false);
+        setAction(null);
+        setMessage('');
+        try {
+            const [full, events] = await Promise.all([fetchResidentDetails(resident), fetchResidentHistory(resident.user_id || resident.id)]);
+            if (request === detailRequest.current) {
+                setSelected(full);
+                setHistory(events);
+                setDetailsReady(true);
+            }
+        }
+        catch (error) {
+            if (request === detailRequest.current)
+                setMessage(error instanceof Error ? error.message : 'Unable to load account details.');
+        }
+        finally {
+            if (request === detailRequest.current)
+                setDetailLoading(false);
+        }
     }
-  }
-
-  useEffect(() => {
-    void loadResidents();
-  }, []);
-
-  const filteredResidents = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return residents
-      .filter((resident) => {
-        if (selectedFilter === "all") return true;
-        return normalizeStatus(resident) === selectedFilter;
-      })
-      .filter((resident) => {
-        if (!query) return true;
-
-        return [
-          resident.full_name,
-          resident.id,
-          resident.address,
-          resident.contact_number,
-          resident.id_type,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      });
-  }, [residents, searchQuery, selectedFilter]);
-
-  const summary = useMemo(() => buildResidentSummary(residents), [residents]);
-
-  async function handleApprove(resident: Resident) {
-    setIsWorking(true);
-    try {
-      const result = await approveResident(resident.id);
-      await loadResidents();
-      setMessage(
-        result.profileSynced
-          ? `${resident.full_name} was approved.`
-          : `${resident.full_name} was approved. ${result.warning}`,
-      );
-      setApprovingResident(null);
-      setSelectedResident(null);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Approval failed.");
-    } finally {
-      setIsWorking(false);
+    function closeResident() { detailRequest.current++; setSelected(null); setAction(null); setReason(''); }
+    async function submitAction() {
+        if (!selected || !action || working || !detailsReady)
+            return;
+        if (action !== 'approve' && !reason.trim())
+            return;
+        setWorking(true);
+        try {
+            if (action === 'access')
+                await setResidentAccess(selected, reason.trim());
+            else if (action === 'approve') {
+                const result = await approveResident(selected.id);
+                if (result.warning) {
+                    setMessage(result.warning);
+                    closeResident();
+                    setRevision(r => r + 1);
+                    return;
+                }
+            }
+            else
+                await rejectResident(selected.id, reason.trim());
+            setMessage(action === 'access' ? 'Account access updated. Phone and document checks were unchanged.' : 'Legacy registration updated.');
+            closeResident();
+            setRevision(r => r + 1);
+        }
+        catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Unable to update account.');
+        }
+        finally {
+            setWorking(false);
+        }
     }
-  }
-
-  async function handleReject() {
-    if (!rejectingResident) return;
-
-    const reason =
-      rejectionReason === "Other" ? customReason.trim() : rejectionReason;
-    if (!reason) return;
-
-    setIsWorking(true);
-    try {
-      await rejectResident(rejectingResident.id, reason);
-      await loadResidents();
-      setMessage(`${rejectingResident.full_name} was rejected.`);
-      setRejectingResident(null);
-      setSelectedResident(null);
-      setRejectionReason("");
-      setCustomReason("");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Rejection failed.");
-    } finally {
-      setIsWorking(false);
-    }
-  }
-
-  return (
-    <section className="admin-page residents-page">
-      <PageHeader
-        title="Resident verification"
-        description="Review identity documents and registration details before granting resident access."
-      />
-
-      <div className="resident-summary-grid">
-        <article className="resident-summary-card gold">
-          <span>Pending Review</span>
-          <strong>{summary.pending}</strong>
-          <p>Applications waiting for validation</p>
-        </article>
-        <article className="resident-summary-card green">
-          <span>Approved</span>
-          <strong>{summary.approved}</strong>
-          <p>Verified residents already in the registry</p>
-        </article>
-        <article className="resident-summary-card rose">
-          <span>Rejected</span>
-          <strong>{summary.flagged}</strong>
-          <p>Registrations returned with a reason</p>
-        </article>
-      </div>
-
-      <div className="residents-toolbar resident-toolbar-improved">
-        <div className="filter-tabs resident-filter-tabs-improved">
-          {filters.map((filter) => (
-            <button
-              aria-pressed={selectedFilter === filter.value}
-              className={selectedFilter === filter.value ? "active" : ""}
-              key={filter.value}
-              onClick={() => setSelectedFilter(filter.value as FilterValue)}
-              type="button"
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-        <label className="resident-search resident-search-improved">
-          <Search size={18} />
-          <input
-            aria-label="Search resident applications"
-            placeholder="Search name, ID, or address…"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </label>
-      </div>
-
-      {message ? (
-        <div className="admin-message" role="status">
-          <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-
-      <div className="resident-panel resident-panel-improved">
-        <div className="resident-panel-heading resident-panel-heading-improved">
-          <div>
-            <h3>Recent Submissions</h3>
-            <p>
-              Open an application to review details and submitted images before
-              approval.
-            </p>
-          </div>
-          <button disabled={isLoading} onClick={loadResidents} type="button">
-            <RefreshCw size={16} /> Refresh
-          </button>
-        </div>
-        <div className="resident-table resident-table-improved">
-          <div className="resident-table-head resident-table-head-improved">
-            <span>Resident Applicant</span>
-            <span>Date Submitted</span>
-            <span>Application status</span>
-            <span>Actions</span>
-          </div>
-
-          {filteredResidents.length === 0 && !isLoading ? (
-            <div className="empty-state">
-              No resident submissions match this view.
-            </div>
-          ) : (
-            filteredResidents.map((resident) => (
-              <ResidentRow
-                key={resident.id}
-                resident={resident}
-                onApprove={setApprovingResident}
-                canManageApprovals={canManageApprovals}
-                onReject={setRejectingResident}
-                onView={setSelectedResident}
-              />
-            ))
-          )}
-        </div>
-      </div>
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading resident submissions..." />
-      ) : null}
-
-      {selectedResident ? (
-        <ResidentDetailsDialog
-          resident={selectedResident}
-          canManageApprovals={canManageApprovals}
-          isWorking={isWorking}
-          onApprove={setApprovingResident}
-          onClose={() => setSelectedResident(null)}
-          onImageView={setViewingImage}
-          onReject={setRejectingResident}
-        />
-      ) : null}
-
-      {approvingResident ? (
-        <ApproveDialog
-          message={message}
-          isWorking={isWorking}
-          resident={approvingResident}
-          onClose={() => setApprovingResident(null)}
-          onSubmit={() => handleApprove(approvingResident)}
-        />
-      ) : null}
-
-      {rejectingResident ? (
-        <RejectDialog
-          message={message}
-          customReason={customReason}
-          isWorking={isWorking}
-          reason={rejectionReason}
-          resident={rejectingResident}
-          onClose={() => {
-            setRejectingResident(null);
-            setRejectionReason("");
-            setCustomReason("");
-          }}
-          onCustomReasonChange={setCustomReason}
-          onReasonChange={setRejectionReason}
-          onSubmit={handleReject}
-        />
-      ) : null}
-
-      {viewingImage ? (
-        <ImageViewer
-          imageUrl={viewingImage.url}
-          title={viewingImage.title}
-          onClose={() => setViewingImage(null)}
-        />
-      ) : null}
-    </section>
-  );
-}
-
-function ApproveDialog({
-  message,
-  isWorking,
-  resident,
-  onClose,
-  onSubmit,
-}: {
-  isWorking: boolean;
-  resident: Resident;
-  onClose: () => void;
-  onSubmit: () => void;
-  message: string;
-}) {
-  return (
-    <Modal title="Approve resident" onClose={onClose}>
-      <div className="approve-modal">
-        {message ? (
-          <div className="admin-message" role="status">
-            {message}
-          </div>
-        ) : null}
-        <div className="modal-header">
-          <span className="approval-icon">
-            <Check size={22} />
-          </span>
-          <div>
-            <h2>Approve Resident?</h2>
-            <p>
-              {displayValue(resident.full_name)} will be marked as approved and
-              can access the resident dashboard.
-            </p>
-          </div>
-          <button onClick={onClose} type="button" aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="approval-summary">
-          <DetailItem label="Applicant" value={resident.full_name} />
-          <DetailItem label="ID type" value={resident.id_type} />
-        </div>
-        <div className="modal-actions">
-          <button
-            className="secondary-admin-button"
-            onClick={onClose}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="primary-admin-button"
-            disabled={isWorking}
-            onClick={onSubmit}
-            type="button"
-          >
-            {isWorking ? "Approving..." : "Approve"}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function ResidentRow({
-  canManageApprovals,
-  resident,
-  onApprove,
-  onReject,
-  onView,
-}: {
-  canManageApprovals: boolean;
-  resident: Resident;
-  onApprove: (resident: Resident) => void;
-  onReject: (resident: Resident) => void;
-  onView: (resident: Resident) => void;
-}) {
-  const status = normalizeStatus(resident);
-  const showActions = canManageApprovals && status === "pending";
-
-  return (
-    <article
-      className="resident-row resident-row-improved"
-      onClick={() => onView(resident)}
-    >
-      <div className="resident-person">
-        <ResidentAvatar resident={resident} />
-        <div>
-          <strong>{displayValue(resident.full_name)}</strong>
-          <span>ID: REG-{resident.id.slice(0, 8)}</span>
-        </div>
-      </div>
-      <time>{formatSubmittedAt(resident.created_at)}</time>
-      <StatusBadge status={status} />
-      <div className="row-actions" onClick={(event) => event.stopPropagation()}>
-        <button
-          aria-label="View resident"
-          onClick={() => onView(resident)}
-          type="button"
-        >
-          <Eye size={18} />
-        </button>
-        {showActions ? (
-          <>
-            <button
-              aria-label="Approve resident"
-              onClick={() => onApprove(resident)}
-              type="button"
-            >
-              <Check size={18} />
-            </button>
-            <button
-              aria-label="Reject resident"
-              onClick={() => onReject(resident)}
-              type="button"
-            >
-              <X size={18} />
-            </button>
-          </>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function ResidentDetailsDialog({
-  canManageApprovals,
-  resident,
-  isWorking,
-  onApprove,
-  onClose,
-  onImageView,
-  onReject,
-}: {
-  canManageApprovals: boolean;
-  resident: Resident;
-  isWorking: boolean;
-  onApprove: (resident: Resident) => void;
-  onClose: () => void;
-  onImageView: (image: { title: string; url: string }) => void;
-  onReject: (resident: Resident) => void;
-}) {
-  const status = normalizeStatus(resident);
-  const showActions = canManageApprovals && status === "pending";
-  const profileImage =
-    resident.profile_image_original || resident.profile_image || "";
-
-  return (
-    <Modal title="Resident registration details" onClose={onClose}>
-      <div
-        className="resident-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <div>
-            <h2>{displayValue(resident.full_name)}</h2>
-            <p>
-              {showActions
-                ? "Review resident registration details before approval."
-                : "View resident registration details."}
-            </p>
-          </div>
-          <StatusBadge status={status} />
-          <button onClick={onClose} type="button" aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="detail-grid">
-          <DetailItem
-            label="Birthdate"
-            value={formatDate(resident.birthdate)}
-          />
-          <DetailItem label="Email" value={resident.email} />
-          <DetailItem label="Gender" value={resident.gender} />
-          <DetailItem label="Civil status" value={resident.civil_status} />
-          <DetailItem label="Address" value={resident.address} />
-          <DetailItem label="Contact number" value={resident.contact_number} />
-          <DetailItem label="ID type" value={resident.id_type} />
-          <DetailItem
-            label="Rejection reason"
-            value={resident.rejection_reason}
-          />
-        </div>
-
-        <div className="review-guidance">
-          <strong>Before you approve</strong>
-          <p>
-            Compare the name, photo, and address with the submitted ID. Check
-            that the document is readable and belongs to the applicant.
-          </p>
-        </div>
-        <div className="image-review-grid">
-          <ImagePreview
-            title="Profile image"
-            imageUrl={profileImage}
-            onView={onImageView}
-          />
-          <ImagePreview
-            title="ID image (Front)"
-            imageUrl={resident.id_image_front || resident.id_image || ""}
-            onView={onImageView}
-          />
-          <ImagePreview
-            title="ID image (Back)"
-            imageUrl={resident.id_image_back || ""}
-            onView={onImageView}
-          />
-        </div>
-
-        <div className="modal-actions">
-          {showActions ? (
-            <>
-              <button
-                className="danger-admin-button"
-                disabled={isWorking}
-                onClick={() => onReject(resident)}
-                type="button"
-              >
-                Reject
-              </button>
-              <button
-                className="primary-admin-button"
-                disabled={isWorking}
-                onClick={() => onApprove(resident)}
-                type="button"
-              >
-                Approve
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function RejectDialog({
-  message,
-  customReason,
-  isWorking,
-  reason,
-  resident,
-  onClose,
-  onCustomReasonChange,
-  onReasonChange,
-  onSubmit,
-}: {
-  customReason: string;
-  isWorking: boolean;
-  reason: string;
-  resident: Resident;
-  onClose: () => void;
-  onCustomReasonChange: (value: string) => void;
-  onReasonChange: (value: string) => void;
-  onSubmit: () => void;
-  message: string;
-}) {
-  const isCustom = reason === "Other";
-  const canSubmit = isCustom
-    ? customReason.trim().length > 0
-    : reason.length > 0;
-
-  return (
-    <Modal title="Reject resident" onClose={onClose}>
-      <div className="reject-modal">
-        {message ? (
-          <div className="admin-message" role="status">
-            {message}
-          </div>
-        ) : null}
-        <div className="modal-header">
-          <div>
-            <h2>Reject {displayValue(resident.full_name)}?</h2>
-            <p>Select a reason for rejection.</p>
-          </div>
-          <button onClick={onClose} type="button" aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="reason-options">
-          {[...rejectionOptions, "Other"].map((option) => (
-            <button
-              aria-pressed={reason === option}
-              className={reason === option ? "active" : ""}
-              key={option}
-              onClick={() => onReasonChange(option)}
-              type="button"
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-        <textarea
-          disabled={!isCustom}
-          aria-label="Custom rejection reason"
-          maxLength={500}
-          placeholder="Explain why this registration was rejected"
-          value={customReason}
-          onChange={(event) => onCustomReasonChange(event.target.value)}
-        />
-        <div className="modal-actions">
-          <button
-            className="secondary-admin-button"
-            onClick={onClose}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="danger-admin-button"
-            disabled={!canSubmit || isWorking}
-            onClick={onSubmit}
-            type="button"
-          >
-            Reject
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="detail-item">
-      <span>{label}</span>
-      <strong>{displayValue(value)}</strong>
+    const s = directory.summary;
+    return <section className="admin-page residents-page" aria-busy={loading}>
+    <PageHeader title="Resident accounts" description="Manage resident access and view phone ownership separately from document checks."/>
+    <div className="resident-account-metrics">
+      {([['Total accounts', s.total], ['Active', s.active], ['Suspended', s.suspended], ['Phone verified', s.phoneVerified]] as const).map(([label, count]) => <article className="resident-summary-card" key={label}><span>{label}</span><strong>{count}</strong></article>)}
     </div>
-  );
-}
-
-function ImagePreview({
-  title,
-  imageUrl,
-  onView,
-}: {
-  title: string;
-  imageUrl: string;
-  onView: (image: { title: string; url: string }) => void;
-}) {
-  const url = imageUrl.trim();
-
-  return (
-    <div className="image-preview">
-      <strong>{title}</strong>
-      {url ? (
-        <button onClick={() => onView({ title, url })} type="button">
-          <img src={url} alt={title} />
-        </button>
-      ) : (
-        <div>No image uploaded</div>
-      )}
+    {directory.testAccess ? <p className="account-context-note">Test preview: unverified accounts may use basic services. This does not verify a phone or authorize document release.</p> : null}
+    {!directory.serverPaged ? <p className="admin-message">Account-management migration is pending. Showing the legacy-compatible directory; server pagination, service history and access actions require the new migration.</p> : null}
+    <div className="resident-account-toolbar">
+      <label className="resident-search"><Search size={18}/><input aria-label="Search resident accounts" placeholder="Search name, contact, email or ID…" value={search} maxLength={150} onChange={e => { setSearch(e.target.value); setPage(0); }}/></label>
+      <label>Account access<select value={access} onChange={e => { setAccess(e.target.value); setPage(0); }}><option value="all">All accounts</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="legacy_pending">Legacy review pending</option><option value="legacy_rejected">Legacy registration rejected</option></select></label>
+      <label>Phone ownership<select value={phone} onChange={e => { setPhone(e.target.value); setPage(0); }}><option value="all">All phone states</option><option value="verified">Verified</option><option value="unverified">Not verified</option><option value="unknown">Not recorded (legacy)</option></select></label>
     </div>
-  );
+    {message ? <div className="admin-message" role="status"><span>{message}</span><button type="button" onClick={() => setMessage('')}>Dismiss</button></div> : null}
+    <div className="resident-panel">
+      <div className="resident-panel-heading"><div><h3>Resident directory</h3><p>Phone ownership is verified by SMS in the mobile app when SMS is enabled. Staff review identity and residency within document applications.</p></div><button type="button" disabled={loading} onClick={() => setRevision(r => r + 1)}><RefreshCw size={16}/> Refresh</button></div>
+      <div className="resident-directory-scroll" role="region" aria-label="Resident directory table" tabIndex={0}><table className="resident-directory-table"><thead><tr><th>Resident</th><th>Contact</th><th>Phone ownership</th><th>Account access</th><th>Actions</th></tr></thead><tbody>
+        {directory.items.map(resident => <tr key={resident.id}><td><div className="resident-person">{resident.profile_image ? <img className="resident-avatar" alt="" src={resident.profile_image}/> : <span className="resident-avatar fallback"><UserRound size={19}/></span>}<div><strong>{resident.full_name}</strong><small>Joined {new Date(resident.created_at).toLocaleDateString('en-PH')}</small></div></div></td><td>{resident.basic_account?.declared_phone || resident.contact_number || 'Not provided'}</td><td><PhoneBadge resident={resident}/></td><td><AccessBadge resident={resident}/></td><td><button aria-label={`View ${resident.full_name}`} type="button" onClick={() => void openResident(resident)}><Eye size={18}/></button></td></tr>)}
+      </tbody></table></div>
+      {!directory.items.length ? <p className="empty-state" role="status">{loading ? 'Loading resident accounts…' : 'No resident accounts match these filters.'}</p> : null}
+      <div className="resident-directory-pagination"><span>{directory.filteredTotal} matching accounts · Page {page + 1} of {Math.max(1, Math.ceil(directory.filteredTotal / 25))}</span><button type="button" disabled={loading || page === 0} onClick={() => setPage(p => p - 1)}>Previous</button><button type="button" disabled={loading || (page + 1) * 25 >= directory.filteredTotal} onClick={() => setPage(p => p + 1)}>Next</button></div>
+    </div>
+    {selected ? <Modal title="Resident account details" onClose={closeResident}>
+      <div className="resident-modal resident-account-details"><div className="modal-header"><div><h2>{selected.full_name}</h2><p>Resident account · {selected.id}</p></div><button aria-label="Close" onClick={closeResident} type="button"><X size={20}/></button></div>
+        {detailLoading ? <p role="status">Loading account details…</p> : null}
+        <div className="account-state-grid"><section><h3>Account access</h3><AccessBadge resident={selected}/><p>{selected.basic_account ? 'Basic accounts do not need manual account approval.' : 'This account uses the legacy registration process.'}</p></section><section><h3>Phone ownership</h3><PhoneBadge resident={selected}/><p>{selected.basic_account?.declared_phone || 'Sign-in phone is not available.'}</p><p>Verified by an SMS code through the mobile app when available. Staff cannot manually mark SMS verification complete.</p></section></div>
+        <section className="account-detail-section"><h3>Contact details</h3><dl><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd><dt>Contact number (self-declared)</dt><dd>{selected.contact_number || 'Not provided'}</dd></dl></section>
+        <section className="account-detail-section"><h3>Service history and document checks</h3><p>Checks apply to the application reviewed. There is no blanket document approval for this account.</p>
+          {history ? <><p>{history.reportCount} community reports. Showing up to 20 recent document applications.</p>{history.documents.length ? <ul>{history.documents.map(doc => <li key={doc.id}><Link href={`/admin/documents?request=${doc.id}`}>{doc.certificate_title}</Link> — {doc.status.replaceAll('_', ' ')}<br /><small>Identity {doc.identity_checked ? 'checked' : 'not yet checked'} · Residency {doc.residency_checked ? 'checked' : 'not yet checked'}{doc.reviewed_at ? ` · Reviewed ${new Date(doc.reviewed_at).toLocaleString('en-PH')}` : ''}</small></li>)}</ul> : <p>No document applications yet. No document identity review is waiting for staff.</p>}</> : <p>{detailLoading ? 'Loading service history…' : 'Service history requires the account-management migration.'}</p>}
+        </section>
+        {!selected.basic_account ? <details className="account-detail-section"><summary>Legacy registration details</summary><dl>{([['Birthdate', selected.birthdate], ['Address', selected.address], ['Gender', selected.gender], ['Civil status', selected.civil_status], ['ID type', selected.id_type], ['Rejection reason', selected.rejection_reason]] as const).filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><div className="account-evidence-grid">{([['Profile image', selected.profile_image_original || selected.profile_image], ['ID front', selected.id_image_front || selected.id_image], ['ID back', selected.id_image_back]] as const).filter(([, url]) => url).map(([title, url]) => <button type="button" key={title} onClick={() => setImage({ title, url: url! })}><img src={url} alt={title}/><span>{title}</span></button>)}</div></details> : null}
+        <section className="account-detail-section"><h3>Account access history</h3>{history?.events.length ? <ul>{history.events.map((event, index) => <li key={index}><strong>{event.previous_state} → {event.next_state}</strong> · {new Date(event.created_at).toLocaleString('en-PH')}<p>{event.reason}</p><small>{event.actor_name || 'Authorized administrator'}</small></li>)}</ul> : <p>{history?"No account suspension/reactivation events recorded.":"Account access history is currently unavailable."}</p>}</section>
+        {selected.basic_account && role === 'admin' ? <button className="secondary-admin-button" type="button" disabled={!directory.serverPaged || !detailsReady || working} onClick={() => { setReason(''); setAction('access'); }}>{residentAccess(selected) === 'active' ? 'Suspend account' : 'Reactivate account'}</button> : null}
+        {!selected.basic_account && selected.status === 'pending' ? <div className="modal-actions"><button type="button" disabled={!detailsReady || working} onClick={() => { setReason(''); setAction('reject'); }}>Reject legacy registration</button><button type="button" disabled={!detailsReady || working} onClick={() => setAction('approve')}>Approve legacy registration</button></div> : null}
+        {action ? <form className="account-access-form" onSubmit={e => { e.preventDefault(); void submitAction(); }}><h3>{action === 'access' ? (residentAccess(selected) === 'active' ? 'Suspend basic access' : 'Restore basic access') : action === 'approve' ? 'Approve legacy registration' : 'Reject legacy registration'}</h3><p>Phone ownership and document verification will not be changed.</p>{action !== 'approve' ? <label>Reason<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)}/></label> : null}<div className="modal-actions"><button type="button" disabled={working} onClick={() => setAction(null)}>Cancel</button><button type="submit" disabled={working || !detailsReady}>{working ? 'Saving…' : 'Confirm'}</button></div></form> : null}
+        {message ? <p role="status" className="admin-message">{message}</p> : null}
+      </div>
+    </Modal> : null}
+    {image ? <ImageViewer title={image.title} imageUrl={image.url} onClose={() => setImage(null)}/> : null}
+  </section>;
 }
-
-function ResidentAvatar({ resident }: { resident: Resident }) {
-  const image = resident.profile_image?.trim();
-
-  if (image) {
-    return <img className="resident-avatar" src={image} alt="" />;
-  }
-
-  return (
-    <span className="resident-avatar fallback">
-      <UserRound size={19} />
-    </span>
-  );
-}
-
-function StatusBadge({
-  status,
-}: {
-  status: ReturnType<typeof normalizeStatus>;
-}) {
-  const label =
-    status === "flagged"
-      ? "Rejected"
-      : status === "approved"
-        ? "Approved"
-        : "Pending";
-
-  return <span className={`status-badge ${status}`}>{label}</span>;
-}
-
-function normalizeStatus(resident: Resident) {
-  const status = resident.status?.toLowerCase().trim();
-  if (status === "approved") return "approved";
-  if (status === "rejected") return "flagged";
-  return "pending";
-}
-
-function buildResidentSummary(residents: Resident[]) {
-  let pending = 0;
-  let approved = 0;
-  let flagged = 0;
-
-  residents.forEach((resident) => {
-    const status = normalizeStatus(resident);
-    if (status === "pending") pending += 1;
-    if (status === "approved") approved += 1;
-    if (status === "flagged") flagged += 1;
-  });
-
-  return { approved, flagged, pending };
-}
-
-function displayValue(value?: string) {
-  const nextValue = value?.trim();
-  return nextValue ? nextValue : "Not provided";
-}
-
-function formatDate(value?: string) {
-  if (!value?.trim()) return "Not provided";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
-
-function formatSubmittedAt(value?: string) {
-  if (!value?.trim()) return "Not provided";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+function AccessBadge({ resident }: {
+    resident: Resident;
+}) { const access = residentAccess(resident); return <span className={`status-badge ${access === 'active' ? 'approved' : access === 'suspended' ? 'flagged' : 'pending'}`}>{accessLabels[access]}</span>; }
+function PhoneBadge({ resident }: {
+    resident: Resident;
+}) { const state = residentPhoneState(resident); return <span className={`status-badge ${state === 'verified' ? 'approved' : 'neutral'}`}>{state === 'verified' ? 'Verified' : state === 'unverified' ? 'Not verified' : 'Not recorded (legacy)'}</span>; }
