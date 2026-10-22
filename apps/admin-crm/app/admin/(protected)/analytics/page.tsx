@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   Panel,
@@ -10,9 +10,9 @@ import {
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import { fetchReports } from "@/lib/reports";
-import { fetchResidents } from "@/lib/residents";
+import { fetchResidentMetrics } from "@/lib/residents";
 import { monthlyActivity, reportSnapshot } from "@/lib/workspace-metrics";
-import type { CommunityReport, Resident } from "@/lib/types";
+import type { CommunityReport } from "@/lib/types";
 const monthNames = [
   "Jan",
   "Feb",
@@ -29,17 +29,17 @@ const monthNames = [
 ];
 export default function AnalyticsPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
+  const [residentMetrics,setResidentMetrics]=useState({summary:{total:0,legacyPending:0},availableYears:[] as number[],months:[] as Array<{month:number;residents:number}>});
   const [year, setYear] = useState(new Date().getFullYear());
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
-  async function load() {
+  const load=useCallback(async () => {
     setIsLoading(true);
     setMessage("");
     try {
-      const [r, u] = await Promise.all([fetchReports(), fetchResidents()]);
+      const [r, u] = await Promise.all([fetchReports({ images: false }), fetchResidentMetrics(year)]);
       setReports(r);
-      setResidents(u);
+      setResidentMetrics({...u,availableYears:u.availableYears??[]});
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -49,20 +49,21 @@ export default function AnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  },[year]);
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
   const data = useMemo(() => reportSnapshot(reports), [reports]);
   const months = useMemo(
-    () => monthlyActivity(reports, residents, year),
-    [reports, residents, year],
+    () => monthlyActivity(reports, [], year).map(m=>({...m,residents:residentMetrics.months.find(r=>r.month===m.month)?.residents??0})),
+    [reports, residentMetrics, year],
   );
   const years = [
     ...new Set([
       new Date().getFullYear(),
       ...reports.map((r) => new Date(r.created_at).getFullYear()),
-      ...residents.map((r) => new Date(r.created_at).getFullYear()),
+      ...residentMetrics.availableYears,
+      year,
     ]),
   ]
     .filter(Number.isFinite)
@@ -102,8 +103,8 @@ export default function AnalyticsPage() {
         />
         <Metric
           label="Resident registrations"
-          value={residents.length}
-          note={`${residents.filter((r) => r.status === "pending").length} awaiting verification`}
+          value={residentMetrics.summary.total}
+          note={`${residentMetrics.summary.legacyPending} legacy registrations awaiting review`}
           tone="teal"
         />
         <Metric

@@ -17,6 +17,12 @@ export type Resident = {
   profile_image?: string;
   profile_image_original?: string;
   status: ResidentStatus;
+  basic_account?: {
+    account_state: string;
+    identity_status: string;
+    phone_verified: boolean;
+    declared_phone?: string;
+  };
   rejection_reason?: string;
   created_at: string;
 };
@@ -58,6 +64,17 @@ export type DocumentRequestStatus =
   | "rejected";
 
 export type DocumentRequest = {
+  workflow_version?: number;
+  requester_capacity?: string;
+  requester_name?: string;
+  identity_evidence_method?: string;
+  residency_evidence_method?: string;
+  authorization_evidence_method?: string;
+  identity_evidence_url?: string;
+  residency_evidence_url?: string;
+  authorization_evidence_url?: string;
+  evidence_id_type?: string;
+  review?: import('./document-workflow').DocumentReview;
   id: string;
   user_id?: string;
   resident_id?: string;

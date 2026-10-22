@@ -34,12 +34,13 @@ function reset() {
       "Jose Reyes",
       "Ana Cruz",
       "Paolo Dela Cruz",
+      "Carlo Test Resident",
     ].map((name, i) => ({
       id: residentId(i + 1),
       user_id: residentId(i + 1),
       full_name: name,
       email: `resident${i}@example.test`,
-      status: ["pending", "pending", "approved", "rejected"][i],
+      status: ["pending", "pending", "approved", "rejected", "pending"][i],
       address: "Purok 3, Bancao-Bancao",
       contact_number: "09000000000",
       created_at: `${year}-0${i + 1}-12T08:00:00Z`,
@@ -50,6 +51,9 @@ function reset() {
       gender: "Not specified",
       rejection_reason: i === 3 ? "Please upload a clearer ID." : null,
     })),
+    resident_accounts: [{user_id:residentId(5),account_state:'active',identity_status:'unverified',phone_verified:false,declared_phone:'+639000000001'}],
+    resident_account_events: [],
+    document_request_reviews: [],
     reports: [
       "Road surface damaged near the community center",
       "Missed garbage collection in Purok 3",
@@ -193,6 +197,36 @@ const server = http.createServer(async (req, res) => {
       user_metadata: body.user_metadata ?? {},
     };
     return json(u);
+  }
+  if(url.pathname.startsWith('/rest/v1/rpc/')){
+    const rpc=url.pathname.split('/').pop();
+    const accounts=tables.resident_accounts;
+    const rows=tables.residents.map(r=>({...r,basic_account:accounts.find(a=>a.user_id===r.user_id)??null}));
+    const state=r=>r.basic_account?.account_state??(r.status==='approved'?'active':r.status==='rejected'?'legacy_rejected':'legacy_pending');
+    const summary={total:rows.length,active:rows.filter(r=>state(r)==='active').length,suspended:rows.filter(r=>state(r)==='suspended').length,legacyPending:rows.filter(r=>state(r)==='legacy_pending').length,phoneVerified:0};
+    if(rpc==='review_office_document'){
+      const row=tables.document_requests.find(r=>r.id===body.p_request_id);
+      if(!row||row.status!==body.p_expected_status)return json({code:'40001',message:'Request changed'},400);
+      Object.assign(row,{status:body.p_status,identity_checked:body.p_identity_checked,residency_checked:body.p_residency_checked,authorization_checked:body.p_authorization_checked,office_payment_status:body.p_payment_status,fee_amount:body.p_payment_status==='no_fee'?0:body.p_fee_amount,office_receipt_reference:body.p_receipt,office_no_fee_reason:body.p_no_fee_reason,pickup_confirmed:body.p_pickup_confirmed,collected_by:body.p_collected_by,rejection_reason:body.p_rejection_reason,updated_at:new Date().toISOString()});
+      tables.document_request_reviews.push({id:randomUUID(),request_id:row.id,actor_id:body.p_actor_id,reviewed_at:new Date().toISOString(),review:{status:row.status,office_payment_status:row.office_payment_status,receipt:row.office_receipt_reference}});
+      return json({updated:true});
+    }
+    if(rpc==='get_office_resident_accounts')return json(accounts);
+    if(rpc==='get_resident_summary')return json({total:summary.total,pending:summary.legacyPending});
+    if(rpc==='get_resident_metrics')return json({summary,legacyQueue:rows.filter(r=>state(r)==='legacy_pending').slice(0,5),months:[]});
+    if(rpc==='get_resident_directory'){
+      const term=String(body.p_search??'').toLowerCase();
+      const filtered=rows.filter(r=>[r.id,r.full_name,r.contact_number,r.email].join(' ').toLowerCase().includes(term)&&(!body.p_access||body.p_access==='all'||state(r)===body.p_access)&&(!body.p_phone||body.p_phone==='all'||(r.basic_account?'unverified':'unknown')===body.p_phone));
+      const offset=(body.p_page??0)*(body.p_page_size??25);return json({items:filtered.slice(offset,offset+(body.p_page_size??25)),filteredTotal:filtered.length,summary,testAccess:true});
+    }
+    if(rpc==='get_resident_service_history')return json({documents:[],reportCount:tables.reports.filter(r=>r.user_id===body.p_user_id).length,events:tables.resident_account_events.filter(e=>e.user_id===body.p_user_id)});
+    if(rpc==='set_resident_account_access'){
+      if(body.p_actor_id!==adminId)return json({code:'42501',message:'Administrator required'},403);
+      const account=accounts.find(a=>a.user_id===body.p_user_id);
+      if(!account||account.account_state!==body.p_expected_state)return json({code:'40001',message:'Access changed'},409);
+      tables.resident_account_events.push({user_id:account.user_id,previous_state:account.account_state,next_state:body.p_next_state,reason:body.p_reason,created_at:new Date().toISOString(),actor_name:'Alex Reyes'});account.account_state=body.p_next_state;return json({updated:true});
+    }
+    return json({code:'PGRST202',message:'Function not installed in this fixture'},404);
   }
   const name = url.pathname.split("/").pop();
   if (!url.pathname.startsWith("/rest/v1/") || !tables[name])

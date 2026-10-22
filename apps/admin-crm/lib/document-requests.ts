@@ -1,8 +1,11 @@
 import { supabase } from "@/lib/supabase";
+import { resolvePrivateFiles } from "@/lib/private-files";
 import type { DocumentRequest, DocumentRequestStatus } from "@/lib/types";
+import type { DocumentReview } from "@/lib/document-workflow";
 
 type FetchDocumentRequestsOptions = {
   limit?: number;
+  images?: boolean;
 };
 
 type RawDocumentRequestRecord = Record<string, unknown>;
@@ -10,8 +13,8 @@ type RawDocumentRequestRecord = Record<string, unknown>;
 export async function fetchDocumentRequests(options: FetchDocumentRequestsOptions = {}) {
   let query = supabase
     .from("document_requests")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select<string>(options.images === false ? 'id,status,certificate_title,resident_name,created_at' : '*')
+    .order("created_at", { ascending: false }).returns<RawDocumentRequestRecord[]>();
 
   if (options.limit) {
     query = query.limit(options.limit);
@@ -21,16 +24,18 @@ export async function fetchDocumentRequests(options: FetchDocumentRequestsOption
 
   if (error) throw error;
 
-  return (data ?? []).map((record) =>
+  const records = (data ?? []).map((record) =>
     normalizeDocumentRequestRecord(record as RawDocumentRequestRecord)
   );
+  return options.images === false ? records : resolvePrivateFiles(records);
 }
 
 export async function updateDocumentRequestStatus(
   id: string,
   status: DocumentRequestStatus,
   expectedStatus: DocumentRequestStatus,
-  rejectionReason?: string
+  rejectionReason?: string,
+  review?: DocumentReview,
 ) {
   const response = await fetch(`/api/admin/document-requests/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -38,6 +43,7 @@ export async function updateDocumentRequestStatus(
     body: JSON.stringify({
       expectedStatus,
       status,
+      review,
       rejectionReason: rejectionReason?.trim() || null
     })
   });
@@ -98,6 +104,27 @@ function normalizeDocumentRequestRecord(record: RawDocumentRequestRecord): Docum
   const formData = record.form_data;
 
   return {
+    workflow_version: numberValue(record.workflow_version),
+    requester_capacity: stringValue(record.requester_capacity),
+    requester_name: stringValue(record.requester_name),
+    identity_evidence_method: stringValue(record.identity_evidence_method),
+    residency_evidence_method: stringValue(record.residency_evidence_method),
+    authorization_evidence_method: stringValue(record.authorization_evidence_method),
+    identity_evidence_url: stringValue(record.identity_evidence_url),
+    residency_evidence_url: stringValue(record.residency_evidence_url),
+    authorization_evidence_url: stringValue(record.authorization_evidence_url),
+    evidence_id_type: stringValue(record.evidence_id_type),
+    review: {
+      identityChecked: record.identity_checked === true,
+      residencyChecked: record.residency_checked === true,
+      authorizationChecked: record.authorization_checked === true,
+      paymentStatus: record.office_payment_status === 'paid' ? 'paid' : record.office_payment_status === 'no_fee' ? 'no_fee' : 'pending',
+      feeAmount: numberValue(record.fee_amount) ?? null,
+      receipt: stringValue(record.office_receipt_reference) ?? '',
+      noFeeReason: stringValue(record.office_no_fee_reason) ?? '',
+      pickupConfirmed: record.pickup_confirmed === true,
+      collectedBy: stringValue(record.collected_by) ?? '',
+    },
     id: stringValue(record.id) || "",
     user_id: stringValue(record.user_id),
     resident_id: stringValue(record.resident_id),
@@ -147,4 +174,16 @@ function stringValue(value: unknown) {
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export type DocumentReviewEvent = {id:string;actor_id:string;actor_name?:string;reviewed_at:string;review:Record<string,unknown>};
+export async function fetchDocumentReviewHistory(requestId:string):Promise<DocumentReviewEvent[]>{
+ const {data,error}=await supabase.from('document_request_reviews').select('id,actor_id,reviewed_at,review').eq('request_id',requestId).order('reviewed_at',{ascending:false}).limit(20);
+ if(error)throw error;
+ const events=(data??[]) as DocumentReviewEvent[];
+ const actors=[...new Set(events.map(event=>event.actor_id))];
+ if(!actors.length)return events;
+ const {data:profiles}=await supabase.from('profiles').select('id,full_name').in('id',actors);
+ const names=new Map((profiles??[]).map(p=>[p.id,p.full_name]));
+ return events.map(event=>({...event,actor_name:names.get(event.actor_id)||undefined}));
 }

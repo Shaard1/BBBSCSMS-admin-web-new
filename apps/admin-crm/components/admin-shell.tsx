@@ -1,4 +1,5 @@
 "use client";
+import { fetchResidentSummary } from "@/lib/residents";
 
 import {
   BarChart3,
@@ -58,7 +59,7 @@ const navItems = [
   { label: "Document Requests", href: "/admin/documents", icon: FileBadge2 },
   { label: "Complaint Map", href: "/admin/map", icon: MapPinned },
   {
-    label: "Resident Verification",
+    label: "Resident Accounts",
     href: "/admin/residents",
     icon: UsersRound,
   },
@@ -173,10 +174,10 @@ export function AdminShell({ children }: AdminShellProps) {
       {
         badgeCount: unreadResidentsCount,
         count: pendingResidentsCount,
-        description: "Resident applications are waiting for verification.",
+        description: "Legacy registrations are waiting for review.",
         href: "/admin/residents",
         icon: UsersRound,
-        label: "Resident Verification",
+        label: "Resident Accounts",
       },
     ].filter((item) => item.count > 0);
   }, [
@@ -270,22 +271,19 @@ export function AdminShell({ children }: AdminShellProps) {
     }
 
     async function refreshNotificationCounts() {
-      const [{ count: reportsCount }, { count: residentsCount }] =
+      const [{ count: reportsCount }, residentSummary] =
         await Promise.all([
           supabase
             .from("reports")
             .select("id", { count: "exact", head: true })
             .eq("status", "pending"),
-          supabase
-            .from("residents")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "pending"),
+          fetchResidentSummary(),
         ]);
 
       if (!isMounted) return;
 
       setPendingReportsCount(reportsCount ?? 0);
-      setPendingResidentsCount(residentsCount ?? 0);
+      setPendingResidentsCount(residentSummary.pending);
     }
 
     void checkAccess().catch(() => {

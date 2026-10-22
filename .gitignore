@@ -13,5 +13,6 @@ pnpm-debug.log*
 *.tsbuildinfo
 # Local, synthetic CRM browser QA artifacts
 .next-qa
+.next-test
 playwright-report
 test-results

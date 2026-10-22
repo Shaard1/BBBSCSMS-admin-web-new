@@ -17,7 +17,9 @@ const nextConfig: NextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline'",
+          // Next's development bundles use eval for source maps and hydration.
+          // Keep eval blocked in production.
+          `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
           "style-src 'self' 'unsafe-inline'",
           `img-src 'self' data: blob:${supabaseSources} https://tile.openstreetmap.org`,
           `connect-src 'self'${supabaseSources} wss://*.supabase.co`,

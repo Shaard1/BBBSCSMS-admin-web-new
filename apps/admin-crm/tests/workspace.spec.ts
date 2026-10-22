@@ -10,7 +10,7 @@ const tabs = [
   ["reports", "Community reports"],
   ["documents", "Document requests"],
   ["map", "Complaint map"],
-  ["residents", "Resident verification"],
+  ["residents", "Resident accounts"],
   ["announcements", "Announcements"],
 ] as const;
 
@@ -209,6 +209,7 @@ test("document requests: consecutive updates, rejection validation, failure reco
     .first()
     .click();
   const dialog = page.getByRole("dialog", { name: "Document request details" });
+  await dialog.getByRole("button",{name:"Review request",exact:true}).click();
   await audit(page);
   await chooseDropdownOption(page, dialog, "Update status", "Processing");
   await dialog.getByRole("button", { name: "Update request" }).click();
@@ -219,11 +220,11 @@ test("document requests: consecutive updates, rejection validation, failure reco
     page,
     dialog,
     "Update status",
-    "Ready for Release",
+    "Ready for release",
   );
   await dialog.getByRole("button", { name: "Update request" }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
-    "Ready for Release",
+    "Ready for release",
   );
   await chooseDropdownOption(page, dialog, "Update status", "Rejected");
   await expect(
@@ -462,25 +463,17 @@ test("resident review: evidence, accessible confirmation and approval", async ({
 }) => {
   await login(page);
   await page.goto("/admin/residents");
-  await page.getByLabel("Search resident applications").fill("Maria Santos");
-  await page
-    .getByRole("button", { name: "View resident", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toContainText("Before you approve");
+  await page.getByLabel("Search resident accounts").fill("Maria Santos");
+  await page.getByRole("button",{name:"View Maria Santos",exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Resident account details'});
+  await expect(dialog.getByRole('button',{name:'Approve legacy registration'})).toBeEnabled();
+  await dialog.getByText('Legacy registration details',{exact:true}).click();
+  await expect(dialog.getByRole('img',{name:'ID front',exact:true})).toBeVisible();
   await audit(page);
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Approve", exact: true })
-    .click();
-  const confirm = page.getByRole("dialog", {
-    name: "Approve resident",
-    exact: true,
-  });
-  await expect(confirm).toBeVisible();
-  await audit(page);
-  await confirm.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".resident-row")).toContainText("Approved");
+  await dialog.getByRole('button',{name:'Approve legacy registration'}).click();
+  await dialog.getByRole('button',{name:'Confirm',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'Maria Santos'})).toContainText('Active');
 });
 
 test("staff: searchable directory, create form and role guard", async ({
@@ -670,4 +663,102 @@ test("empty and failed requests have understandable recovery", async ({
   await page.unroute("**/rest/v1/reports?**");
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.locator(".report-card")).toHaveCount(5);
+});
+
+test('resident accounts separate phone ownership, audit access changes, and restrict staff',async({page})=>{
+ await login(page);await page.goto('/admin/residents');
+ await page.getByLabel('Search resident accounts').fill('Carlo Test');
+ const row=page.getByRole('row').filter({hasText:'Carlo Test Resident'});
+ await expect(row).toContainText('Active');await expect(row).toContainText('Not verified');
+ await page.getByRole('button',{name:'View Carlo Test Resident'}).click();
+ const dialog=page.getByRole('dialog',{name:'Resident account details'});
+ await expect(dialog.getByRole('button',{name:'Suspend account'})).toBeEnabled();
+ await expect(dialog.getByRole('button',{name:'Approve legacy registration'})).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Suspend account'}).click();
+ await dialog.getByLabel('Reason',{exact:true}).fill('Synthetic account misuse review');
+ await dialog.getByRole('button',{name:'Confirm',exact:true}).click();
+ await expect(row).toContainText('Suspended');await expect(row).toContainText('Not verified');
+ await page.getByRole('button',{name:'View Carlo Test Resident'}).click();
+ await expect(dialog).toContainText('Synthetic account misuse review');
+ await dialog.getByRole('button',{name:'Close',exact:true}).click();
+ await login(page,'staff');await page.goto('/admin/residents');
+ await page.getByRole('button',{name:'View Carlo Test Resident'}).click();
+ await expect(dialog).toContainText('Synthetic account misuse review');
+ await expect(dialog.getByRole('button',{name:'Reactivate account'})).toHaveCount(0);
+ const response=await page.request.patch('/api/admin/residents/10000000-0000-4000-8000-000000000005/access',{data:{expectedState:'suspended',nextState:'active',reason:'Unauthorized staff attempt'}});
+ expect(response.status()).toBe(403);
+});
+
+test('document detail sections avoid duplication and collapse review history',async({page})=>{
+ await login(page);await page.goto('/admin/documents');
+ await page.getByRole('button',{name:'View details',exact:true}).first().click();
+ const dialog=page.getByRole('dialog',{name:'Document request details'});
+ await expect(dialog.getByRole('button',{name:'Overview',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(dialog.getByText('resident0@example.test',{exact:true})).toHaveCount(0);
+ await expect(dialog.getByText('Purok 3, Bancao-Bancao',{exact:true})).toHaveCount(1);
+ await expect(dialog.getByRole('combobox',{name:'Update status'})).toBeHidden();
+ await dialog.getByRole('button',{name:'Review',exact:true}).click();
+ await expect(dialog.getByText('Not applicable — self-application')).toBeVisible();
+ await dialog.getByLabel('Office payment decision').selectOption('paid');
+ await dialog.getByLabel('Amount received at office').fill('50');
+ await dialog.getByLabel('Official receipt reference').fill('TEST-RECEIPT');
+ await dialog.getByLabel('Office payment decision').selectOption('no_fee');
+ await expect(dialog.getByLabel('Official receipt reference')).toHaveCount(0);
+ await dialog.getByLabel('Reason no fee applies').fill('Synthetic free service');
+ await dialog.getByRole('button',{name:'Update request'}).click();
+ await expect(dialog.getByRole('status')).toContainText('updated');
+ await dialog.getByRole('button',{name:'History',exact:true}).click();
+ await expect(dialog.locator('.document-history-entry')).toHaveCount(1);
+ await expect(dialog.locator('.document-history-entry')).not.toHaveAttribute('open','');
+ await dialog.locator('.document-history-entry summary').click();
+ await expect(dialog.getByText('Recorded by Alex Reyes')).toBeVisible();
+ await audit(page);
+});
+
+test('document dialog stays usable on a small phone and closed requests are read-only',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:700});
+ await login(page);await page.goto('/admin/documents');
+ await page.getByRole('button',{name:'View details',exact:true}).first().click();
+ const dialog=page.getByRole('dialog',{name:'Document request details'});
+ for(const section of ['Overview','Review','History']){
+  await dialog.getByRole('button',{name:section,exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'Cancel',exact:true})).toBeVisible();
+  expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  const buttonSizes=await dialog.locator('.document-detail-footer button').evaluateAll(buttons=>buttons.map(button=>({text:button.textContent,width:button.clientWidth,scroll:button.scrollWidth,right:button.getBoundingClientRect().right,parentRight:button.parentElement!.getBoundingClientRect().right})));
+  expect(buttonSizes.every(b=>b.scroll<=b.width+1&&b.right<=b.parentRight)).toBe(true);
+  await audit(page);
+  await page.screenshot({path:testInfo.outputPath('document-'+section.toLowerCase()+'-390.png'),animations:'disabled'});
+ }
+ await dialog.getByRole('button',{name:'Review',exact:true}).click();
+ await chooseDropdownOption(page,dialog,'Update status','Rejected');
+ await dialog.getByLabel('Reason shown to the resident').fill('Synthetic missing requirement');
+ await dialog.getByRole('button',{name:'Update request'}).click();
+ await expect(dialog.getByText('This request is closed. Details and recorded reviews are read-only.')).toBeVisible();
+ await expect(dialog.getByRole('button',{name:'Update request'})).toHaveCount(0);
+ await expect(dialog.getByLabel('Office payment decision')).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Overview',exact:true}).click();
+ await expect(dialog.getByText('Synthetic missing requirement',{exact:true})).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('document-closed-390.png'),animations:'disabled'});
+ await audit(page);
+ await page.setViewportSize({width:1440,height:900});
+ await page.screenshot({path:testInfo.outputPath('document-closed-1440.png'),animations:'disabled'});
+ await audit(page);
+});
+
+test('interaction motion is short, settles at rest and respects reduced motion',async({page})=>{
+ await login(page);await page.goto('/admin/documents');
+ for(const preference of ['no-preference','reduce'] as const){
+  await page.emulateMedia({reducedMotion:preference});
+  await page.getByRole('button',{name:'View details',exact:true}).first().click();
+  const dialog=page.getByRole('dialog',{name:'Document request details'});
+  const motion=await dialog.evaluate(element=>({name:getComputedStyle(element).animationName,duration:getComputedStyle(element).animationDuration}));
+  if(preference==='reduce')expect(motion.name).toBe('none');else{expect(motion.name).toBe('workspace-dialog-enter');expect(parseFloat(motion.duration)).toBeLessThanOrEqual(.2);}
+  await dialog.getByRole('button',{name:'Review',exact:true}).click();
+  await expect(dialog.getByLabel('Office payment decision')).toBeVisible();
+  await dialog.evaluate(async()=>{await new Promise<void>(resolve=>setTimeout(resolve,240));});
+  expect(await dialog.evaluate(element=>element.getAnimations({subtree:true}).filter(a=>a.playState==='running').length)).toBe(0);
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'View details',exact:true}).first()).toBeFocused();
+ }
 });

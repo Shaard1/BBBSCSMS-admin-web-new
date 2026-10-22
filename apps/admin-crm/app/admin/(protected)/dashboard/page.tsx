@@ -20,7 +20,7 @@ import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { fetchAnnouncements } from "@/lib/announcements";
 import { fetchDocumentRequests } from "@/lib/document-requests";
 import { fetchReports } from "@/lib/reports";
-import { fetchResidents } from "@/lib/residents";
+import { fetchResidentMetrics } from "@/lib/residents";
 import {
   normalizeReportStatus,
   reportStatusLabel,
@@ -37,6 +37,7 @@ import type {
 export default function AdminDashboardPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
+  const [legacyPendingTotal,setLegacyPendingTotal]=useState(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [documents, setDocuments] = useState<DocumentRequest[]>([]);
   const [message, setMessage] = useState("");
@@ -47,13 +48,14 @@ export default function AdminDashboardPage() {
     setMessage("");
     try {
       const [r, u, a, d] = await Promise.all([
-        fetchReports(),
-        fetchResidents(),
+        fetchReports({ images: false }),
+        fetchResidentMetrics(),
         fetchAnnouncements(),
-        fetchDocumentRequests(),
+        fetchDocumentRequests({ images: false }),
       ]);
       setReports(r);
-      setResidents(u);
+      setResidents(u.legacyQueue);
+      setLegacyPendingTotal(u.summary.legacyPending);
       setAnnouncements(a);
       setDocuments(d);
       setLastUpdated(
@@ -87,9 +89,9 @@ export default function AdminDashboardPage() {
     .slice(0, 5);
   const queues = [
     {
-      title: "Verify residents",
-      detail: "Check identity documents and registration details",
-      count: pendingResidents.length,
+      title: "Review legacy registrations",
+      detail: "Only accounts using the old registration process",
+      count: legacyPendingTotal,
       href: "/admin/residents",
       icon: ShieldCheck,
     },
@@ -131,9 +133,9 @@ export default function AdminDashboardPage() {
           href="/admin/reports"
         />
         <Metric
-          label="Awaiting verification"
-          value={pendingResidents.length}
-          note="Resident registrations to review"
+          label="Legacy reviews"
+          value={legacyPendingTotal}
+          note="Old registrations still awaiting review"
           href="/admin/residents"
           tone="amber"
         />
@@ -250,8 +252,8 @@ export default function AdminDashboardPage() {
           </div>
         </Panel>
         <Panel
-          title="Resident review queue"
-          description="Oldest pending registrations first."
+          title="Legacy registration queue"
+          description="New basic accounts do not enter this queue."
           action={<Link href="/admin/residents">View all</Link>}
         >
           <div className="overview-list">
@@ -275,7 +277,7 @@ export default function AdminDashboardPage() {
                   <ArrowRight size={16} />
                 </Link>
               ))}
-            {!pendingResidents.length ? (
+            {!legacyPendingTotal ? (
               <p className="empty-state">
                 No registrations waiting for review.
               </p>

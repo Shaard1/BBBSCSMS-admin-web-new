@@ -1,36 +1,29 @@
 "use client";
 
-import { Modal } from "@/components/modal";
+import {DocumentRequestDialog} from "@/components/document-request-dialog";
 import { PageHeader } from "@/components/workspace-ui";
 import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
-import { UiDropdown } from "@/components/ui-dropdown";
 import { FileBadge2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchDocumentRequests,
+
   summarizeDocumentRequests,
   updateDocumentRequestStatus,
 } from "@/lib/document-requests";
+import type { DocumentReview } from "@/lib/document-workflow";
+
 import type { DocumentRequest, DocumentRequestStatus } from "@/lib/types";
 
 const filters = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
-  { label: "Awaiting Payment", value: "awaiting_payment" },
+  { label: "Legacy payment pending", value: "awaiting_payment" },
   { label: "Processing", value: "processing" },
   { label: "Ready for Release", value: "ready_for_release" },
   { label: "Completed", value: "completed" },
   { label: "Rejected", value: "rejected" },
 ] as const;
-
-const statusOptions: Array<{ label: string; value: DocumentRequestStatus }> = [
-  { label: "Mark Pending", value: "pending" },
-  { label: "Awaiting Payment", value: "awaiting_payment" },
-  { label: "Processing", value: "processing" },
-  { label: "Ready for Release", value: "ready_for_release" },
-  { label: "Completed", value: "completed" },
-  { label: "Reject Request", value: "rejected" },
-];
 
 type FilterValue = (typeof filters)[number]["value"];
 
@@ -84,6 +77,8 @@ export default function DocumentRequestsPage() {
     try {
       const data = await fetchDocumentRequests();
       setRequests(data);
+      const target=new URLSearchParams(window.location.search).get("request");
+      if(target&&data.some(item=>item.id===target))setSelectedId(target);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -99,8 +94,9 @@ export default function DocumentRequestsPage() {
     request: DocumentRequest,
     status: DocumentRequestStatus,
     rejectionReason?: string,
+    review?: DocumentReview,
   ) {
-    if (isWorking || request.status === status) return;
+    if (isWorking || !review) return;
     if (status === "rejected" && !rejectionReason?.trim()) return;
 
     setIsWorking(true);
@@ -112,7 +108,9 @@ export default function DocumentRequestsPage() {
         status,
         request.status,
         rejectionReason,
+        review,
       );
+      await loadRequests();
       setRequests((current) =>
         current.map((item) =>
           item.id === request.id
@@ -289,217 +287,6 @@ function StatCard({
       <strong>{value}</strong>
     </article>
   );
-}
-
-function DetailItem({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="document-detail-item">
-      <span>{label}</span>
-      <strong>{value?.trim() || "Not provided"}</strong>
-    </div>
-  );
-}
-
-function renderFormData(request: DocumentRequest) {
-  if (!request.form_data || typeof request.form_data === "string") {
-    return null;
-  }
-
-  const entries = Object.entries(request.form_data).filter(([, value]) =>
-    typeof value === "string" ? value.trim() : value != null,
-  );
-
-  if (entries.length === 0) return null;
-
-  return (
-    <div className="document-request-form-data">
-      <strong>Submitted Form Details</strong>
-      <div className="document-request-grid">
-        {entries.map(([key, value]) => (
-          <DetailItem
-            key={key}
-            label={humanizeFieldLabel(key)}
-            value={String(value)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DocumentRequestDialog({
-  message,
-  isWorking,
-  request,
-  onClose,
-  onStatusChange,
-}: {
-  isWorking: boolean;
-  request: DocumentRequest;
-  onClose: () => void;
-  message: string;
-  onStatusChange: (
-    request: DocumentRequest,
-    status: DocumentRequestStatus,
-    reason?: string,
-  ) => void;
-}) {
-  const [nextStatus, setNextStatus] = useState<DocumentRequestStatus>(
-    request.status,
-  );
-  const [reason, setReason] = useState("");
-  return (
-    <Modal title="Document request details" onClose={onClose}>
-      <div
-        className="reject-modal document-request-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <div>
-            <h2>{request.certificate_title}</h2>
-            <p>{request.resident_name}</p>
-          </div>
-          <button onClick={onClose} type="button" aria-label="Close">
-            ×
-          </button>
-        </div>
-
-        <div className="document-request-current">
-          <span>Current status</span>
-          <strong className={`status-badge ${statusClassName(request.status)}`}>
-            {statusLabel(request.status)}
-          </strong>
-          <p>Review the submitted details before updating this request.</p>
-        </div>
-        <div className="document-request-grid">
-          <DetailItem label="Resident" value={request.resident_name} />
-          <DetailItem label="Contact Number" value={request.contact_number} />
-          <DetailItem label="Email" value={request.email} />
-          <DetailItem label="Address" value={request.address} />
-          <DetailItem
-            label="Document Type"
-            value={
-              request.certificate_variant
-                ? `${request.certificate_title} (${request.certificate_variant})`
-                : request.certificate_title
-            }
-          />
-          <DetailItem label="Payment Method" value={request.payment_method} />
-          <DetailItem
-            label="Receiver Name"
-            value={request.payment_receiver_name}
-          />
-          <DetailItem
-            label="Receiver Number"
-            value={request.payment_receiver_number}
-          />
-          <DetailItem
-            label="Payment Reference"
-            value={request.payment_reference}
-          />
-          <DetailItem label="Fee" value={request.fee_label} />
-          <DetailItem label="Purpose" value={request.purpose} />
-          <DetailItem
-            label="Additional Notes"
-            value={request.additional_notes}
-          />
-          <DetailItem label="Request ID" value={request.id} />
-        </div>
-
-        {renderFormData(request)}
-
-        {request.payment_proof_url &&
-        /^https?:\/\//i.test(request.payment_proof_url) ? (
-          <div className="document-request-proof">
-            <strong>Payment Proof</strong>
-            <a
-              className="secondary-admin-button document-proof-link"
-              href={request.payment_proof_url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Open proof image
-            </a>
-          </div>
-        ) : null}
-
-        {request.rejection_reason ? (
-          <div className="document-request-reason">
-            <strong>Rejection Reason</strong>
-            <p>{request.rejection_reason}</p>
-          </div>
-        ) : null}
-
-        {message ? (
-          <div className="admin-message" role="status">
-            {message}
-          </div>
-        ) : null}
-        <form
-          className="document-request-actions"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onStatusChange(request, nextStatus, reason.trim());
-          }}
-        >
-          <div className="field-group">
-            <span className="field-label">Update status</span>
-            <UiDropdown
-              ariaLabel="Update status"
-              value={nextStatus}
-              disabled={isWorking}
-              options={statusOptions.map((option) => ({
-                label: statusLabel(option.value),
-                value: option.value,
-              }))}
-              onChange={(nextValue) =>
-                setNextStatus(nextValue as DocumentRequestStatus)
-              }
-            />
-          </div>
-          {nextStatus === "rejected" ? (
-            <label className="rejection-field">
-              Reason shown to the resident
-              <textarea
-                required
-                maxLength={1000}
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Explain what needs to be corrected"
-              />
-            </label>
-          ) : null}
-          <p className="status-update-help" role="status">
-            Current: {statusLabel(request.status)}
-            {nextStatus !== request.status
-              ? ` → ${statusLabel(nextStatus)}`
-              : ". Select a different status to update."}
-          </p>
-          <button
-            className={
-              nextStatus === "rejected"
-                ? "danger-admin-button"
-                : "primary-admin-button"
-            }
-            type="submit"
-            disabled={
-              isWorking ||
-              nextStatus === request.status ||
-              (nextStatus === "rejected" && !reason.trim())
-            }
-          >
-            {isWorking ? "Updating…" : "Update request"}
-          </button>
-        </form>
-      </div>
-    </Modal>
-  );
-}
-
-function humanizeFieldLabel(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusLabel(status: DocumentRequestStatus) {
