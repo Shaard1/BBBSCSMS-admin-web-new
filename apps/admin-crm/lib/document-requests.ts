@@ -69,6 +69,15 @@ export async function updateDocumentRequestStatus(
   }
 }
 
+export async function reopenDocumentRequest(request: DocumentRequest, reason: string) {
+  const response = await fetch(`/api/admin/document-requests/${encodeURIComponent(request.id)}`, {
+    method:'PATCH',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'reopen',reason,expectedUpdatedAt:request.updated_at}),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.updated) throw new Error(body?.message ?? 'Unable to reopen the request.');
+}
+
 export function summarizeDocumentRequests(requests: DocumentRequest[]) {
   return requests.reduce(
     (summary, request) => {

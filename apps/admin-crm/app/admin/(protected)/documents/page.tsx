@@ -11,6 +11,7 @@ import {
 
   summarizeDocumentRequests,
   updateDocumentRequestStatus,
+  reopenDocumentRequest,
 } from "@/lib/document-requests";
 import type { DocumentReview } from "@/lib/document-workflow";
 
@@ -116,19 +117,6 @@ export default function DocumentRequestsPage() {
         review,
       );
       await loadRequests();
-      setRequests((current) =>
-        current.map((item) =>
-          item.id === request.id
-            ? {
-                ...item,
-                status,
-                rejection_reason:
-                  status === "rejected" ? rejectionReason : undefined,
-                updated_at: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
       setMessage(
         status === request.status ? "Review details saved." : `Request updated to ${statusLabel(status)}.`,
       );
@@ -141,6 +129,22 @@ export default function DocumentRequestsPage() {
     } finally {
       setIsWorking(false);
     }
+  }
+
+  async function handleReopen(request: DocumentRequest, reason: string): Promise<boolean> {
+    if (isWorking) return false;
+    setIsWorking(true);
+    setMessage('');
+    try {
+      await reopenDocumentRequest(request, reason);
+      const freshRequests = await fetchDocumentRequests();
+      setRequests(freshRequests);
+      setMessage('Request reopened. It is ready for release; collection must be recorded again.');
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to reopen the request. Refresh before trying again.');
+      return false;
+    } finally { setIsWorking(false); }
   }
 
   if (isLoading && requests.length === 0) return <AdminPageSkeleton href="/admin/documents" />;
@@ -269,6 +273,7 @@ export default function DocumentRequestsPage() {
           request={selectedRequest}
           onClose={() => setSelectedId(null)}
           onStatusChange={handleStatusChange}
+          onReopen={handleReopen}
         />
       ) : null}
     </section>

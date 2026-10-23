@@ -882,6 +882,59 @@ test("private evidence refreshes expired links on every opening and denies fail 
   expect(expiredLoads).toEqual([]);
 });
 
+test('administrator reopens a completed request with a reason and preserved history', async ({page,request}) => {
+  const id='30000000-0000-4000-8000-000000000001';
+  await request.patch(`${origin}/rest/v1/document_requests?id=eq.${id}`,{data:{status:'completed',updated_at:'2026-10-23T12:00:00Z',pickup_confirmed:true,collected_by:'Synthetic recipient',identity_checked:true,residency_checked:true,office_payment_status:'no_fee',office_no_fee_reason:'Free test service',fee_amount:0}});
+  await login(page);
+  await page.goto('/admin/documents');
+  await page.getByRole('button',{name:'View details',exact:true}).first().click();
+  const dialog=page.getByRole('dialog',{name:'Document request details'});
+  await dialog.getByRole('button',{name:'Reopen request',exact:true}).click();
+  for (const width of [1440,390]) {
+    await page.setViewportSize({width,height:900});
+    const form=dialog.locator('#document-reopen-form');
+    const heading=await form.getByRole('heading').boundingBox();
+    const bounds=await form.boundingBox();
+    expect(heading!.width).toBeGreaterThan(bounds!.width * .9);
+    expect(await form.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await expect(dialog.getByRole('button',{name:'Confirm reopening'})).toBeDisabled();
+  await dialog.getByLabel('Reason for reopening').fill('Completed accidentally before collection.');
+  await dialog.getByRole('checkbox',{name:/I confirm this completion/}).check();
+  await dialog.getByRole('button',{name:'Confirm reopening'}).click();
+  await expect(dialog.getByRole('status')).toContainText('Request reopened.');
+  await expect(dialog.locator('.document-request-current')).toContainText('Ready for release');
+  await expect(dialog.getByLabel('Document physically collected after recipient check')).not.toBeChecked();
+  await expect(dialog.getByLabel('Applicant identity checked')).toBeChecked();
+  await expect(dialog.getByLabel('Reason no fee applies')).toHaveValue('Free test service');
+  await dialog.getByRole('button',{name:'History',exact:true}).click();
+  await dialog.locator('.document-history-entry summary').click();
+  await expect(dialog.locator('.document-history-entry')).toContainText('Completed accidentally before collection.');
+  await expect(dialog.locator('.document-history-entry')).toContainText('Synthetic recipient');
+  await page.screenshot({path:'test-results/admin-document-reopening.png'});
+});
+
+test('staff cannot reopen a completed request through UI or API', async ({page,request}) => {
+  const id='30000000-0000-4000-8000-000000000001';
+  await request.patch(`${origin}/rest/v1/document_requests?id=eq.${id}`,{data:{status:'completed',updated_at:'2026-10-23T12:00:00Z'}});
+  await login(page,'staff');await page.goto('/admin/documents');
+  await page.getByRole('button',{name:'View details',exact:true}).first().click();
+  await expect(page.getByRole('button',{name:'Reopen request',exact:true})).toHaveCount(0);
+  const response=await page.request.patch(`/api/admin/document-requests/${id}`,{data:{action:'reopen',reason:'Unauthorized staff reopening attempt',expectedUpdatedAt:'2026-10-23T12:00:00Z'}});
+  expect(response.status()).toBe(403);
+});
+
+test('reopening rejects a stale request and an empty reason', async ({page,request}) => {
+  const id='30000000-0000-4000-8000-000000000001';
+  await request.patch(`${origin}/rest/v1/document_requests?id=eq.${id}`,{data:{status:'completed',updated_at:'2026-10-23T12:00:00Z'}});
+  await login(page);
+  const invalid=await page.request.patch(`/api/admin/document-requests/${id}`,{data:{action:'reopen',reason:'',expectedUpdatedAt:'2026-10-23T12:00:00Z'}});
+  expect(invalid.status()).toBe(400);
+  const stale=await page.request.patch(`/api/admin/document-requests/${id}`,{data:{action:'reopen',reason:'Completed before collection accidentally',expectedUpdatedAt:'2026-10-22T12:00:00Z'}});
+  expect(stale.status()).toBe(409);
+});
+
 test("office payment dropdown fits the review dialog and supports keyboard selection", async ({ page }) => {
   await login(page);
   await page.goto('/admin/documents');

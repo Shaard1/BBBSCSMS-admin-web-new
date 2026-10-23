@@ -204,6 +204,16 @@ const server = http.createServer(async (req, res) => {
     const rows=tables.residents.map(r=>({...r,basic_account:accounts.find(a=>a.user_id===r.user_id)??null}));
     const state=r=>r.basic_account?.account_state??(r.status==='approved'?'active':r.status==='rejected'?'legacy_rejected':'legacy_pending');
     const summary={total:rows.length,active:rows.filter(r=>state(r)==='active').length,suspended:rows.filter(r=>state(r)==='suspended').length,legacyPending:rows.filter(r=>state(r)==='legacy_pending').length,phoneVerified:0};
+    if(rpc==='reopen_office_document'){
+      const actor=tables.profiles.find(p=>p.id===body.p_actor_id);
+      if(actor?.role!=='admin'||actor.status!=='approved')return json({code:'42501',message:'Only an active administrator can reopen completed requests'},403);
+      const row=tables.document_requests.find(r=>r.id===body.p_request_id);
+      if(!row||row.status!=='completed'||row.updated_at!==body.p_expected_updated_at)return json({code:'40001',message:'Request changed; refresh before reopening'},409);
+      const previous={...row};
+      Object.assign(row,{status:'ready_for_release',pickup_confirmed:false,collected_by:null,reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      tables.document_request_reviews.push({id:randomUUID(),request_id:row.id,actor_id:body.p_actor_id,reviewed_at:row.updated_at,review:{action:'reopened',status:row.status,reason:body.p_reason,previous_status:previous.status,previous_collected_by:previous.collected_by}});
+      return json({updated:true});
+    }
     if(rpc==='review_office_document'){
       const row=tables.document_requests.find(r=>r.id===body.p_request_id);
       if(!row||row.status!==body.p_expected_status)return json({code:'40001',message:'Request changed'},400);

@@ -3230,3 +3230,11 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .document-status-preview { color:var(--muted); font-size:.85rem; margin:.75rem 0 0; }
 .document-status-preview:empty { display:none; }
 @media(max-width:600px) { .document-detail-feedback { margin:.75rem 1rem 0; } }
+
+.document-reopen-form { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; font-size:.95rem; line-height:1.55; }
+.document-reopen-form h3,.document-reopen-form p,.document-reopen-form ul { margin:0; }
+.document-reopen-form ul { padding-left:1.3rem; }
+.document-reopen-form label { display:grid; gap:.5rem; font-weight:600; }
+.document-reopen-form textarea { width:100%; min-height:110px; box-sizing:border-box; padding:.8rem; border:1px solid var(--border); border-radius:10px; resize:vertical; font:inherit; }
+.document-reopen-form label:has(input[type="checkbox"]) { display:flex; align-items:flex-start; gap:.65rem; padding:.85rem; background:#f4f8fd; border:1px solid var(--border); border-radius:10px; font-weight:400; }
+.document-reopen-form input[type="checkbox"] { width:18px; height:18px; flex:0 0 auto; margin-top:.2rem; }

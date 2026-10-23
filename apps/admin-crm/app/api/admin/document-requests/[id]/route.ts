@@ -10,6 +10,9 @@ import { parseDocumentReview } from "@/lib/document-workflow";
 import type { DocumentRequestStatus } from "@/lib/types";
 
 type DocumentRequestActionPayload = {
+  action?: string;
+  reason?: unknown;
+  expectedUpdatedAt?: unknown;
   expectedStatus?: DocumentRequestStatus;
   status?: DocumentRequestStatus;
   rejectionReason?: string | null;
@@ -41,7 +44,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return adminClientResponse.error;
   }
 
-  const { client, actorId } = adminClientResponse;
+  const { client, actorId, role } = adminClientResponse;
   const { id } = await context.params;
   const requestId = id?.trim() ?? "";
 
@@ -50,6 +53,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const payload = (await request.json().catch(() => null)) as DocumentRequestActionPayload | null;
+  if (payload?.action === 'reopen') {
+    if (role !== 'admin') return NextResponse.json({message:'Only administrators can reopen requests.'},{status:403});
+    const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+    const expected = payload.expectedUpdatedAt;
+    if (reason.length < 10 || reason.length > 1000 || typeof expected !== 'string' || !Number.isFinite(Date.parse(expected))) {
+      return NextResponse.json({message:'Provide a reason of 10 to 1000 characters and refresh the request before reopening.'},{status:400});
+    }
+    const {error} = await client.rpc('reopen_office_document', {
+      p_request_id:requestId,p_actor_id:actorId,p_expected_updated_at:expected,p_reason:reason,
+    });
+    if (error) return NextResponse.json({message:error.code==='PGRST202'?'Reopening is not available yet. Ask the administrator to apply the reopening migration.':error.message},{status:error.code==='40001'?409:error.code==='42501'?403:400});
+    return NextResponse.json({updated:true});
+  }
+  if (payload?.action !== undefined) return NextResponse.json({message:'Unknown document action.'},{status:400});
   const expectedStatus = payload?.expectedStatus;
   const status = payload?.status;
   const review = parseDocumentReview(payload?.review);
@@ -128,6 +145,7 @@ async function getAdminClientForDocumentRequest(request: NextRequest) {
   }
 
   return {
+    role: session.role,
     actorId: session.userId,
     client: createClient(supabaseUrl, serviceRoleKey, {
       auth: {
