@@ -3220,3 +3220,13 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .document-evidence-open:disabled { cursor:wait; opacity:.7; }
 .evidence-load-status { display:block; margin-top:.5rem; color:#526274; font-size:.85rem; }
 .evidence-load-error { color:#ad2537; font-size:.9rem; }
+
+/* Document menus expand beneath their trigger inside the scrollable review pane. */
+.ui-dropdown-below .ui-dropdown-menu { position:static; width:100%; margin-top:6px; max-height:320px; overflow-y:auto; box-sizing:border-box; scrollbar-width:none; }
+.ui-dropdown-below .ui-dropdown-menu::-webkit-scrollbar { display:none; }
+.document-detail-content { scrollbar-width:none; }
+.document-detail-content::-webkit-scrollbar { display:none; }
+.document-detail-feedback { flex-shrink:0; margin:.85rem 1.5rem 0; padding:.85rem 1rem; border:1px solid #b8d0ef; background:#edf5ff; color:#164a80; border-radius:10px; font-size:.9rem; overflow-wrap:anywhere; }
+.document-status-preview { color:var(--muted); font-size:.85rem; margin:.75rem 0 0; }
+.document-status-preview:empty { display:none; }
+@media(max-width:600px) { .document-detail-feedback { margin:.75rem 1rem 0; } }

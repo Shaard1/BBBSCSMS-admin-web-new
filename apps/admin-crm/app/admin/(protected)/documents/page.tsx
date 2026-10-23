@@ -130,7 +130,7 @@ export default function DocumentRequestsPage() {
         ),
       );
       setMessage(
-        `${request.certificate_title} request updated to ${statusLabel(status)}.`,
+        status === request.status ? "Review details saved." : `Request updated to ${statusLabel(status)}.`,
       );
     } catch (error) {
       setMessage(

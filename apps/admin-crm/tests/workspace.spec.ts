@@ -706,7 +706,8 @@ test('document detail sections avoid duplication and collapse review history',as
  await expect(dialog.getByLabel('Official receipt reference')).toHaveCount(0);
  await dialog.getByLabel('Reason no fee applies').fill('Synthetic free service');
  await dialog.getByRole('button',{name:'Update request'}).click();
- await expect(dialog.getByRole('status')).toContainText('updated');
+  await expect(dialog.getByRole('status')).toHaveText('Review details saved.');
+  await expect(dialog.locator('.document-detail-content [role="status"]')).toHaveCount(0);
  await dialog.getByRole('button',{name:'History',exact:true}).click();
  await expect(dialog.locator('.document-history-entry')).toHaveCount(1);
  await expect(dialog.locator('.document-history-entry')).not.toHaveAttribute('open','');
@@ -893,6 +894,13 @@ test("office payment dropdown fits the review dialog and supports keyboard selec
     await trigger.click();
     const menu = page.getByRole('listbox', { name: 'Office payment decision', exact: true });
     await expectMenuInViewport(menu);
+    await expect.poll(async () => {
+      const field = await trigger.boundingBox();
+      const panel = await menu.boundingBox();
+      return !!field && !!panel && panel.y >= field.y + field.height;
+    }).toBe(true);
+    await expect.poll(() => menu.evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+    expect(await menu.evaluate(element => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
     await page.screenshot({ path: 'test-results/office-payment-menu-'+width+'.png' });
     await trigger.press('Escape');
   }
@@ -901,4 +909,11 @@ test("office payment dropdown fits the review dialog and supports keyboard selec
   await paymentTrigger.press('End');
   await paymentTrigger.press('Enter');
   await expect(dialog.getByLabel('Reason no fee applies')).toBeVisible();
+  await dialog.getByLabel('Reason no fee applies').fill('Synthetic free service');
+  await expect(dialog.locator('.document-status-preview')).toBeEmpty();
+  await chooseDropdownOption(page, dialog, 'Update status', 'Processing');
+  await expect(dialog.locator('.document-status-preview')).toHaveText('Saving will change the status to Processing.');
+  await dialog.getByRole('button', { name: 'Update request', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Request updated to Processing.');
+  await expect(dialog.locator('.document-status-preview')).toBeEmpty();
 });
