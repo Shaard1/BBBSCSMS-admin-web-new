@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -16,7 +17,6 @@ import {
   Notice,
   RefreshButton,
 } from "@/components/workspace-ui";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { fetchAnnouncements } from "@/lib/announcements";
 import { fetchDocumentRequests } from "@/lib/document-requests";
 import { fetchReports } from "@/lib/reports";
@@ -110,6 +110,8 @@ export default function AdminDashboardPage() {
       icon: FileBadge2,
     },
   ];
+  if (isLoading) return <AdminPageSkeleton href="/admin/dashboard" />;
+
   return (
     <section className="workspace-page overview-page" aria-busy={isLoading}>
       <PageHeader
@@ -122,9 +124,6 @@ export default function AdminDashboardPage() {
         <RefreshButton loading={isLoading} onClick={load} />
       </PageHeader>
       <Notice message={message} onDismiss={() => setMessage("")} />
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading community overview…" />
-      ) : null}
       <div className="workspace-metrics">
         <Metric
           label="Open reports"

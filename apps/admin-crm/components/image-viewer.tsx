@@ -9,10 +9,12 @@ type ImageViewerProps = {
   imageUrl: string;
   title: string;
   onClose: () => void;
+  allowOriginal?: boolean;
 };
 
-export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
+export function ImageViewer({ imageUrl, title, onClose, allowOriginal = true }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
+  const [failed, setFailed] = useState(false);
   const safeImageUrl = toSafeImageUrl(imageUrl);
 
   return (
@@ -37,7 +39,7 @@ export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
         <button type="button" onClick={() => setScale(1)}>
           <RotateCcw size={18} /> Reset
         </button>
-        {safeImageUrl ? (
+        {safeImageUrl && allowOriginal ? (
           <a href={safeImageUrl} target="_blank" rel="noreferrer">
             <ExternalLink size={18} /> Open original
           </a>
@@ -47,15 +49,16 @@ export function ImageViewer({ imageUrl, title, onClose }: ImageViewerProps) {
         </button>
       </div>
       <button className="image-viewer-stage" onClick={onClose} type="button">
-        {safeImageUrl ? (
+        {safeImageUrl && !failed ? (
           <img
             src={safeImageUrl}
             alt={title}
+            onError={() => setFailed(true)}
             onClick={(event) => event.stopPropagation()}
             style={{ transform: `scale(${scale})` }}
           />
         ) : (
-          <span>Image unavailable.</span>
+          <span role="alert">Image unavailable. Close this preview and open the evidence again to retry.</span>
         )}
       </button>
     </Modal>

@@ -27,7 +27,16 @@ export async function fetchDocumentRequests(options: FetchDocumentRequestsOption
   const records = (data ?? []).map((record) =>
     normalizeDocumentRequestRecord(record as RawDocumentRequestRecord)
   );
-  return options.images === false ? records : resolvePrivateFiles(records);
+  if (options.images === false) return records;
+  // Evidence is signed when opened rather than while listing requests.
+  const resolved = await resolvePrivateFiles(records.map(record => ({
+    ...record, identity_evidence_url: undefined, residency_evidence_url: undefined, authorization_evidence_url: undefined,
+  })));
+  return resolved.map((record, index) => ({ ...record,
+    identity_evidence_url: records[index].identity_evidence_url,
+    residency_evidence_url: records[index].residency_evidence_url,
+    authorization_evidence_url: records[index].authorization_evidence_url,
+  }));
 }
 
 export async function updateDocumentRequestStatus(

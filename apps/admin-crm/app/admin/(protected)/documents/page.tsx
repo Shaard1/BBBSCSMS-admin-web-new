@@ -1,8 +1,9 @@
 "use client";
+import { markOfficeNotificationRead } from "@/lib/notifications";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import {DocumentRequestDialog} from "@/components/document-request-dialog";
 import { PageHeader } from "@/components/workspace-ui";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { FileBadge2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -71,6 +72,10 @@ export default function DocumentRequestsPage() {
     void loadRequests();
   }, []);
 
+  useEffect(() => {
+    if (selectedRequest?.id) void markOfficeNotificationRead("documents", selectedRequest.id);
+  }, [selectedRequest?.id]);
+
   async function loadRequests() {
     setIsLoading(true);
 
@@ -137,6 +142,8 @@ export default function DocumentRequestsPage() {
       setIsWorking(false);
     }
   }
+
+  if (isLoading && requests.length === 0) return <AdminPageSkeleton href="/admin/documents" />;
 
   return (
     <section className="admin-page reports-page documents-page">
@@ -255,10 +262,6 @@ export default function DocumentRequestsPage() {
           )}
         </div>
       </div>
-
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading document requests…" />
-      ) : null}
       {selectedRequest ? (
         <DocumentRequestDialog
           message={message}

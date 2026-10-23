@@ -589,7 +589,7 @@ test("mobile navigation: focus trap, Escape, route navigation", async ({
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
   await page
     .getByRole("navigation")
-    .getByRole("link", { name: "Document Requests", exact: true })
+    .getByRole("link", { name: /^Document Requests/ })
     .click();
   await expect(
     page.getByRole("heading", {
@@ -699,10 +699,10 @@ test('document detail sections avoid duplication and collapse review history',as
  await expect(dialog.getByRole('combobox',{name:'Update status'})).toBeHidden();
  await dialog.getByRole('button',{name:'Review',exact:true}).click();
  await expect(dialog.getByText('Not applicable — self-application')).toBeVisible();
- await dialog.getByLabel('Office payment decision').selectOption('paid');
+ await chooseDropdownOption(page, dialog, 'Office payment decision', 'Paid at office');
  await dialog.getByLabel('Amount received at office').fill('50');
  await dialog.getByLabel('Official receipt reference').fill('TEST-RECEIPT');
- await dialog.getByLabel('Office payment decision').selectOption('no_fee');
+ await chooseDropdownOption(page, dialog, 'Office payment decision', 'No fee required / authorized waiver');
  await expect(dialog.getByLabel('Official receipt reference')).toHaveCount(0);
  await dialog.getByLabel('Reason no fee applies').fill('Synthetic free service');
  await dialog.getByRole('button',{name:'Update request'}).click();
@@ -761,4 +761,144 @@ test('interaction motion is short, settles at rest and respects reduced motion',
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button',{name:'View details',exact:true}).first()).toBeFocused();
  }
+});
+
+test("document unread badges clear on opening details, persist, and isolate staff", async ({ page }) => {
+  await login(page);
+  const documentsLink = page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: /Document Requests/ });
+  await expect(documentsLink.locator("em")).toHaveText("1");
+  await page.getByRole("button", { name: "Open notifications" }).click();
+  const notification = page.locator(".notification-item").filter({ hasText: "Document Requests" });
+  await expect(notification).toContainText("1 unread item");
+  await notification.click();
+  await expect(page).toHaveURL(/\/admin\/documents/);
+  await expect(documentsLink.locator("em")).toHaveText("1");
+  await page.locator(".document-request-card").filter({ hasText: "Barangay Clearance" }).getByRole("button", { name: "View details", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Document request details" })).toBeVisible();
+  await expect(documentsLink.locator("em")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Document requests", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation").getByRole("link", { name: /Community Reports/ }).locator("em")).toHaveText("2");
+  await expect(documentsLink.locator("em")).toHaveCount(0);
+  await expect(page.locator(".document-request-card").filter({ hasText: "Barangay Clearance" })).toContainText("Pending");
+  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  await login(page, "staff");
+  await expect(documentsLink.locator("em")).toHaveText("1");
+});
+
+test("navigation shows the destination skeleton while data is loading", async ({ page }) => {
+  await login(page);
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/document_requests*", async route => {
+    if (new URL(route.request().url()).searchParams.get("select") !== "*") return route.continue();
+    await waiting;
+    await route.continue();
+  });
+  try {
+    const navigation = page.getByRole("navigation", { name: "Main navigation" });
+    await navigation.getByRole("link", { name: /Document Requests/ }).click();
+    await expect(navigation.getByRole("link", { name: /Document Requests/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { level: 1, name: "Document requests", exact: true })).toBeVisible();
+    await expect(page.locator(".page-skeleton")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open notifications" })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".page-skeleton")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: "test-results/document-loading-390.png" });
+  } finally {
+    release();
+  }
+  await expect(page.locator(".page-skeleton")).toHaveCount(0);
+  await expect(page.getByText("Maria Santos", { exact: true }).first()).toBeVisible();
+});
+
+
+test("opening the review pane never submits a document update", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/documents");
+  await page.getByRole("button", { name: "View details", exact: true }).first().click();
+  let updates = 0;
+  page.on("request", request => {
+    if (request.method() === "PATCH" && request.url().includes("/api/admin/document-requests/")) updates++;
+  });
+  const dialog = page.getByRole("dialog", { name: "Document request details" });
+  await dialog.getByRole("button", { name: "Review request", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Update request", exact: true })).toBeEnabled();
+  await expect(dialog.locator(".document-request-current")).toContainText("Pending");
+  await dialog.getByRole("button", { name: "Overview", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Review request", exact: true })).toBeVisible();
+  expect(updates).toBe(0);
+});
+
+
+test("private evidence refreshes expired links on every opening and denies fail closed", async ({ page }) => {
+  let signs = 0;
+  let deny = false;
+  const expiredLoads: string[] = [];
+  page.on('request', request => {
+    if (request.method() === 'GET' && request.url().includes('token=expired')) expiredLoads.push(request.url());
+  });
+  await page.route('**/rest/v1/document_requests*', async route => {
+    const response = await route.fetch();
+    if (new URL(route.request().url()).searchParams.get('select') !== '*') return route.fulfill({ response });
+    const rows = await response.json();
+    return route.fulfill({ response, json: rows.map((row: object, index: number) => index === 0 ? { ...row,
+      requester_capacity: 'representative', identity_evidence_method: 'upload', residency_evidence_method: 'upload', authorization_evidence_method: 'upload',
+      identity_evidence_url: origin+'/storage/v1/object/sign/resident-files/owner/identity.png?token=expired',
+      residency_evidence_url: origin+'/storage/v1/object/sign/resident-files/owner/residency.png?token=expired',
+      authorization_evidence_url: origin+'/storage/v1/object/sign/resident-files/owner/authorization.png?token=expired',
+    } : row) });
+  });
+  await page.route('**/storage/v1/object/sign/resident-files/**', async route => {
+    if (route.request().method() === 'POST') {
+      signs++;
+      return route.fulfill({ status: deny ? 403 : 200, json: deny ? { message: 'Access denied' } : { signedURL: '/object/sign/resident-files/owner/preview.png?token=fresh-'+signs } });
+    }
+    return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') });
+  });
+  await login(page);
+  await page.goto('/admin/documents');
+  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Document request details' });
+  await dialog.getByRole('button', { name: 'Review request', exact: true }).click();
+  expect(signs).toBe(0);
+  for (const kind of ['identity', 'residency', 'authorization', 'identity']) {
+    await dialog.getByRole('button', { name: 'Open '+kind+' evidence', exact: true }).click();
+    const preview = page.getByRole('dialog', { name: kind[0].toUpperCase()+kind.slice(1)+' evidence', exact: true });
+    await expect(preview).toBeVisible();
+    const image = preview.locator('img');
+    await expect(image).toHaveAttribute('src', /token=fresh-/);
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+    await expect(preview.getByRole('link', { name: 'Open original' })).toHaveCount(0);
+    await preview.getByRole('button', { name: 'Close image viewer' }).click();
+  }
+  expect(signs).toBe(4);
+  deny = true;
+  await dialog.getByRole('button', { name: 'Open identity evidence', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Evidence could not be opened');
+  await expect(page.getByRole('dialog', { name: 'Identity evidence', exact: true })).toHaveCount(0);
+  expect(expiredLoads).toEqual([]);
+});
+
+test("office payment dropdown fits the review dialog and supports keyboard selection", async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/documents');
+  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Document request details' });
+  await dialog.getByRole('button', { name: 'Review request', exact: true }).click();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const trigger = dialog.getByRole('combobox', { name: 'Office payment decision', exact: true });
+    await trigger.click();
+    const menu = page.getByRole('listbox', { name: 'Office payment decision', exact: true });
+    await expectMenuInViewport(menu);
+    await page.screenshot({ path: 'test-results/office-payment-menu-'+width+'.png' });
+    await trigger.press('Escape');
+  }
+  const paymentTrigger = dialog.getByRole('combobox', { name: 'Office payment decision', exact: true });
+  await paymentTrigger.press('ArrowDown');
+  await paymentTrigger.press('End');
+  await paymentTrigger.press('Enter');
+  await expect(dialog.getByLabel('Reason no fee applies')).toBeVisible();
 });
