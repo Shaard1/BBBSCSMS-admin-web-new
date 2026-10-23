@@ -1,8 +1,9 @@
 "use client";
+import { markOfficeNotificationRead } from "@/lib/notifications";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import {DocumentRequestDialog} from "@/components/document-request-dialog";
 import { PageHeader } from "@/components/workspace-ui";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { FileBadge2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -10,6 +11,7 @@ import {
 
   summarizeDocumentRequests,
   updateDocumentRequestStatus,
+  reopenDocumentRequest,
 } from "@/lib/document-requests";
 import type { DocumentReview } from "@/lib/document-workflow";
 
@@ -71,6 +73,10 @@ export default function DocumentRequestsPage() {
     void loadRequests();
   }, []);
 
+  useEffect(() => {
+    if (selectedRequest?.id) void markOfficeNotificationRead("documents", selectedRequest.id);
+  }, [selectedRequest?.id]);
+
   async function loadRequests() {
     setIsLoading(true);
 
@@ -111,21 +117,8 @@ export default function DocumentRequestsPage() {
         review,
       );
       await loadRequests();
-      setRequests((current) =>
-        current.map((item) =>
-          item.id === request.id
-            ? {
-                ...item,
-                status,
-                rejection_reason:
-                  status === "rejected" ? rejectionReason : undefined,
-                updated_at: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
       setMessage(
-        `${request.certificate_title} request updated to ${statusLabel(status)}.`,
+        status === request.status ? "Review details saved." : `Request updated to ${statusLabel(status)}.`,
       );
     } catch (error) {
       setMessage(
@@ -137,6 +130,24 @@ export default function DocumentRequestsPage() {
       setIsWorking(false);
     }
   }
+
+  async function handleReopen(request: DocumentRequest, reason: string): Promise<boolean> {
+    if (isWorking) return false;
+    setIsWorking(true);
+    setMessage('');
+    try {
+      await reopenDocumentRequest(request, reason);
+      const freshRequests = await fetchDocumentRequests();
+      setRequests(freshRequests);
+      setMessage('Request reopened. It is ready for release; collection must be recorded again.');
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to reopen the request. Refresh before trying again.');
+      return false;
+    } finally { setIsWorking(false); }
+  }
+
+  if (isLoading && requests.length === 0) return <AdminPageSkeleton href="/admin/documents" />;
 
   return (
     <section className="admin-page reports-page documents-page">
@@ -255,10 +266,6 @@ export default function DocumentRequestsPage() {
           )}
         </div>
       </div>
-
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading document requests…" />
-      ) : null}
       {selectedRequest ? (
         <DocumentRequestDialog
           message={message}
@@ -266,6 +273,7 @@ export default function DocumentRequestsPage() {
           request={selectedRequest}
           onClose={() => setSelectedId(null)}
           onStatusChange={handleStatusChange}
+          onReopen={handleReopen}
         />
       ) : null}
     </section>

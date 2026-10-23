@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/workspace-ui";
@@ -27,7 +28,6 @@ import {
   updateAnnouncement,
   uploadAnnouncementImage,
 } from "@/lib/announcements";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { ImageViewer } from "@/components/image-viewer";
 import type { Announcement } from "@/lib/types";
 
@@ -203,6 +203,8 @@ export default function AnnouncementsPage() {
     }
   }
 
+  if (isLoading) return <AdminPageSkeleton href="/admin/announcements" />;
+
   return (
     <section className="announcement-page">
       <div className="announcement-header">
@@ -268,9 +270,6 @@ export default function AnnouncementsPage() {
           onView={setSelectedAnnouncement}
         />
       )}
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading announcements..." />
-      ) : null}
 
       {selectedAnnouncement ? (
         <AnnouncementDetailsDialog

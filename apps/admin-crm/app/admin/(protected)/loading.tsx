@@ -1,5 +1,5 @@
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 export default function ProtectedAdminLoading() {
-  return <AdminLoadingOverlay label="Loading page..." />;
+  return <AdminPageSkeleton />;
 }

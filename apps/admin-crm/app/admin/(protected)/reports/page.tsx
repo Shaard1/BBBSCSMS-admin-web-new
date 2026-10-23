@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
+import { markOfficeNotificationRead } from "@/lib/notifications";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/workspace-ui";
@@ -23,7 +25,6 @@ import {
 } from "@/lib/reports";
 import { ImageViewer } from "@/components/image-viewer";
 import { useAdminRole } from "@/components/admin-role-context";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import { canDeleteReports } from "@/lib/roles";
 import {
@@ -102,6 +103,10 @@ export default function ReportsPage() {
   useEffect(() => {
     void loadReports();
   }, []);
+
+  useEffect(() => {
+    if (selectedReport?.id) void markOfficeNotificationRead("reports", selectedReport.id);
+  }, [selectedReport?.id]);
 
   const stats = useMemo(() => {
     return {
@@ -225,6 +230,8 @@ export default function ReportsPage() {
     setAdminNote(report.admin_note ?? "");
   }
 
+  if (isLoading && reports.length === 0) return <AdminPageSkeleton href="/admin/reports" />;
+
   return (
     <section className="admin-page reports-page">
       <PageHeader
@@ -303,9 +310,6 @@ export default function ReportsPage() {
           ))
         )}
       </div>
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading community reports..." />
-      ) : null}
 
       {selectedReport ? (
         <ReportDetailsDialog

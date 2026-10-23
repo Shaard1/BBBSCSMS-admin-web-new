@@ -1,5 +1,5 @@
 "use client";
-import { fetchResidentSummary } from "@/lib/residents";
+import { fetchPendingNotificationIds, notificationReadEvent, unreadIds, type PendingNotificationIds } from "@/lib/notifications";
 
 import {
   BarChart3,
@@ -17,10 +17,11 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AdminRoleProvider } from "@/components/admin-role-context";
 import { RingLoader } from "@/components/ring-loader";
 import { useViewportPopover } from "@/components/use-viewport-popover";
@@ -66,8 +67,6 @@ const navItems = [
   { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
 ];
 
-const seenReportsKey = "bc_admin_seen_reports_count";
-const seenResidentsKey = "bc_admin_seen_residents_count";
 const globalSearchCategories = {
   announcement: "Announcements",
   document: "Document Requests",
@@ -80,14 +79,26 @@ const globalSearchCategories = {
 export function AdminShell({ children }: AdminShellProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isNavigating, startNavigation] = useTransition();
+  const [destination, setDestination] = useState<string | null>(null);
+  const displayedPath = isNavigating && destination ? destination : pathname;
   const [isChecking, setIsChecking] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [adminName, setAdminName] = useState("Admin");
   const [role, setRole] = useState<OfficeRole>("staff");
-  const [pendingReportsCount, setPendingReportsCount] = useState(0);
-  const [pendingResidentsCount, setPendingResidentsCount] = useState(0);
-  const [unreadReportsCount, setUnreadReportsCount] = useState(0);
-  const [unreadResidentsCount, setUnreadResidentsCount] = useState(0);
+  const [pendingIds, setPendingIds] = useState<PendingNotificationIds>({ reports: [], documents: [], residents: [] });
+  const [officeUserId, setOfficeUserId] = useState("");
+  const [readRevision, setReadRevision] = useState(0);
+  const unread = useMemo(() => ({
+    reports: unreadIds("reports", pendingIds.reports, officeUserId).length,
+    documents: unreadIds("documents", pendingIds.documents, officeUserId).length,
+    residents: unreadIds("residents", pendingIds.residents, officeUserId).length,
+  // The revision changes after a local read or another tab updates read history.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [pendingIds, officeUserId, readRevision]);
+  const unreadReportsCount = unread.reports;
+  const unreadResidentsCount = unread.residents;
+  const unreadDocumentsCount = unread.documents;
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
@@ -160,29 +171,36 @@ export function AdminShell({ children }: AdminShellProps) {
     };
   }, [isSidebarOpen]);
 
-  const notificationCount = unreadReportsCount + unreadResidentsCount;
+  const notificationCount = unreadReportsCount + unreadResidentsCount + unreadDocumentsCount;
   const notificationItems = useMemo(() => {
     return [
       {
         badgeCount: unreadReportsCount,
-        count: pendingReportsCount,
-        description: "Pending community reports need review.",
+        count: unreadReportsCount,
+        description: "Community reports you have not opened.",
         href: "/admin/reports",
         icon: FileText,
         label: "Community Reports",
       },
       {
         badgeCount: unreadResidentsCount,
-        count: pendingResidentsCount,
-        description: "Legacy registrations are waiting for review.",
+        count: unreadResidentsCount,
+        description: "Previous registrations you have not opened.",
         href: "/admin/residents",
         icon: UsersRound,
         label: "Resident Accounts",
       },
+      {
+        badgeCount: unreadDocumentsCount,
+        count: unreadDocumentsCount,
+        description: "Document requests you have not opened.",
+        href: "/admin/documents",
+        icon: FileBadge2,
+        label: "Document Requests",
+      },
     ].filter((item) => item.count > 0);
   }, [
-    pendingReportsCount,
-    pendingResidentsCount,
+    unreadDocumentsCount,
     unreadReportsCount,
     unreadResidentsCount,
   ]);
@@ -192,10 +210,10 @@ export function AdminShell({ children }: AdminShellProps) {
 
   const pageTitle = useMemo(() => {
     return (
-      visibleNavItems.find((item) => pathname.startsWith(item.href))?.label ??
+      visibleNavItems.find((item) => displayedPath.startsWith(item.href))?.label ??
       "Admin"
     );
-  }, [pathname, visibleNavItems]);
+  }, [displayedPath, visibleNavItems]);
   const groupedSearchResults = useMemo(() => {
     return searchResults.reduce<Record<string, GlobalSearchResult[]>>(
       (groups, result) => {
@@ -271,19 +289,17 @@ export function AdminShell({ children }: AdminShellProps) {
     }
 
     async function refreshNotificationCounts() {
-      const [{ count: reportsCount }, residentSummary] =
-        await Promise.all([
-          supabase
-            .from("reports")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "pending"),
-          fetchResidentSummary(),
-        ]);
-
-      if (!isMounted) return;
-
-      setPendingReportsCount(reportsCount ?? 0);
-      setPendingResidentsCount(residentSummary.pending);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const ids = await fetchPendingNotificationIds();
+        if (!isMounted) return;
+        setOfficeUserId(session.user.id);
+        setPendingIds(ids);
+      } catch {
+        // Retain the last successful counts instead of reporting a false zero.
+        console.warn("Unable to refresh office notifications.");
+      }
     }
 
     void checkAccess().catch(() => {
@@ -346,38 +362,14 @@ export function AdminShell({ children }: AdminShellProps) {
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const currentSeenReports = Number(
-      window.localStorage.getItem(seenReportsKey) ?? "0",
-    );
-    const currentSeenResidents = Number(
-      window.localStorage.getItem(seenResidentsKey) ?? "0",
-    );
-
-    if (pathname.startsWith("/admin/reports")) {
-      const nextSeenReports = Math.max(currentSeenReports, pendingReportsCount);
-      window.localStorage.setItem(seenReportsKey, String(nextSeenReports));
-      setUnreadReportsCount(0);
-    } else {
-      setUnreadReportsCount(
-        Math.max(0, pendingReportsCount - currentSeenReports),
-      );
-    }
-
-    if (pathname.startsWith("/admin/residents")) {
-      const nextSeenResidents = Math.max(
-        currentSeenResidents,
-        pendingResidentsCount,
-      );
-      window.localStorage.setItem(seenResidentsKey, String(nextSeenResidents));
-      setUnreadResidentsCount(0);
-    } else {
-      setUnreadResidentsCount(
-        Math.max(0, pendingResidentsCount - currentSeenResidents),
-      );
-    }
-  }, [pathname, pendingReportsCount, pendingResidentsCount]);
+    const refreshReads = () => setReadRevision(value => value + 1);
+    window.addEventListener(notificationReadEvent, refreshReads);
+    window.addEventListener("storage", refreshReads);
+    return () => {
+      window.removeEventListener(notificationReadEvent, refreshReads);
+      window.removeEventListener("storage", refreshReads);
+    };
+  }, []);
 
   useEffect(() => {
     setIsNotificationOpen(false);
@@ -435,16 +427,23 @@ export function AdminShell({ children }: AdminShellProps) {
     router.replace("/admin/login");
   }
 
+  function navigateTo(href: string) {
+    setIsSidebarOpen(false);
+    if (href === pathname && !isNavigating) return;
+    setDestination(href);
+    startNavigation(() => router.push(href));
+  }
+
   function openNotificationTarget(href: string) {
     setIsNotificationOpen(false);
-    router.push(href);
+    navigateTo(href);
   }
 
   function handleSearchResultOpen(result: GlobalSearchResult) {
     setIsSearchOpen(false);
     setSearchQuery("");
     setSearchResults([]);
-    router.push(result.href);
+    navigateTo(result.href);
   }
 
   if (isChecking) {
@@ -477,13 +476,15 @@ export function AdminShell({ children }: AdminShellProps) {
         <nav aria-label="Main navigation">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
+            const isActive = displayedPath.startsWith(item.href);
             const badge =
               item.href === "/admin/reports"
                 ? unreadReportsCount
                 : item.href === "/admin/residents"
                   ? unreadResidentsCount
-                  : 0;
+                  : item.href === "/admin/documents"
+                    ? unreadDocumentsCount
+                    : 0;
 
             return (
               <Link
@@ -491,7 +492,10 @@ export function AdminShell({ children }: AdminShellProps) {
                 className={isActive ? "active" : ""}
                 href={item.href}
                 key={item.href}
-                onClick={() => setIsSidebarOpen(false)}
+                onNavigate={(event) => {
+                  event.preventDefault();
+                  navigateTo(item.href);
+                }}
               >
                 <Icon size={20} />
                 <span>{item.label}</span>
@@ -648,7 +652,7 @@ export function AdminShell({ children }: AdminShellProps) {
                   </div>
                   {notificationCount > 0 ? (
                     <em>
-                      {notificationCount > 99 ? "99+" : notificationCount} new
+                      {notificationCount > 99 ? "99+" : notificationCount} unread
                     </em>
                   ) : null}
                 </div>
@@ -671,14 +675,12 @@ export function AdminShell({ children }: AdminShellProps) {
                             <strong>{item.label}</strong>
                             <p>{item.description}</p>
                             <small>
-                              {item.count} pending item
+                              {item.count} unread item
                               {item.count === 1 ? "" : "s"}
                             </small>
                           </div>
                           <em>
-                            {item.badgeCount > 0
-                              ? `${item.badgeCount > 99 ? "99+" : item.badgeCount} new`
-                              : "Seen"}
+                            {item.badgeCount > 99 ? "99+" : item.badgeCount} unread
                           </em>
                         </button>
                       );
@@ -689,7 +691,7 @@ export function AdminShell({ children }: AdminShellProps) {
                         <Bell size={18} />
                       </span>
                       <div className="notification-item-copy">
-                        <strong>No pending notifications</strong>
+                        <strong>No unread notifications</strong>
                         <p>All caught up for now.</p>
                       </div>
                     </div>
@@ -708,7 +710,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>
-          <AdminRoleProvider role={role}>{children}</AdminRoleProvider>
+          <AdminRoleProvider role={role}>{isNavigating && destination ? <AdminPageSkeleton href={destination} /> : children}</AdminRoleProvider>
         </main>
       </div>
     </div>

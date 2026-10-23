@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
@@ -7,7 +8,6 @@ import {
   Notice,
   RefreshButton,
 } from "@/components/workspace-ui";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import { fetchReports } from "@/lib/reports";
 import { fetchResidentMetrics } from "@/lib/residents";
@@ -71,6 +71,8 @@ export default function AnalyticsPage() {
   const max = Math.max(1, ...months.flatMap((m) => [m.reports, m.residents]));
   const reportTotal = months.reduce((n, m) => n + m.reports, 0);
   const residentTotal = months.reduce((n, m) => n + m.residents, 0);
+  if (isLoading) return <AdminPageSkeleton href="/admin/analytics" />;
+
   return (
     <section
       className="workspace-page analytics-workspace"
@@ -83,9 +85,6 @@ export default function AnalyticsPage() {
         <RefreshButton loading={isLoading} onClick={load} />
       </PageHeader>
       <Notice message={message} onDismiss={() => setMessage("")} />
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading service analytics…" />
-      ) : null}
       <p className="section-kicker">
         Current snapshot · all recorded submissions
       </p>

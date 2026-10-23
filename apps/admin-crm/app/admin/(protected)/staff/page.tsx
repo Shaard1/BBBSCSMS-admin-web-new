@@ -1,11 +1,11 @@
 "use client";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { UiDropdown } from "@/components/ui-dropdown";
 import {
   createStaffAccount,
@@ -171,6 +171,8 @@ export default function StaffAccountsPage() {
       setIsWorking(false);
     }
   }
+
+  if (isLoading) return <AdminPageSkeleton href="/admin/staff" />;
 
   return (
     <section className="admin-page residents-page staff-page">
@@ -416,9 +418,6 @@ export default function StaffAccountsPage() {
           )}
         </div>
       </div>
-      {isLoading ? (
-        <AdminLoadingOverlay label="Loading office accounts..." />
-      ) : null}
       {deleteTarget ? (
         <DeleteOfficeAccountDialog
           message={message}

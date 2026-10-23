@@ -48,8 +48,16 @@ export async function checkDocumentWorkflow({request,requireOk,check,a,b,staff,s
     check('Ready status requires identity and residency checks',!(await update('ready_for_release')).ok);
     check('Checked request can become ready',(await update('ready_for_release',{identityChecked:true,residencyChecked:true})).ok);
     check('Completion requires office settlement and pickup',!(await update('completed')).ok);
+    const missingPickup=await update('completed',{paymentStatus:'no_fee',noFeeReason:'Synthetic free-service decision',pickupConfirmed:false,collectedBy:''});
+    const missingPickupBody=await missingPickup.json().catch(()=>null);
+    check('Completion with no fee but missing physical collection is rejected',missingPickup.status===400 && /physical pickup confirmation/i.test(missingPickupBody?.message??''),{httpStatus:missingPickup.status,message:missingPickupBody?.message});
+    const unchanged=requireOk(await request(`/rest/v1/document_requests?id=eq.${row.id}&select=status,pickup_confirmed`,a.token),'Read status after blocked completion')[0];
+    check('Blocked completion leaves request ready for release',unchanged?.status==='ready_for_release' && unchanged?.pickup_confirmed===false);
+
     check('Unpaid request cannot complete even with pickup',!(await update('completed',{pickupConfirmed:true,collectedBy:'Synthetic recipient'})).ok);
     check('No-fee decision and checked physical pickup allow completion',(await update('completed',{paymentStatus:'no_fee',noFeeReason:'Synthetic free-service decision',pickupConfirmed:true,collectedBy:'Synthetic recipient'})).ok);
+    const completed=requireOk(await request(`/rest/v1/document_requests?id=eq.${row.id}&select=status,pickup_confirmed,collected_by`,a.token),'Read completed request')[0];
+    check('Completed state and physical recipient are stored',completed?.status==='completed' && completed?.pickup_confirmed===true && completed?.collected_by==='Synthetic recipient');
     const audit=requireOk(await request(`/rest/v1/document_request_reviews?request_id=eq.${row.id}&select=actor_id`,serverKey),'Read fixture audit');
     check('Office reviews create attributable audit records',audit.length>=3 && audit.every(event=>event.actor_id===staff.id));
     check('Closed document requests cannot be rewritten',!(await update('processing')).ok);

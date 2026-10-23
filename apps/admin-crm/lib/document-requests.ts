@@ -27,7 +27,16 @@ export async function fetchDocumentRequests(options: FetchDocumentRequestsOption
   const records = (data ?? []).map((record) =>
     normalizeDocumentRequestRecord(record as RawDocumentRequestRecord)
   );
-  return options.images === false ? records : resolvePrivateFiles(records);
+  if (options.images === false) return records;
+  // Evidence is signed when opened rather than while listing requests.
+  const resolved = await resolvePrivateFiles(records.map(record => ({
+    ...record, identity_evidence_url: undefined, residency_evidence_url: undefined, authorization_evidence_url: undefined,
+  })));
+  return resolved.map((record, index) => ({ ...record,
+    identity_evidence_url: records[index].identity_evidence_url,
+    residency_evidence_url: records[index].residency_evidence_url,
+    authorization_evidence_url: records[index].authorization_evidence_url,
+  }));
 }
 
 export async function updateDocumentRequestStatus(
@@ -58,6 +67,15 @@ export async function updateDocumentRequestStatus(
   if (!response.ok || !body?.updated) {
     throw new Error(body?.message ?? "Unable to update document request.");
   }
+}
+
+export async function reopenDocumentRequest(request: DocumentRequest, reason: string) {
+  const response = await fetch(`/api/admin/document-requests/${encodeURIComponent(request.id)}`, {
+    method:'PATCH',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'reopen',reason,expectedUpdatedAt:request.updated_at}),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.updated) throw new Error(body?.message ?? 'Unable to reopen the request.');
 }
 
 export function summarizeDocumentRequests(requests: DocumentRequest[]) {

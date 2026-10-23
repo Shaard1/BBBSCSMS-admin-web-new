@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
+import { markOfficeNotificationRead } from "@/lib/notifications";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import Link from 'next/link';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import {useSearchParams} from 'next/navigation';
@@ -37,7 +39,11 @@ function ResidentDirectoryPage() {
         title: string;
         url: string;
     } | null>(null);
+    useEffect(() => {
+        if (selected?.id && !detailLoading && detailsReady) void markOfficeNotificationRead("residents", selected.id);
+    }, [selected?.id, detailLoading, detailsReady]);
     const detailRequest = useRef(0);
+    const initialLoadFinished = useRef(false);
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
@@ -46,8 +52,9 @@ function ResidentDirectoryPage() {
                 setDirectory(data); })
                 .catch(error => { if (!cancelled)
                 setMessage(error instanceof Error ? error.message : 'Unable to load resident accounts.'); })
-                .finally(() => { if (!cancelled)
-                setLoading(false); });
+                .finally(() => { if (!cancelled) {
+                initialLoadFinished.current = true;
+                setLoading(false); } });
         }, 200);
         return () => { cancelled = true; clearTimeout(timer); };
     }, [search, access, phone, page, revision]);
@@ -119,6 +126,7 @@ function ResidentDirectoryPage() {
         }
     }
     const s = directory.summary;
+    if (loading && !initialLoadFinished.current) return <AdminPageSkeleton href="/admin/residents" />;
     return <section className="admin-page residents-page" aria-busy={loading}>
     <PageHeader title="Resident accounts" description="Manage resident access and view phone ownership separately from document checks."/>
     <div className="resident-account-metrics">

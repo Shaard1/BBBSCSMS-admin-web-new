@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
+import { markOfficeNotificationRead } from "@/lib/notifications";
+import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
 import { PageHeader } from "@/components/workspace-ui";
@@ -25,7 +27,6 @@ import {
 } from "react";
 import { deleteReport, fetchReports } from "@/lib/reports";
 import { useAdminRole } from "@/components/admin-role-context";
-import { AdminLoadingOverlay } from "@/components/admin-loading-overlay";
 import { canDeleteReports } from "@/lib/roles";
 import {
   hasValidReportLocation,
@@ -41,7 +42,7 @@ const ComplaintMap = dynamic(
     import("@/components/complaint-map").then((module) => module.ComplaintMap),
   {
     ssr: false,
-    loading: () => <AdminLoadingOverlay label="Loading map..." />,
+    loading: () => <div className="page-skeleton-map" role="status" aria-label="Loading map">Loading map…</div>,
   },
 );
 
@@ -111,6 +112,10 @@ export default function ComplaintMapPage() {
   useEffect(() => {
     void loadReports();
   }, []);
+
+  useEffect(() => {
+    if (selectedReport?.id) void markOfficeNotificationRead("reports", selectedReport.id);
+  }, [selectedReport?.id]);
 
   const mappedReports = useMemo(() => reports.filter(hasLocation), [reports]);
 
@@ -283,6 +288,8 @@ export default function ComplaintMapPage() {
     dragStateRef.current = null;
   }
 
+  if (isLoading) return <AdminPageSkeleton href="/admin/map" />;
+
   return (
     <section className="map-page">
       <PageHeader
@@ -403,9 +410,6 @@ export default function ComplaintMapPage() {
                   No mapped complaints match the selected filters.
                 </strong>
               </div>
-            ) : null}
-            {isLoading ? (
-              <AdminLoadingOverlay label="Loading complaint map data..." />
             ) : null}
           </>
         </div>

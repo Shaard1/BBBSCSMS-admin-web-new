@@ -14,6 +14,7 @@ import { useViewportPopover } from "@/components/use-viewport-popover";
 type UiDropdownProps = {
   ariaLabel: string;
   className?: string;
+  placement?: "auto" | "below";
   disabled?: boolean;
   options: { label: string; value: string }[];
   value: string;
@@ -23,6 +24,7 @@ type UiDropdownProps = {
 export function UiDropdown({
   ariaLabel,
   className = "",
+  placement = "auto",
   disabled = false,
   options,
   value,
@@ -42,11 +44,36 @@ export function UiDropdown({
   useViewportPopover({
     anchorRef: triggerRef,
     panelRef: menuRef,
-    isOpen,
+    isOpen: isOpen && placement === "auto",
     setIsOpen,
     minWidth: 184,
     maxHeight: 320,
   });
+
+  useLayoutEffect(() => {
+    if (!isOpen || placement !== "below") return;
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    const container = trigger?.closest<HTMLElement>("[data-dropdown-scroll-container]");
+    if (!trigger || !menu || !container) return;
+    const root = container;
+    const anchor = trigger;
+    const panel = menu;
+    function fitMenu() {
+      const available = Math.max(44, root.clientHeight - anchor.offsetHeight - 28);
+      panel.style.maxHeight = Math.min(320, available) + "px";
+      const bounds = root.getBoundingClientRect();
+      const overflow = panel.getBoundingClientRect().bottom - bounds.bottom + 12;
+      if (overflow > 0) root.scrollTo({
+        top: root.scrollTop + overflow,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    }
+    fitMenu();
+    const observer = new ResizeObserver(fitMenu);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [isOpen, placement]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -138,7 +165,7 @@ export function UiDropdown({
   }
 
   return (
-    <div className={`ui-dropdown ${className}`.trim()}>
+    <div className={`ui-dropdown ${placement === "below" ? "ui-dropdown-below" : ""} ${className}`.trim()}>
       <button
         ref={triggerRef}
         type="button"
@@ -166,7 +193,8 @@ export function UiDropdown({
         className="ui-dropdown-menu"
         aria-label={ariaLabel}
         data-open={isOpen ? "" : undefined}
-        popover="manual"
+        data-placement={placement === "below" ? "bottom" : undefined}
+        popover={placement === "below" ? undefined : "manual"}
       >
         {options.map((option, index) => {
           const isSelected = option.value === value;
