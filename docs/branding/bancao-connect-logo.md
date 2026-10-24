@@ -1,36 +1,22 @@
-# BancaoConnect: Community Conversation
+# BancaoConnect — Community Emblem (Concept 01)
 
-The mark combines an open **C** for Connect, a speech-bubble tail for resident
-communication, and a single teal connection point for access to barangay services.
-The wordmark identifies the community: Bancao.
+The selected mark uses three people arranged around an open center. Two figures
+are civic blue (#006BB6); the third is teal (#66D9CE). This replaces the former
+conversation-C app brand. It does not replace the official barangay seal.
 
-The broad white stroke and open center replace the competing letters and small
-nodes of the previous BC monogram. The icon tile and existing wordmark share
-`#006CBF`; the accent remains `#71E0D0`. The wordmark styling is unchanged.
+The canonical SVG is in
+`apps/admin-crm/public/assets/brand/concept-01/bancaoconnect-symbol.svg`.
+Its paths follow the user-confirmed Concept 01 color sheet, with simplified
+curves for vector reproduction. It contains no embedded bitmap or remote assets.
 
-## Assets and use
+Shared CRM and public website assets use `bancao-connect-mark-community.svg`.
+Flutter uses `lib/assets/bancao-connect-mark.svg`. White variants are used on blue
+backgrounds. Launcher icons use a padded white emblem on civic blue. Native
+splash images show the colored emblem on the existing light splash background.
 
-- `apps/admin-crm/public/assets/bancao-connect-mark-community.svg`: standalone
-  64-unit icon, used by the shared CRM Brand component and browser favicon.
-- `apps/admin-crm/public/assets/bancao-connect-logo-community.svg`: full logo on
-  a transparent background. Its live text uses Public Sans, then Segoe UI.
-- Keep the icon square; avoid stretching or adding further interior details.
+Keep the symbol square and preserve its open spaces. The logo and official seal
+remain separate. Existing wordmark typography in the applications is retained.
 
-## Design exploration
-
-Six original directions were compared: an open community circle, a conversation
-C, a lowercase Bancao link, a location pin, a community bridge, and chain links.
-The conversation C was selected for its clear silhouette at small sizes and its
-relevance to communication between residents and the barangay.
-
-## References
-
-- [Noomo rebrand on Awwwards](https://www.awwwards.com/new-focus-new-brand-new-website.html):
-  reference for tying an identity to a name and the people behind it.
-- [Slack by Pentagram](https://www.pentagram.com/work/slack): reference for simple
-  speech-related geometry and consistent reproduction across sizes.
-- [Second Home by Pentagram](https://www.pentagram.com/work/second-home): reference
-  for expressing community through a simple relationship between shapes.
-
-These informed the design principles. The delivered SVG geometry was drawn for
-BancaoConnect; no reference artwork is embedded.
+Native launcher and splash changes require rebuilding and reinstalling the app.
+The APK offered by the public website must be replaced with a newly built APK
+separately; changing source assets does not update that binary automatically.

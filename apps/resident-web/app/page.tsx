@@ -519,7 +519,7 @@ function Download() {
           </div>
           <div className="download-brand" aria-hidden="true">
             <Image
-              src="/assets/bancao-connect-mark-community.svg"
+              src="/assets/bancao-connect-mark-community-white.svg"
               alt=""
               width={100}
               height={100}
