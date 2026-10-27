@@ -33,7 +33,7 @@ export async function checkDocumentWorkflow({request,requireOk,check,a,b,staff,s
     const other=await request(`/rest/v1/document_requests?id=eq.${row.id}&select=id`,b.token);
     check('Other resident cannot read document application',other.ok && other.data.length===0);
     check('Staff cannot bypass audited review via direct table update',!(await request(`/rest/v1/document_requests?id=eq.${row.id}`,staff.token,'PATCH',{status:'completed'})).ok);
-    const login=await fetch('http://localhost:3011/api/admin/session',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost:3011'},body:JSON.stringify({accessToken:staff.token,expectedRole:'staff'})});
+    const login=await fetch('http://localhost:3011/api/admin/session',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost:3011'},body:JSON.stringify({accessToken:staff.token})});
     const cookie=login.headers.get('set-cookie')?.split(';')[0];
     if(!login.ok || !cookie) throw Error('Cannot create staff session for document checks');
     let status='pending';

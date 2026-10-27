@@ -4,9 +4,8 @@ import {
   createSignedAdminSession,
   getActiveSignedAdminSession,
   getVerifiedOfficeUser
-} from "@/lib/admin-session";
-import { isOfficeRole, type OfficeRole } from "@/lib/roles";
-import { rejectCrossOriginMutation } from "@/lib/request-security";
+} from "../../../../lib/admin-session";
+import { rejectCrossOriginMutation } from "../../../../lib/request-security";
 
 const adminCookieMaxAgeSeconds = 60 * 60 * 24;
 
@@ -37,21 +36,12 @@ export async function POST(request: NextRequest) {
 
   const payload = (await request.json().catch(() => null)) as {
     accessToken?: string;
-    expectedRole?: string;
   } | null;
   const accessToken = payload?.accessToken?.trim() ?? "";
-  const expectedRole = normalizeOfficeRole(payload?.expectedRole);
 
   if (!accessToken) {
     return NextResponse.json(
       { message: "Missing access token." },
-      { status: 400 }
-    );
-  }
-
-  if (!expectedRole) {
-    return NextResponse.json(
-      { message: "Invalid login mode." },
       { status: 400 }
     );
   }
@@ -61,18 +51,6 @@ export async function POST(request: NextRequest) {
   if (!officeUser) {
     return NextResponse.json(
       { message: "Only staff or admin accounts can access this web portal." },
-      { status: 403 }
-    );
-  }
-
-  if (!isRoleAllowedForLoginMode(officeUser.role, expectedRole)) {
-    return NextResponse.json(
-      {
-        message:
-          expectedRole === "admin"
-            ? "Please use an administrator account."
-            : "Please use a staff account."
-      },
       { status: 403 }
     );
   }
@@ -112,14 +90,4 @@ export async function DELETE(request: NextRequest) {
   });
 
   return response;
-}
-
-function normalizeOfficeRole(value?: string): OfficeRole | null {
-  const role = value?.toLowerCase().trim();
-  return isOfficeRole(role) ? role : null;
-}
-
-function isRoleAllowedForLoginMode(actualRole: OfficeRole, expectedRole: OfficeRole) {
-  if (expectedRole === "admin") return actualRole === "admin";
-  return actualRole === "admin" || actualRole === "staff";
 }

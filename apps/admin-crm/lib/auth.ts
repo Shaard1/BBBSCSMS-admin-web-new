@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { isOfficeRole, type OfficeRole } from "@/lib/roles";
+import { isOfficeRole } from "@/lib/roles";
 
 export async function signInAsOfficeUser(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
@@ -15,13 +15,20 @@ export async function signInAsOfficeUser(email: string, password: string) {
   });
 
   if (error || !data.user) {
-    return { ok: false, message: error?.message ?? "Unable to sign in." };
+    return {
+      ok: false,
+      message: error?.code === "invalid_credentials"
+        ? "Email or password is incorrect."
+        : error?.code === "over_request_rate_limit"
+          ? "Too many sign-in attempts. Please wait and try again."
+          : "Unable to sign in. Check your connection and try again.",
+    };
   }
 
   return { ok: true, message: "Signed in successfully." };
 }
 
-export async function createAdminServerSession(expectedRole: OfficeRole) {
+export async function createAdminServerSession() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -34,7 +41,7 @@ export async function createAdminServerSession(expectedRole: OfficeRole) {
   const response = await fetch("/api/admin/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken, expectedRole }),
+    body: JSON.stringify({ accessToken }),
   });
 
   if (!response.ok) {
