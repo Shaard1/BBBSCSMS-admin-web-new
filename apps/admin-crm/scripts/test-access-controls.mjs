@@ -104,7 +104,7 @@ try {
   const forged = await request('/rest/v1/reports', a.token, 'POST', { user_id: a.id, description: `Synthetic forged ${run}`, status: 'resolved' });
   check('Resident cannot insert resolved report', !forged.ok, { status: forged.status, code: forged.data?.code });
   if (forged.ok && forged.data?.[0]?.id) requireOk(await request(`/rest/v1/reports?id=eq.${forged.data[0].id}`, serverKey, 'DELETE'), 'Remove forged fixture');
-  const login = await fetch('http://localhost:3011/api/admin/session', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3011' }, body: JSON.stringify({ accessToken: staff.token, expectedRole: 'staff' }) });
+  const login = await fetch('http://localhost:3011/api/admin/session', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3011' }, body: JSON.stringify({ accessToken: staff.token }) });
   await checkDocumentWorkflow({request,requireOk,check,a,b,staff,serverKey});
   const cookie = login.headers.get('set-cookie')?.split(';')[0];
   check('Approved staff creates web session', login.ok && !!cookie, { status: login.status });

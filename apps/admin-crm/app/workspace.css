@@ -2460,119 +2460,138 @@ caption {
   }
 }
 .login-page {
+  position: relative;
+  isolation: isolate;
   min-height: 100svh;
   display: grid;
   place-items: center;
-  padding: 2rem;
-  background: #eef3f9;
+  padding: clamp(1rem, 4vw, 4rem);
+  background:
+    radial-gradient(ellipse at 12% 0%, #d8eaf5a6, transparent 58%),
+    radial-gradient(ellipse at 92% 100%, #e7e6dd66, transparent 50%),
+    linear-gradient(125deg, #eff5f9 0%, #f8fafb 48%, #eaf2f7 100%);
 }
 .office-login-layout {
-  width: min(1060px, 100%);
+  width: min(1200px, 100%);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 660px;
-  border: 1px solid #d6e0ed;
-  border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 18px 65px #16304f12;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  min-height: 650px;
+  gap: 0;
+  background: linear-gradient(135deg, #fff 0%, #fcfcfb 70%, #f4f6f7 100%);
+  border: 1px solid #ffffffc9;
+  border-radius: 22px;
+  padding: 10px;
+  box-shadow:
+    0 2px 3px #29445b08,
+    0 12px 24px -10px #29445b14,
+    0 36px 70px -22px #29445b26,
+    inset 0 1px 0 #fff;
+  align-items: center;
+  animation: office-login-arrive 560ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .office-login-story {
-  background: #e9f0fb;
-  padding: 2.8rem;
+  position: relative;
+  background: #d9f2ff;
+  color: #123b80;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  position: relative;
+  align-items: stretch;
+  text-align: center;
+  align-self: stretch;
+  box-shadow: inset 0 0 0 1px #153a5b12;
 }
 .office-login-story::after {
   content: "";
-  width: 190px;
-  height: 190px;
-  border: 35px solid #164ead07;
-  border-radius: 50%;
   position: absolute;
-  right: -65px;
-  bottom: -70px;
+  inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+  box-shadow: inset 0 1px 0 #ffffffa6, inset -1px 0 0 #173d5a14;
 }
-.office-login-copy {
-  margin-top: 4.5rem;
-  margin-bottom: 3rem;
-}
-.office-login-story h2 {
-  font-size: clamp(1.9rem, 2.5vw, 2.25rem);
-  line-height: 1.2;
-  letter-spacing: -0.035em;
-  margin: 0 0 1rem;
-  color: #1c3d67;
-}
-.office-login-copy p {
-  max-width: 34ch;
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.65;
-}
-.office-login-story > small {
-  margin-top: auto;
-  font-size: 0.7rem;
-  color: #516b8c;
-}
-.office-login-card {
-  padding: 3rem;
-  align-self: center;
-  min-width: 0;
-}
-.login-shield {
-  width: 48px;
-  height: 48px;
-  border: 1px solid #c9daed;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  color: #2c649f;
-  margin-bottom: 1.3rem;
-}
-.office-login-card h1 {
-  font-size: 1.8rem;
-  margin-bottom: 0.55rem;
-}
-.office-login-card > p {
-  font-size: 0.85rem;
-}
-.office-login-card form {
-  margin-top: 1.4rem;
-  display: grid;
-  gap: 0.55rem;
-}
-.login-role-choice {
-  border: 0;
-  padding: 0;
-  margin: 0 0 0.6rem;
-  display: flex;
-  gap: 0.6rem;
-}
-.login-role-choice legend {
-  font-weight: 600;
-  font-size: 0.78rem;
-  margin-bottom: 0.55rem;
-}
-.login-role-choice label {
+.office-login-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  border: 1px solid #cbd6e4;
-  border-radius: 8px;
-  padding: 0.6rem 0.8rem;
-  flex: 1;
-  font-size: 0.78rem;
-  cursor: pointer;
-  min-height: 44px;
+  justify-content: flex-start;
+  padding: 0;
+  margin-bottom: 1.75rem;
 }
-.login-role-choice label:has(input:checked) {
-  background: #edf4ff;
-  border-color: #6092d0;
-  color: #164a96;
+.office-login-illustration {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  border-radius: 16px;
+}
+.office-login-card {
+  text-align: left;
+  padding: 2.5rem 2rem;
+  width: min(100%, 448px);
+  justify-self: center;
+  align-self: start;
+  min-width: 0;
+}
+.office-login-card h1 {
+  font-size: 2rem;
+  letter-spacing: -0.035em;
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+  color: #152d43;
+}
+.office-login-card > p {
+  font-size: 0.9375rem;
+  margin: 0;
+  line-height: 1.6;
+  color: #52647a;
+}
+.office-login-card form {
+  margin-top: 1.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.office-login-card form > input,
+.office-password-field input {
+  text-align: left;
+  min-height: 48px;
+  font-size: 1rem;
+  background: #fff;
+  border-color: #ccd5de;
+  border-radius: 9px;
+  box-shadow: inset 0 1px 2px #17334b05, 0 1px 0 #fff;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.office-login-card form > input:hover:not(:disabled),
+.office-password-field input:hover:not(:disabled) {
+  border-color: #839bb0;
+}
+.office-login-card form > input:focus-visible,
+.office-password-field input:focus-visible {
+  outline: 2px solid #006bb6;
+  outline-offset: 2px;
+  border-color: #006bb6;
+  box-shadow: 0 0 0 5px #006bb60d;
+}
+.office-login-card .field-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+.office-login-card .field-label:first-child {
+  margin-top: 0;
+}
+.office-login-card input[aria-invalid="true"] {
+  border-color: #b32f43;
+}
+.login-field-error {
+  margin: 0;
+  color: #a5273d;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 .field-label {
   font-size: 0.78rem;
@@ -2584,6 +2603,7 @@ caption {
 .office-password-field input {
   width: 100%;
   padding-right: 3rem;
+  padding-left: 0.85rem;
 }
 .office-password-field button {
   position: absolute;
@@ -2591,10 +2611,47 @@ caption {
   top: 1px;
   background: transparent;
   border: 0;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
 }
 .login-submit {
   width: 100%;
   margin-top: 0.8rem;
+  min-height: 48px;
+  background: linear-gradient(180deg, #0878bd, #0065a9);
+  border: 1px solid #0063a6;
+  border-radius: 9px;
+  box-shadow: inset 0 1px 0 #ffffff26, 0 3px 5px -2px #00558c45;
+}
+.login-submit svg {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.office-login-card .login-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+@keyframes office-login-arrive {
+  from { transform: translateY(14px) scale(0.992); }
+  to { transform: translateY(0) scale(1); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .office-login-card .login-submit:hover:not(:disabled) {
+    background: linear-gradient(180deg, #0873b5, #005990);
+    transform: translateY(-1px);
+  }
+  .login-submit:hover:not(:disabled) svg {
+    transform: translateX(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .office-login-layout {
+    animation: none;
+    transition: none;
+  }
+  .office-login-card .login-submit:active:not(:disabled) {
+    transform: none;
+  }
 }
 .form-message {
   font-size: 0.8rem;
@@ -2604,15 +2661,14 @@ caption {
   background: #fff0f3;
 }
 .office-login-card .login-help {
-  font-size: 0.75rem;
-  margin: 1.2rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  margin: 1.25rem 0 0;
 }
-.office-login-card > small {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--muted);
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+.office-login-card .login-help strong {
+  color: #334e70;
+  font-weight: 600;
 }
 @media (min-width: 1500px) {
   .overview-columns {
@@ -2875,21 +2931,36 @@ caption {
   .map-legend strong {
     display: none;
   }
+}
+@media (max-width: 800px) {
   .office-login-layout {
     grid-template-columns: minmax(0, 1fr);
     max-width: 520px;
     min-height: auto;
+    gap: 0.5rem;
   }
   .office-login-story {
-    padding: 1.5rem 2rem;
+    display: none;
   }
-  .office-login-story > div:not(.bancao-brand),
-  .office-login-story > small {
+  .office-login-illustration {
     display: none;
   }
   .office-login-card {
-    padding: 2rem;
+    padding: 2rem 1rem;
   }
+}
+@media (min-width: 801px) and (max-width: 1000px) {
+  .office-login-card {
+    padding-inline: 1.25rem;
+  }
+}
+@media (min-width: 801px) and (max-height: 760px) {
+  .login-page { padding: 1.25rem; }
+  .office-login-layout { min-height: 540px; }
+  .office-login-card { padding-block: 1.5rem; }
+  .office-login-brand { margin-bottom: 1.25rem; }
+  .office-login-card form { margin-top: 1.25rem; }
+  .office-login-card .login-help { margin-top: 1rem; }
 }
 @media (max-width: 480px) {
   .workspace-heading {
@@ -3111,9 +3182,6 @@ caption {
   }
   .office-login-story {
     padding: 1.25rem 1.5rem;
-  }
-  .login-role-choice label {
-    padding: 0.6rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {

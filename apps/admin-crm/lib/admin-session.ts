@@ -1,4 +1,4 @@
-import { isOfficeRole, type OfficeRole } from "@/lib/roles";
+import { isOfficeRole, type OfficeRole } from "./roles";
 
 type SupabaseConfig = {
   anonKey: string;
