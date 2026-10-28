@@ -2418,6 +2418,86 @@ caption {
   display: grid;
   place-items: center;
 }
+.workspace-loading {
+  background: #f7f9fb;
+}
+.workspace-loading-content {
+  position: relative;
+  width: min(30rem, 100%);
+}
+.workspace-loading picture {
+  display: block;
+  width: 100%;
+}
+.workspace-loading-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.workspace-loading-message {
+  position: absolute;
+  top: calc(50% + 5.5rem);
+  inset-inline: 1rem;
+  margin: 0;
+  text-align: center;
+  color: #526579;
+  font-size: 0.9375rem;
+}
+.workspace-connection-error {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background: #fff;
+  text-align: center;
+}
+.workspace-connection-error section {
+  width: min(28rem, 100%);
+}
+.workspace-connection-error img {
+  display: block;
+  width: min(20rem, 100%);
+  height: auto;
+  margin: 0 auto 1.5rem;
+}
+.workspace-connection-error h1 {
+  margin: 0 0 0.75rem;
+  color: #183650;
+  font-size: clamp(1.375rem, 4vw, 1.625rem);
+  line-height: 1.25;
+}
+.workspace-connection-error p {
+  margin: 0 0 1.5rem;
+  color: #526579;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+.workspace-connection-error button {
+  min-width: 10rem;
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #006bb6;
+  border-radius: 8px;
+  background: #006bb6;
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.workspace-connection-error button:hover {
+  background: #005a99;
+}
+.workspace-connection-error a {
+  display: block;
+  width: fit-content;
+  margin: 0.75rem auto 0;
+  padding: 0.625rem;
+  color: #006bb6;
+  font-size: 0.875rem;
+}
+.workspace-connection-error a:hover {
+  text-decoration: underline;
+}
 .admin-loading-overlay {
   display: grid;
   place-items: center;
@@ -2465,17 +2545,16 @@ caption {
   min-height: 100svh;
   display: grid;
   place-items: center;
-  padding: clamp(1rem, 4vw, 4rem);
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   background:
-    radial-gradient(ellipse at 12% 0%, #d8eaf5a6, transparent 58%),
-    radial-gradient(ellipse at 92% 100%, #e7e6dd66, transparent 50%),
-    linear-gradient(125deg, #eff5f9 0%, #f8fafb 48%, #eaf2f7 100%);
+    url("/assets/login-contours.svg") center / cover no-repeat,
+    radial-gradient(ellipse at 12% 0%, #e5f0f740, transparent 60%),
+    linear-gradient(125deg, #f3f7fa 0%, #fafbfc 55%, #eff5f9 100%);
 }
 .office-login-layout {
-  width: min(1200px, 100%);
+  width: min(32.5rem, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  min-height: 650px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   background: linear-gradient(135deg, #fff 0%, #fcfcfb 70%, #f4f6f7 100%);
   border: 1px solid #ffffffc9;
@@ -2496,7 +2575,7 @@ caption {
   border-radius: 16px;
   padding: 0;
   overflow: hidden;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: stretch;
   text-align: center;
@@ -2525,19 +2604,20 @@ caption {
   width: 100%;
   height: 100%;
   margin: 0;
-  object-fit: cover;
+  object-fit: contain;
+  background: #c9eefd;
   border-radius: 16px;
 }
 .office-login-card {
   text-align: left;
-  padding: 2.5rem 2rem;
-  width: min(100%, 448px);
+  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(0.75rem, 4vw, 2.5rem);
+  width: min(100%, 28rem);
   justify-self: center;
   align-self: start;
   min-width: 0;
 }
 .office-login-card h1 {
-  font-size: 2rem;
+  font-size: clamp(1.75rem, 1.5rem + 1vw, 2rem);
   letter-spacing: -0.035em;
   margin: 0 0 0.5rem;
   line-height: 1.2;
@@ -2548,6 +2628,7 @@ caption {
   margin: 0;
   line-height: 1.6;
   color: #52647a;
+  overflow-wrap: anywhere;
 }
 .office-login-card form {
   margin-top: 1.75rem;
@@ -2665,10 +2746,27 @@ caption {
   font-size: 0.875rem;
   line-height: 1.75;
   margin: 1.25rem 0 0;
+  overflow-wrap: anywhere;
 }
 .office-login-card .login-help strong {
   color: #334e70;
   font-weight: 600;
+}
+@media (min-width: 64em) {
+  .login-page { padding: clamp(1.5rem, 3vw, 3rem); }
+  .office-login-layout {
+    width: min(75rem, 100%);
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  }
+  .office-login-story { display: flex; }
+  .office-login-card { padding: 2.75rem 1.5rem; }
+}
+@media (min-width: 64em) and (max-height: 45em) {
+  .login-page { padding-block: 1rem; }
+  .office-login-card { padding-block: 1.5rem; }
+  .office-login-brand { margin-bottom: 1.25rem; }
+  .office-login-card form { margin-top: 1.25rem; }
+  .office-login-card .login-help { margin-top: 1rem; }
 }
 @media (min-width: 1500px) {
   .overview-columns {
@@ -2932,36 +3030,6 @@ caption {
     display: none;
   }
 }
-@media (max-width: 800px) {
-  .office-login-layout {
-    grid-template-columns: minmax(0, 1fr);
-    max-width: 520px;
-    min-height: auto;
-    gap: 0.5rem;
-  }
-  .office-login-story {
-    display: none;
-  }
-  .office-login-illustration {
-    display: none;
-  }
-  .office-login-card {
-    padding: 2rem 1rem;
-  }
-}
-@media (min-width: 801px) and (max-width: 1000px) {
-  .office-login-card {
-    padding-inline: 1.25rem;
-  }
-}
-@media (min-width: 801px) and (max-height: 760px) {
-  .login-page { padding: 1.25rem; }
-  .office-login-layout { min-height: 540px; }
-  .office-login-card { padding-block: 1.5rem; }
-  .office-login-brand { margin-bottom: 1.25rem; }
-  .office-login-card form { margin-top: 1.25rem; }
-  .office-login-card .login-help { margin-top: 1rem; }
-}
 @media (max-width: 480px) {
   .workspace-heading {
     flex-wrap: wrap;
@@ -3171,17 +3239,8 @@ caption {
   .map-image-toolbar {
     flex-wrap: wrap;
   }
-  .login-page {
-    padding: 1rem;
-  }
   .office-login-layout {
     border-radius: 16px;
-  }
-  .office-login-card {
-    padding: 1.5rem;
-  }
-  .office-login-story {
-    padding: 1.25rem 1.5rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {

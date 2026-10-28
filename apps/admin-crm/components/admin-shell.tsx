@@ -23,7 +23,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AdminRoleProvider } from "@/components/admin-role-context";
-import { RingLoader } from "@/components/ring-loader";
+import { WorkspaceLoader } from "@/components/workspace-loader";
+import { WorkspaceConnectionError } from "@/components/workspace-connection-error";
 import { useViewportPopover } from "@/components/use-viewport-popover";
 import { clearAdminServerSession, getAdminServerSession } from "@/lib/auth";
 import {
@@ -83,6 +84,8 @@ export function AdminShell({ children }: AdminShellProps) {
   const [destination, setDestination] = useState<string | null>(null);
   const displayedPath = isNavigating && destination ? destination : pathname;
   const [isChecking, setIsChecking] = useState(true);
+  const [accessFailed, setAccessFailed] = useState(false);
+  const [accessAttempt, setAccessAttempt] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [adminName, setAdminName] = useState("Admin");
   const [role, setRole] = useState<OfficeRole>("staff");
@@ -228,9 +231,12 @@ export function AdminShell({ children }: AdminShellProps) {
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
 
     async function checkAccess() {
-      const adminSession = await getAdminServerSession();
+      const adminSession = await getAdminServerSession(controller.signal);
+      window.clearTimeout(timeout);
       const officeRole = adminSession?.role ?? null;
 
       if (!isMounted) return;
@@ -303,15 +309,18 @@ export function AdminShell({ children }: AdminShellProps) {
     }
 
     void checkAccess().catch(() => {
-      if (isMounted) router.replace("/admin/login");
+      window.clearTimeout(timeout);
+      if (isMounted) setAccessFailed(true);
     });
     const timer = window.setInterval(refreshNotificationCounts, 15000);
 
     return () => {
       isMounted = false;
+      controller.abort();
+      window.clearTimeout(timeout);
       window.clearInterval(timer);
     };
-  }, [pathname, router]);
+  }, [pathname, router, accessAttempt]);
 
   useEffect(() => {
     if (!isNotificationOpen) return;
@@ -446,12 +455,16 @@ export function AdminShell({ children }: AdminShellProps) {
     navigateTo(result.href);
   }
 
+  if (accessFailed) {
+    return <WorkspaceConnectionError onRetry={() => {
+      setAccessFailed(false);
+      setIsChecking(true);
+      setAccessAttempt(attempt => attempt + 1);
+    }} />;
+  }
+
   if (isChecking) {
-    return (
-      <main className="admin-loading">
-        <RingLoader label="Checking admin access..." />
-      </main>
-    );
+    return <WorkspaceLoader />;
   }
 
   return (
