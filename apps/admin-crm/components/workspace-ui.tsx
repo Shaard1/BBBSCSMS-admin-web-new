@@ -2,29 +2,9 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 
-export function PageHeader({
-  title,
-  description,
-  eyebrow = "Barangay Bancao-Bancao",
-  children,
-}: {
-  title: string;
-  description: string;
-  eyebrow?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="workspace-heading">
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {children ? (
-        <div className="workspace-heading-actions">{children}</div>
-      ) : null}
-    </div>
-  );
+export function PageActions({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return <div className="workspace-page-actions">{children}</div>;
 }
 export function RefreshButton({
   loading,

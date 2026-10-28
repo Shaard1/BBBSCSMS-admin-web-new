@@ -1,6 +1,31 @@
 import { supabase } from "@/lib/supabase";
 import { resolvePrivateFiles } from "@/lib/private-files";
 import type { CommunityReport } from "@/lib/types";
+import { pageLoadedReports, readReportQueueResult, reportPageSize, type ReportQueueFilters, type ReportQueueResult } from './report-queue';
+
+export async function fetchReportQueue(filters: ReportQueueFilters, signal?: AbortSignal, loadedReports?: CommunityReport[]): Promise<ReportQueueResult> {
+  // Reuse the current page's in-memory snapshot in compatibility mode, like the original list.
+  // Refresh and mutations discard it; it never persists or crosses component/account lifetimes.
+  if (loadedReports) return { ...pageLoadedReports(loadedReports, filters), compatibilityRecords: loadedReports };
+  let request = supabase.rpc('get_report_queue', {
+    p_search: filters.search.trim(), p_status: filters.status, p_category: filters.category,
+    p_sort: filters.sort, p_page: filters.page, p_page_size: reportPageSize,
+  });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  signal?.throwIfAborted();
+  if (error?.code === 'PGRST202') {
+    // Existing projects remain usable until their queue migration is installed.
+    const records = await fetchReports();
+    signal?.throwIfAborted();
+    return { ...pageLoadedReports(records, filters), compatibilityRecords: records };
+  }
+  if (error) throw error;
+  const result = readReportQueueResult(data);
+  const items = await resolvePrivateFiles(result.items);
+  signal?.throwIfAborted();
+  return { ...result, items, serverPaged: true };
+}
 
 type FetchReportsOptions = {
   limit?: number;

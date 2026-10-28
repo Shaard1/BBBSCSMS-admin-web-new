@@ -111,12 +111,15 @@ export async function getSignedOfficeRole(sessionToken: string) {
   return session?.role ?? null;
 }
 
-export async function getActiveSignedAdminSession(sessionToken: string) {
+export async function getActiveSignedAdminSession(sessionToken: string, reportUnavailable = false) {
   const payload = await getSignedAdminSession(sessionToken);
   if (!payload) return null;
 
   const supabaseConfig = getSupabaseConfig();
-  if (!supabaseConfig?.serviceRoleKey) return null;
+  if (!supabaseConfig?.serviceRoleKey) {
+    if (reportUnavailable) throw new Error("Office access verification unavailable.");
+    return null;
+  }
 
   const authUserResponse = await fetch(
     `${supabaseConfig.url}/auth/v1/admin/users/${encodeURIComponent(payload.userId)}`,
@@ -129,7 +132,12 @@ export async function getActiveSignedAdminSession(sessionToken: string) {
     }
   );
 
-  if (!authUserResponse.ok) return null;
+  if (!authUserResponse.ok) {
+    if (reportUnavailable && authUserResponse.status !== 404) {
+      throw new Error("Office account lookup unavailable.");
+    }
+    return null;
+  }
 
   const profileResponse = await fetch(
     `${supabaseConfig.url}/rest/v1/profiles?id=eq.${encodeURIComponent(payload.userId)}&select=role,status&limit=1`,
@@ -142,7 +150,10 @@ export async function getActiveSignedAdminSession(sessionToken: string) {
     }
   );
 
-  if (!profileResponse.ok) return null;
+  if (!profileResponse.ok) {
+    if (reportUnavailable) throw new Error("Office profile lookup unavailable.");
+    return null;
+  }
 
   const profiles = (await profileResponse.json()) as ProfileRoleResponse[];
   const profile = profiles[0];

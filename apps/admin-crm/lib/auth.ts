@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { isOfficeRole } from "@/lib/roles";
+export { getAdminServerSession } from "./workspace-session";
 
 export async function signInAsOfficeUser(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
@@ -55,25 +55,6 @@ export async function createAdminServerSession() {
   }
 
   return { ok: true, message: "Admin session created." };
-}
-
-export async function getAdminServerSession() {
-  const response = await fetch("/api/admin/session", {
-    method: "GET",
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-
-  const payload = (await response.json().catch(() => null)) as {
-    role?: string;
-    userId?: string;
-  } | null;
-
-  const role = payload?.role?.toLowerCase().trim();
-  return isOfficeRole(role) && payload?.userId
-    ? { role, userId: payload.userId }
-    : null;
 }
 
 export async function clearAdminServerSession() {

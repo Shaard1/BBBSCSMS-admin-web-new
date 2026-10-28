@@ -2,7 +2,7 @@
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  PageHeader,
+  PageActions,
   Panel,
   Metric,
   Notice,
@@ -78,12 +78,9 @@ export default function AnalyticsPage() {
       className="workspace-page analytics-workspace"
       aria-busy={isLoading}
     >
-      <PageHeader
-        title="Service analytics"
-        description="Understand demand, track follow-through, and plan community services."
-      >
+      <PageActions>
         <RefreshButton loading={isLoading} onClick={load} />
-      </PageHeader>
+      </PageActions>
       <Notice message={message} onDismiss={() => setMessage("")} />
       <p className="section-kicker">
         Current snapshot · all recorded submissions

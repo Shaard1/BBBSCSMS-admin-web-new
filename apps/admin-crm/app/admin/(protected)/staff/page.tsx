@@ -2,7 +2,7 @@
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageHeader } from "@/components/workspace-ui";
+import { PageActions } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
@@ -123,6 +123,7 @@ export default function StaffAccountsPage() {
     nextRole: "admin" | "staff",
   ) {
     if (!canManage || account.role === nextRole) return;
+    if (!window.confirm(`Change ${account.full_name || "this account"} to ${nextRole === "admin" ? "Administrator" : "Staff"}? This changes their office permissions.`)) return;
     if (
       account.role === "admin" &&
       nextRole === "staff" &&
@@ -176,11 +177,7 @@ export default function StaffAccountsPage() {
 
   return (
     <section className="admin-page residents-page staff-page">
-      <PageHeader
-        title="Staff accounts"
-        eyebrow="Administration"
-        description="Manage the people and permissions behind your barangay services."
-      >
+      <PageActions>
         {canManage ? (
           <button
             type="button"
@@ -194,7 +191,7 @@ export default function StaffAccountsPage() {
             Add staff account
           </button>
         ) : null}
-      </PageHeader>
+      </PageActions>
 
       <div className="report-stats staff-stats">
         <article className="report-stat dark">

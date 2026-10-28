@@ -4,7 +4,7 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageHeader } from "@/components/workspace-ui";
+import { PageActions } from "@/components/workspace-ui";
 import dynamic from "next/dynamic";
 import {
   ChevronLeft,
@@ -292,10 +292,7 @@ export default function ComplaintMapPage() {
 
   return (
     <section className="map-page">
-      <PageHeader
-        title="Complaint map"
-        description="Locate reported concerns and connect field work with resident reports."
-      >
+      <PageActions>
         <span className="sync-note">
           {visibleReports.length} of {mappedReports.length} mapped
         </span>
@@ -308,7 +305,7 @@ export default function ComplaintMapPage() {
           <RefreshCw size={16} />
           Refresh
         </button>
-      </PageHeader>
+      </PageActions>
       <p className="map-location-note">
         {reports.length - mappedReports.length} reports without valid
         coordinates are available in Community reports.

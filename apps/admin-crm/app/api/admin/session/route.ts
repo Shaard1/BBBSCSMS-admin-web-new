@@ -11,7 +11,15 @@ const adminCookieMaxAgeSeconds = 60 * 60 * 24;
 
 export async function GET(request: NextRequest) {
   const adminSessionToken = request.cookies.get(adminSessionCookieName)?.value ?? "";
-  const adminSession = await getActiveSignedAdminSession(adminSessionToken);
+  let adminSession;
+  try {
+    adminSession = await getActiveSignedAdminSession(adminSessionToken, true);
+  } catch {
+    return NextResponse.json(
+      { message: "Office access verification is temporarily unavailable." },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 
   if (!adminSession) {
     return NextResponse.json(

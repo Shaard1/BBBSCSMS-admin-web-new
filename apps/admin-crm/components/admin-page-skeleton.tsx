@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { PageHeader } from "@/components/workspace-ui";
 
 const pages: Record<string, { title: string; description: string }> = {
   dashboard: { title: "Community overview", description: "A clear view of today's workload and the people waiting for your help." },
@@ -20,7 +19,6 @@ export function AdminPageSkeleton({ href }: { href?: string }) {
   const page = pages[route] ?? { title: "Workspace", description: "Loading page content." };
   return (
     <section className="workspace-page page-skeleton" aria-busy="true" aria-label={page.title}>
-      <PageHeader title={page.title} description={page.description} />
       <p className="page-skeleton-status" role="status">Loading {page.title.toLowerCase()}…</p>
       <div aria-hidden="true">
         <div className="page-skeleton-metrics">
