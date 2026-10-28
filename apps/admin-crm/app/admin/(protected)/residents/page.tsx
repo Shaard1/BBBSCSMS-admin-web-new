@@ -8,7 +8,6 @@ import {useSearchParams} from 'next/navigation';
 import { Eye, RefreshCw, Search, UserRound, X } from 'lucide-react';
 import { Modal } from '@/components/modal';
 import { ImageViewer } from '@/components/image-viewer';
-import { PageHeader } from '@/components/workspace-ui';
 import { useAdminRole } from '@/components/admin-role-context';
 import { fetchResidentDirectory, fetchResidentDetails, fetchResidentHistory, setResidentAccess, approveResident, rejectResident, type ResidentDirectory, type ResidentHistory } from '@/lib/residents';
 import { residentAccess, residentPhoneState, accessLabels, summarizeResidents } from '@/lib/resident-state';
@@ -128,7 +127,6 @@ function ResidentDirectoryPage() {
     const s = directory.summary;
     if (loading && !initialLoadFinished.current) return <AdminPageSkeleton href="/admin/residents" />;
     return <section className="admin-page residents-page" aria-busy={loading}>
-    <PageHeader title="Resident accounts" description="Manage resident access and view phone ownership separately from document checks."/>
     <div className="resident-account-metrics">
       {([['Total accounts', s.total], ['Active', s.active], ['Suspended', s.suspended], ['Phone verified', s.phoneVerified]] as const).map(([label, count]) => <article className="resident-summary-card" key={label}><span>{label}</span><strong>{count}</strong></article>)}
     </div>

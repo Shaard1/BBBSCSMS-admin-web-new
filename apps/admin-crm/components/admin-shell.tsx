@@ -550,11 +550,7 @@ export function AdminShell({ children }: AdminShellProps) {
           >
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <div className="topbar-breadcrumb">
-            <span>Workspace</span>
-            <span aria-hidden="true">/</span>
-            <strong>{pageTitle}</strong>
-          </div>
+          <h1 className="topbar-page-title">{pageTitle}</h1>
           <div
             className={`topbar-search ${isSearchOpen ? "open" : ""}`}
             ref={searchRef}

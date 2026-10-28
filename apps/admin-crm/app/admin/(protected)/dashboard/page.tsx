@@ -3,6 +3,7 @@ import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import Link from "next/link";
 import {
   ArrowRight,
+  ArrowUpRight,
   FileBadge2,
   FileText,
   MapPinned,
@@ -11,8 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  PageHeader,
-  Metric,
+  PageActions,
   Panel,
   Notice,
   RefreshButton,
@@ -42,6 +42,7 @@ export default function AdminDashboardPage() {
   const [documents, setDocuments] = useState<DocumentRequest[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [lastUpdated, setLastUpdated] = useState("");
   async function load() {
     setIsLoading(true);
@@ -58,6 +59,7 @@ export default function AdminDashboardPage() {
       setLegacyPendingTotal(u.summary.legacyPending);
       setAnnouncements(a);
       setDocuments(d);
+      setHasLoaded(true);
       setLastUpdated(
         new Date().toLocaleTimeString("en-PH", {
           hour: "numeric",
@@ -89,7 +91,7 @@ export default function AdminDashboardPage() {
     .slice(0, 5);
   const queues = [
     {
-      title: "Review legacy registrations",
+      title: "Review previous registrations",
       detail: "Only accounts using the old registration process",
       count: legacyPendingTotal,
       href: "/admin/residents",
@@ -109,50 +111,35 @@ export default function AdminDashboardPage() {
       href: "/admin/documents",
       icon: FileBadge2,
     },
-  ];
-  if (isLoading) return <AdminPageSkeleton href="/admin/dashboard" />;
+  ].filter((queue) => queue.href !== "/admin/residents" || queue.count > 0);
+  if (isLoading && !hasLoaded) return <AdminPageSkeleton href="/admin/dashboard" />;
 
   return (
     <section className="workspace-page overview-page" aria-busy={isLoading}>
-      <PageHeader
-        title="Community overview"
-        description="A clear view of today's workload and the people waiting for your help."
-      >
+      <PageActions>
         <span className="sync-note">
           {lastUpdated ? `Updated ${lastUpdated}` : "Not yet refreshed"}
         </span>
         <RefreshButton loading={isLoading} onClick={load} />
-      </PageHeader>
+      </PageActions>
       <Notice message={message} onDismiss={() => setMessage("")} />
-      <div className="workspace-metrics">
-        <Metric
-          label="Open reports"
-          value={snapshot.open}
-          note={`${snapshot.progress} currently in progress`}
-          href="/admin/reports"
-        />
-        <Metric
-          label="Legacy reviews"
-          value={legacyPendingTotal}
-          note="Old registrations still awaiting review"
-          href="/admin/residents"
-          tone="amber"
-        />
-        <Metric
-          label="Document review"
-          value={pendingDocuments.length}
-          note={`${readyDocuments} ready for release`}
-          href="/admin/documents"
-          tone="teal"
-        />
-        <Metric
-          label="Resolved reports"
-          value={snapshot.resolved}
-          note={`${snapshot.resolutionRate}% of all submitted reports`}
-          href="/admin/reports"
-          tone="green"
-        />
-      </div>
+      <section className="dashboard-summary" aria-label="Workload summary">
+        <div className="dashboard-summary-grid">
+          {[
+            { label: "Open reports", value: snapshot.open, href: "/admin/reports" },
+            { label: "Ready for collection", value: readyDocuments, href: "/admin/documents" },
+            { label: "Requests awaiting review", value: pendingDocuments.length, href: "/admin/documents" },
+            { label: "Resolved reports", value: snapshot.resolved, href: "/admin/reports" },
+          ].map((metric) => (
+            <Link className="dashboard-summary-item" href={metric.href} key={metric.label}>
+              <span className="dashboard-summary-label">
+                {metric.label}<ArrowUpRight size={17} aria-hidden="true" />
+              </span>
+              <strong>{metric.value}</strong>
+            </Link>
+          ))}
+        </div>
+      </section>
       <div className="overview-columns">
         <Panel
           title="Needs your attention"
@@ -250,9 +237,9 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </Panel>
-        <Panel
-          title="Legacy registration queue"
-          description="New basic accounts do not enter this queue."
+        {legacyPendingTotal > 0 ? <Panel
+          title="Previous registration queue"
+          description="Accounts submitted under the previous registration process."
           action={<Link href="/admin/residents">View all</Link>}
         >
           <div className="overview-list">
@@ -282,7 +269,7 @@ export default function AdminDashboardPage() {
               </p>
             ) : null}
           </div>
-        </Panel>
+        </Panel> : null}
       </div>
     </section>
   );

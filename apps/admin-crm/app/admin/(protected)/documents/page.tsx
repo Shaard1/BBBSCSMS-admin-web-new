@@ -3,7 +3,6 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import {DocumentRequestDialog} from "@/components/document-request-dialog";
-import { PageHeader } from "@/components/workspace-ui";
 import { FileBadge2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -151,10 +150,6 @@ export default function DocumentRequestsPage() {
 
   return (
     <section className="admin-page reports-page documents-page">
-      <PageHeader
-        title="Document requests"
-        description="Review applications, track payments, and prepare documents for release."
-      />
 
       <div className="report-stats documents-stats">
         <StatCard label="Total Requests" tone="dark" value={stats.total} />

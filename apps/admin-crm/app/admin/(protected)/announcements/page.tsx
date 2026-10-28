@@ -3,7 +3,7 @@
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageHeader } from "@/components/workspace-ui";
+import { useUnsavedChanges } from "@/components/use-unsaved-changes";
 import {
   Bold,
   Edit3,
@@ -65,6 +65,9 @@ export default function AnnouncementsPage() {
     url: string;
   } | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(emptyForm);
+  const [showPreview, setShowPreview] = useState(false);
+  const [savedForm, setSavedForm] = useState<AnnouncementForm>(emptyForm);
+  const unsavedChanges = useUnsavedChanges(JSON.stringify(form) !== JSON.stringify(savedForm));
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,9 +129,25 @@ export default function AnnouncementsPage() {
 
     if (!form.title.trim() || !plainText(form.content).trim()) {
       setMessage("Title and content are required.");
+      const target = !form.title.trim()
+        ? document.querySelector<HTMLInputElement>('.announcement-form input[placeholder="Enter announcement title"]')
+        : document.querySelector<HTMLElement>('[aria-label="Announcement content"]');
+      target?.setAttribute("aria-invalid", "true");
+      target?.focus();
+      target?.scrollIntoView({ block: "center", behavior: "auto" });
       return;
     }
 
+    if (isSubmitting || isUploading) return;
+    if (form.isPublished) {
+      setMessage("");
+      setShowPreview(true);
+      return;
+    }
+    await saveAnnouncement();
+  }
+
+  async function saveAnnouncement() {
     if (isSubmitting || isUploading) return;
     setIsSubmitting(true);
 
@@ -159,6 +178,8 @@ export default function AnnouncementsPage() {
       }
 
       setForm(emptyForm);
+      setSavedForm(emptyForm);
+      setShowPreview(false);
       setActiveView("posted");
       await loadAnnouncements();
     } catch (error) {
@@ -171,14 +192,16 @@ export default function AnnouncementsPage() {
   }
 
   function editAnnouncement(announcement: Announcement) {
-    setForm({
+    const initialForm = {
       id: announcement.id,
       title: announcement.title,
       content: announcement.content,
       thumbnailUrl: announcement.thumbnail_url ?? "",
       imageUrlsText: extractImageUrls(announcement).join("\n"),
       isPublished: announcement.is_published,
-    });
+    };
+    setForm(initialForm);
+    setSavedForm(initialForm);
     setActiveView("create");
     setSelectedAnnouncement(null);
   }
@@ -208,10 +231,6 @@ export default function AnnouncementsPage() {
   return (
     <section className="announcement-page">
       <div className="announcement-header">
-        <PageHeader
-          title="Announcements"
-          description="Keep residents informed with clear, timely barangay updates."
-        />
         <div className="announcement-view-tabs">
           <button
             aria-pressed={activeView === "create"}
@@ -246,7 +265,10 @@ export default function AnnouncementsPage() {
           form={form}
           isUploading={isUploading}
           isSubmitting={isSubmitting}
-          onCancelEdit={() => setForm(emptyForm)}
+          onCancelEdit={() => unsavedChanges.requestDiscard(() => {
+            setForm(emptyForm);
+            setSavedForm(emptyForm);
+          })}
           onChange={setForm}
           onGalleryRemove={handleGalleryRemove}
           onGalleryUpload={handleGalleryUpload}
@@ -264,7 +286,7 @@ export default function AnnouncementsPage() {
           totalCount={announcements.length}
           authorNames={authorNames}
           onDelete={removeAnnouncement}
-          onEdit={editAnnouncement}
+          onEdit={(announcement) => unsavedChanges.requestDiscard(() => editAnnouncement(announcement))}
           onSearchChange={setSearchQuery}
           onStatusFilterChange={setStatusFilter}
           onView={setSelectedAnnouncement}
@@ -277,9 +299,38 @@ export default function AnnouncementsPage() {
           author={announcementCreatorName(selectedAnnouncement, authorNames)}
           onClose={() => setSelectedAnnouncement(null)}
           onDelete={removeAnnouncement}
-          onEdit={editAnnouncement}
+          onEdit={(announcement) => unsavedChanges.requestDiscard(() => editAnnouncement(announcement))}
           onImageView={setViewingImage}
         />
+      ) : null}
+
+      {unsavedChanges.showConfirmation ? (
+        <Modal title="Discard unsaved changes?" onClose={unsavedChanges.cancelDiscard}>
+          <div className="announcement-modal">
+            <div className="modal-header"><h2>Discard unsaved changes?</h2></div>
+            <p>Your announcement changes have not been saved. Keep editing to avoid losing them.</p>
+            <div className="modal-actions">
+              <button type="button" autoFocus onClick={unsavedChanges.cancelDiscard}>Keep editing</button>
+              <button type="button" onClick={unsavedChanges.confirmDiscard}>Discard changes</button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {showPreview ? (
+        <Modal title="Review before publishing" onClose={() => { if (!isSubmitting) setShowPreview(false); }}>
+          <div className="announcement-modal">
+            <div className="modal-header"><div><h2>Review before publishing</h2><p>This announcement will be visible in the resident app.</p></div></div>
+            <h3>{form.title}</h3>
+            {parseImageUrls(form.imageUrlsText, form.thumbnailUrl).map((url, index) => <img className="announcement-publish-image" key={url} src={url} alt={`Announcement attachment ${index + 1}`} />)}
+            <div className="announcement-content-view rich-content-view" dangerouslySetInnerHTML={{ __html: richContentHtml(form.content) }} />
+            {message ? <p role="alert">{message}</p> : null}
+            <div className="modal-actions">
+              <button type="button" disabled={isSubmitting} onClick={() => setShowPreview(false)}>Back to editing</button>
+              <button type="button" className="primary-admin-button" disabled={isSubmitting} onClick={() => void saveAnnouncement()}>{isSubmitting ? "Publishing…" : "Confirm publication"}</button>
+            </div>
+          </div>
+        </Modal>
       ) : null}
 
       {viewingImage ? (
@@ -388,7 +439,9 @@ function CreateAnnouncementPanel({
         title={form.id ? "Edit Announcement" : "Write announcement"}
         subtitle="Prepare a notice with images and publish controls for residents."
       />
-      <form className="announcement-form" onSubmit={onSubmit}>
+      <form className="announcement-form" onSubmit={onSubmit} onInput={event => {
+        if (event.target instanceof HTMLElement) event.target.removeAttribute("aria-invalid");
+      }}>
         <label>
           Title
           <input
@@ -731,7 +784,10 @@ function PostedAnnouncementsPanel({
       </div>
       <div className="announcement-list">
         {announcements.length === 0 && !isLoading ? (
-          <div className="empty-state">No announcements match this view.</div>
+          <div className="empty-state">
+            <strong>{totalCount === 0 ? "No announcements yet" : "No matching announcements"}</strong>
+            <p>{totalCount === 0 ? "Choose Write announcement to prepare your first resident update." : "Try another search or select All Posts to see more results."}</p>
+          </div>
         ) : (
           announcements.map((announcement) => (
             <AnnouncementCard

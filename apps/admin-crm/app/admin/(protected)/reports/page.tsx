@@ -4,21 +4,19 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageHeader } from "@/components/workspace-ui";
 import {
   CalendarClock,
   Edit3,
   ImageIcon,
   Search,
-  Trash2,
   UserRound,
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteReport,
-  fetchReports,
+  fetchReportQueue,
   updateReportAdminNote,
   updateReportCategory,
   updateReportStatus,
@@ -35,6 +33,7 @@ import {
   reportStatusLabel,
 } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
+import { reportPageSize } from '@/lib/report-queue';
 
 const ReportLocationMap = dynamic(
   () =>
@@ -67,6 +66,17 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+  const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, resolved: 0 });
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [queueFailed, setQueueFailed] = useState(false);
+  const latestRequest = useRef(0);
+  const compatibilityRecords = useRef<CommunityReport[] | undefined>(undefined);
+  const [statusChange, setStatusChange] = useState<{ report: CommunityReport; status: string } | null>(null);
   const [selectedReport, setSelectedReport] = useState<CommunityReport | null>(
     null,
   );
@@ -83,74 +93,71 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
 
-  async function loadReports() {
+  const loadReports = useCallback(async (signal?: AbortSignal) => {
+    const requestId = ++latestRequest.current;
     setIsLoading(true);
+    setQueueFailed(false);
+    setMessage("");
     try {
-      const data = await fetchReports();
-      setReports(data);
+      const data = await fetchReportQueue({ search: debouncedSearch, status: selectedFilter, category: categoryFilter, sort: sortOrder, page }, signal, compatibilityRecords.current);
+      if (signal?.aborted || requestId !== latestRequest.current) return;
+      compatibilityRecords.current = data.compatibilityRecords;
+      setStats(data.summary);
+      setFilteredTotal(data.filteredTotal);
+      const lastPage = Math.max(0, Math.ceil(data.filteredTotal / reportPageSize) - 1);
+      if (page > lastPage) { setPage(lastPage); return; }
+      setReports(data.items);
+      setHasLoaded(true);
       setSelectedReport(
-        (current) => data.find((report) => report.id === current?.id) ?? null,
+        (current) => data.items.find((report) => report.id === current?.id) ?? null,
       );
     } catch (error) {
+      if (signal?.aborted || requestId !== latestRequest.current) return;
+      setQueueFailed(true);
       setMessage(
         error instanceof Error ? error.message : "Unable to load reports.",
       );
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted && requestId === latestRequest.current) setIsLoading(false);
     }
-  }
+  }, [debouncedSearch, selectedFilter, categoryFilter, sortOrder, page]);
 
   useEffect(() => {
-    void loadReports();
-  }, []);
+    const controller = new AbortController();
+    void loadReports(controller.signal);
+    return () => controller.abort();
+  }, [loadReports]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setDebouncedSearch(searchQuery); setPage(0); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (selectedReport?.id) void markOfficeNotificationRead("reports", selectedReport.id);
   }, [selectedReport?.id]);
 
-  const stats = useMemo(() => {
-    return {
-      total: reports.length,
-      pending: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "pending",
-      ).length,
-      progress: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "in progress",
-      ).length,
-      resolved: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "resolved",
-      ).length,
-    };
-  }, [reports]);
+  const queueBusy = isLoading || searchQuery !== debouncedSearch;
+  const pageCount = Math.max(1, Math.ceil(filteredTotal / reportPageSize));
 
-  const filteredReports = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return reports
-      .filter((report) => {
-        if (selectedFilter === "all") return true;
-        return normalizeReportStatus(report.status) === selectedFilter;
-      })
-      .filter((report) => {
-        if (!query) return true;
-
-        return [
-          report.description,
-          report.reporter_name,
-          report.category,
-          report.status,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      });
-  }, [reports, searchQuery, selectedFilter]);
+  async function refreshReports() {
+    compatibilityRecords.current = undefined;
+    await loadReports();
+  }
 
   async function handleStatusChange(report: CommunityReport, status: string) {
+    if (normalizeReportStatus(report.status) === status || isWorking) return;
+    setMessage("");
+    setStatusChange({ report, status });
+  }
+
+  async function confirmStatusChange() {
+    if (!statusChange || isWorking) return;
     setIsWorking(true);
     try {
-      await updateReportStatus(report.id, status);
-      await loadReports();
+      await updateReportStatus(statusChange.report.id, statusChange.status);
+      await refreshReports();
+      setStatusChange(null);
       setMessage("Report status updated.");
     } catch (error) {
       setMessage(
@@ -168,7 +175,7 @@ export default function ReportsPage() {
     setIsWorking(true);
     try {
       await updateReportCategory(report.id, category);
-      await loadReports();
+      await refreshReports();
       setMessage("Report category updated.");
     } catch (error) {
       setMessage(
@@ -193,7 +200,7 @@ export default function ReportsPage() {
     setIsWorking(true);
     try {
       await deleteReport(deleteTargetReport.id);
-      await loadReports();
+      await refreshReports();
       setMessage("Report deleted.");
       setSelectedReport(null);
       setDeleteTargetReport(null);
@@ -212,8 +219,8 @@ export default function ReportsPage() {
     setIsWorking(true);
     try {
       await updateReportAdminNote(editingNoteReport.id, adminNote);
-      await loadReports();
-      setMessage("Staff note updated.");
+      await refreshReports();
+      setMessage("Resident update saved.");
       setEditingNoteReport(null);
       setAdminNote("");
     } catch (error) {
@@ -230,14 +237,10 @@ export default function ReportsPage() {
     setAdminNote(report.admin_note ?? "");
   }
 
-  if (isLoading && reports.length === 0) return <AdminPageSkeleton href="/admin/reports" />;
+  if (isLoading && !hasLoaded) return <AdminPageSkeleton href="/admin/reports" />;
 
   return (
     <section className="admin-page reports-page">
-      <PageHeader
-        title="Community reports"
-        description="Triage resident concerns, record follow-up notes, and track each case to resolution."
-      />
 
       <div className="report-stats">
         <StatCard label="Total reports" value={stats.total} tone="dark" />
@@ -246,29 +249,48 @@ export default function ReportsPage() {
         <StatCard label="Resolved" value={stats.resolved} tone="resolved" />
       </div>
 
+      <div className="reports-refine-controls">
+        <label className="report-search-field"><span>Search</span>
+          <span className="resident-search">
+            <Search size={17} aria-hidden="true" />
+            <input aria-label="Search community reports" maxLength={150} disabled={isWorking}
+              placeholder="Search reports or residents…" value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)} />
+          </span>
+        </label>
+        <label><span>Category</span>
+          <UiDropdown ariaLabel="Filter reports by category" value={categoryFilter} disabled={isWorking}
+            options={[{ label: "All categories", value: "all" }, ...categoryDropdownOptions]}
+            onChange={(value) => { setCategoryFilter(value); setPage(0); }} />
+        </label>
+        <label><span>Sort by</span>
+          <UiDropdown ariaLabel="Sort community reports" value={sortOrder} disabled={isWorking}
+            options={[{ label: "Newest first", value: "newest" }, { label: "Oldest first", value: "oldest" }]}
+            onChange={(value) => { setSortOrder(value); setPage(0); }} />
+        </label>
+        <button disabled={queueBusy || isWorking} onClick={() => void refreshReports()} type="button">
+          {queueBusy ? "Updating…" : "Refresh"}
+        </button>
+      </div>
+
       <div className="reports-toolbar">
-        <div className="filter-tabs compact-tabs">
+        <div className="filter-tabs compact-tabs" role="group" aria-label="Filter reports by status">
           {statusFilters.map((filter) => (
             <button
               aria-pressed={selectedFilter === filter.value}
+              disabled={isWorking}
               className={selectedFilter === filter.value ? "active" : ""}
               key={filter.value}
-              onClick={() => setSelectedFilter(filter.value)}
+              onClick={() => { setSelectedFilter(filter.value); setPage(0); }}
               type="button"
             >
               {filter.label}
             </button>
           ))}
         </div>
-        <label className="resident-search">
-          <Search size={17} />
-          <input
-            aria-label="Search community reports"
-            placeholder="Search reports or residents…"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </label>
+        {searchQuery || selectedFilter !== "all" || categoryFilter !== "all" ? (
+          <button type="button" disabled={isWorking} onClick={() => { setSearchQuery(""); setDebouncedSearch(""); setSelectedFilter("all"); setCategoryFilter("all"); setPage(0); }}>Clear filters</button>
+        ) : null}
       </div>
 
       {message ? (
@@ -280,29 +302,22 @@ export default function ReportsPage() {
         </div>
       ) : null}
 
-      <div className="report-list-heading">
-        <h3>Recent Submissions</h3>
-        <button disabled={isLoading} onClick={loadReports} type="button">
-          Refresh
-        </button>
-      </div>
-
-      <div className="report-list">
-        {reports.length === 0 && !isLoading ? (
+      <div className="report-list" role="region" aria-label="Report results" aria-busy={queueBusy}>
+        {queueFailed && !hasLoaded ? (
+          <div className="empty-state">Reports could not be loaded. Select Refresh to try again.</div>
+        ) : stats.total === 0 && !isLoading ? (
           <div className="empty-state">No reports found.</div>
-        ) : filteredReports.length === 0 && !isLoading ? (
+        ) : reports.length === 0 && !isLoading ? (
           <div className="empty-state">
             No reports match your current search/filter.
           </div>
         ) : (
-          filteredReports.map((report) => (
+          reports.map((report) => (
             <ReportCard
-              disabled={isWorking}
+              disabled={isWorking || queueBusy || queueFailed}
               key={report.id}
               report={report}
               onCategoryChange={handleCategoryChange}
-              canDelete={canDelete}
-              onDelete={requestDelete}
               onEditNote={openNoteDialog}
               onStatusChange={handleStatusChange}
               onView={setSelectedReport}
@@ -310,6 +325,34 @@ export default function ReportsPage() {
           ))
         )}
       </div>
+
+      <nav className="report-pagination" aria-label="Report pages">
+        <p role="status" aria-live="polite">
+          {queueBusy ? 'Updating results…' : queueFailed ? 'Results could not be refreshed. Select Refresh to try again.' : filteredTotal === 0 ? 'No matching reports' : pageCount === 1 ? `${filteredTotal} ${filteredTotal === 1 ? 'report' : 'reports'}` :
+            `${page * reportPageSize + 1}–${Math.min((page + 1) * reportPageSize, filteredTotal)} of ${filteredTotal} ${filteredTotal === 1 ? 'report' : 'reports'}`}
+        </p>
+        {pageCount > 1 ? <div>
+          <button type="button" disabled={queueBusy || queueFailed || isWorking || page === 0} onClick={() => setPage(current => current - 1)}>Previous</button>
+          <span>Page {page + 1} of {pageCount}</span>
+          <button type="button" disabled={queueBusy || queueFailed || isWorking || page + 1 >= pageCount} onClick={() => setPage(current => current + 1)}>Next</button>
+        </div> : null}
+      </nav>
+
+      {statusChange ? (
+        <Modal title="Change report status?" onClose={() => { if (!isWorking) setStatusChange(null); }}>
+          <div className="reject-modal">
+            <div className="modal-header"><h2>Change report status?</h2></div>
+            <p>{statusChange.report.description || "Community report"}</p>
+            <p className="report-status-confirmation">{reportStatusLabel(normalizeReportStatus(statusChange.report.status))} → <strong>{reportStatusLabel(statusChange.status)}</strong></p>
+            <p>The new status will be visible to the resident.</p>
+            {message ? <p role="alert">{message}</p> : null}
+            <div className="modal-actions">
+              <button type="button" autoFocus disabled={isWorking} onClick={() => setStatusChange(null)}>Cancel</button>
+              <button type="button" className="primary-admin-button" disabled={isWorking} onClick={() => void confirmStatusChange()}>{isWorking ? "Updating…" : "Confirm status change"}</button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
 
       {selectedReport ? (
         <ReportDetailsDialog
@@ -359,20 +402,16 @@ export default function ReportsPage() {
 }
 
 function ReportCard({
-  canDelete,
   disabled,
   report,
   onCategoryChange,
-  onDelete,
   onEditNote,
   onStatusChange,
   onView,
 }: {
-  canDelete: boolean;
   disabled: boolean;
   report: CommunityReport;
   onCategoryChange: (report: CommunityReport, category: string) => void;
-  onDelete: (report: CommunityReport) => void;
   onEditNote: (report: CommunityReport) => void;
   onStatusChange: (report: CommunityReport, status: string) => void;
   onView: (report: CommunityReport) => void;
@@ -386,7 +425,7 @@ function ReportCard({
     <article className="report-card" onClick={() => onView(report)}>
       <div className="report-image">
         {images.length > 0 ? (
-          <img src={images[0]} alt="" />
+          <img src={images[0]} alt="" loading="lazy" />
         ) : (
           <ImageIcon size={28} />
         )}
@@ -407,7 +446,6 @@ function ReportCard({
             {title}
           </button>
         </h3>
-        <p>{report.description?.trim() || "No description provided."}</p>
         <small className="reporter-line">
           <UserRound size={13} /> {report.reporter_name ?? "Unknown resident"}
         </small>
@@ -433,20 +471,12 @@ function ReportCard({
           />
           <button
             className="note-button"
+            disabled={disabled}
             onClick={() => onEditNote(report)}
             type="button"
           >
-            <Edit3 size={14} /> Note
+            <Edit3 size={14} /> Resident update
           </button>
-          {canDelete ? (
-            <button
-              className="delete-button"
-              onClick={() => onDelete(report)}
-              type="button"
-            >
-              <Trash2 size={14} /> Delete
-            </button>
-          ) : null}
         </div>
       </div>
     </article>
@@ -554,8 +584,8 @@ function ReportDetailsDialog({
             <DetailItem label="Date" value={shortDate(report.created_at)} />
             <DetailItem label="GPS" value={coordinates} />
             <DetailItem
-              label="Staff note"
-              value={report.admin_note?.trim() || "No staff note yet."}
+              label="Resident update"
+              value={report.admin_note?.trim() || "No update yet."}
             />
           </div>
 
@@ -585,7 +615,7 @@ function ReportDetailsDialog({
               onClick={() => onEditNote(report)}
               type="button"
             >
-              Edit note
+              Resident update
             </button>
             <button
               className="primary-admin-button"
@@ -619,7 +649,7 @@ function AdminNoteDialog({
   message: string;
 }) {
   return (
-    <Modal title="Edit staff note" onClose={onClose}>
+    <Modal title="Resident update" onClose={onClose}>
       <div className="reject-modal">
         {message ? (
           <div className="admin-message" role="status">
@@ -628,8 +658,9 @@ function AdminNoteDialog({
         ) : null}
         <div className="modal-header">
           <div>
-            <h2>Staff Note</h2>
+            <h2>Resident update</h2>
             <p>{report.reporter_name ?? "Unknown resident"}</p>
+            <p>This message is visible to the resident who submitted the report.</p>
           </div>
           <button onClick={onClose} type="button" aria-label="Close">
             <X size={20} />
@@ -637,8 +668,8 @@ function AdminNoteDialog({
         </div>
         <textarea
           className="note-textarea"
-          aria-label="Staff note visible to the resident"
-          placeholder="Add a staff update or note visible to the resident"
+          aria-label="Update visible to the resident"
+          placeholder="Explain the action taken or the next step for the resident"
           value={note}
           onChange={(event) => onChange(event.target.value)}
         />
