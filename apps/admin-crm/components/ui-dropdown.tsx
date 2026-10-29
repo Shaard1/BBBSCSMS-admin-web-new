@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import {
   type KeyboardEvent,
+  type ReactNode,
   useEffect,
   useId,
   useLayoutEffect,
@@ -16,7 +17,7 @@ type UiDropdownProps = {
   className?: string;
   placement?: "auto" | "below";
   disabled?: boolean;
-  options: { label: string; value: string }[];
+  options: { label: string; value: string; icon?: ReactNode }[];
   value: string;
   onChange: (value: string) => void;
 };
@@ -183,7 +184,7 @@ export function UiDropdown({
         onClick={() => (isOpen ? setIsOpen(false) : openMenu())}
         onKeyDown={handleKeyDown}
       >
-        <span>{selectedOption?.label ?? "Select"}</span>
+        <span className="ui-dropdown-label">{selectedOption?.icon}{selectedOption?.label ?? "Select"}</span>
         <ChevronDown aria-hidden="true" size={16} />
       </button>
       <div
@@ -210,7 +211,7 @@ export function UiDropdown({
               onPointerEnter={() => setActiveIndex(index)}
               onClick={() => chooseOption(index)}
             >
-              <span>{option.label}</span>
+              <span className="ui-dropdown-label">{option.icon}{option.label}</span>
             </div>
           );
         })}

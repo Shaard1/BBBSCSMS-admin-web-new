@@ -58,7 +58,7 @@ const navItems = [
     adminOnly: true,
   },
   { label: "Community Reports", href: "/admin/reports", icon: FileText },
-  { label: "Document Requests", href: "/admin/documents", icon: FileBadge2 },
+  { label: "Certificates Request", href: "/admin/documents", icon: FileBadge2 },
   { label: "Complaint Map", href: "/admin/map", icon: MapPinned },
   {
     label: "Resident Accounts",
@@ -70,7 +70,7 @@ const navItems = [
 
 const globalSearchCategories = {
   announcement: "Announcements",
-  document: "Document Requests",
+  document: "Certificates Request",
   office: "Office Accounts",
   page: "Pages",
   report: "Community Reports",
@@ -196,10 +196,10 @@ export function AdminShell({ children }: AdminShellProps) {
       {
         badgeCount: unreadDocumentsCount,
         count: unreadDocumentsCount,
-        description: "Document requests you have not opened.",
+        description: "Certificate requests you have not opened.",
         href: "/admin/documents",
         icon: FileBadge2,
-        label: "Document Requests",
+        label: "Certificates Request",
       },
     ].filter((item) => item.count > 0);
   }, [

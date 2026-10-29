@@ -2,9 +2,9 @@
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageActions } from "@/components/workspace-ui";
+import { RefreshButton } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
+import { Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { useAdminRole } from "@/components/admin-role-context";
 import { UiDropdown } from "@/components/ui-dropdown";
 import {
@@ -58,6 +58,10 @@ export default function StaffAccountsPage() {
       .includes(query.toLowerCase().trim()),
   );
   const [deleteTarget, setDeleteTarget] = useState<OfficeAccount | null>(null);
+  const [roleTarget, setRoleTarget] = useState<{
+    account: OfficeAccount;
+    nextRole: "admin" | "staff";
+  } | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -118,12 +122,11 @@ export default function StaffAccountsPage() {
     }
   }
 
-  async function handleRoleChange(
+  function handleRoleChange(
     account: OfficeAccount,
     nextRole: "admin" | "staff",
   ) {
     if (!canManage || account.role === nextRole) return;
-    if (!window.confirm(`Change ${account.full_name || "this account"} to ${nextRole === "admin" ? "Administrator" : "Staff"}? This changes their office permissions.`)) return;
     if (
       account.role === "admin" &&
       nextRole === "staff" &&
@@ -133,10 +136,19 @@ export default function StaffAccountsPage() {
       return;
     }
 
+    setMessage("");
+    setRoleTarget({ account, nextRole });
+  }
+
+  async function handleRoleConfirmed() {
+    if (!roleTarget || !canManage) return;
+    const { account, nextRole } = roleTarget;
+
     setIsWorking(true);
     setMessage("");
     try {
       await updateOfficeRole(account.id, nextRole);
+      setRoleTarget(null);
       setMessage(
         `${account.full_name || account.id} role updated to ${nextRole}.`,
       );
@@ -173,50 +185,133 @@ export default function StaffAccountsPage() {
     }
   }
 
-  if (isLoading) return <AdminPageSkeleton href="/admin/staff" />;
+  if (isLoading && accounts.length === 0) {
+    return <AdminPageSkeleton href="/admin/staff" />;
+  }
 
   return (
     <section className="admin-page residents-page staff-page">
-      <PageActions>
-        {canManage ? (
-          <button
-            type="button"
-            className="primary-admin-button"
-            onClick={() => {
-              setMessage("");
-              setShowCreate(true);
-            }}
-          >
-            <UserPlus size={17} />
-            Add staff account
-          </button>
-        ) : null}
-      </PageActions>
-
-      <div className="report-stats staff-stats">
-        <article className="report-stat dark">
-          <span>Total Office Users</span>
-          <strong>{counts.total}</strong>
-        </article>
-        <article className="report-stat progress">
-          <span>Administrators</span>
-          <strong>{counts.admins}</strong>
-        </article>
-        <article className="report-stat resolved">
-          <span>Staff</span>
-          <strong>{counts.staff}</strong>
-        </article>
-      </div>
-
-      {message ? (
-        <div className="admin-message" role="status">
-          <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">
-            Dismiss
-          </button>
+      <div className="resident-panel staff-directory-panel" aria-busy={isLoading}>
+        <div className="resident-panel-heading">
+          <div>
+            <h2>Office accounts</h2>
+            <p className="staff-account-summary">
+              {counts.total} accounts <span aria-hidden="true">·</span> {counts.admins} {counts.admins === 1 ? "administrator" : "administrators"} <span aria-hidden="true">·</span> {counts.staff} staff
+            </p>
+          </div>
+          <div className="staff-toolbar-actions">
+            <RefreshButton loading={isLoading} onClick={loadAccounts} />
+            {canManage ? (
+              <button
+                type="button"
+                className="primary-admin-button"
+                onClick={() => {
+                  setMessage("");
+                  setShowCreate(true);
+                }}
+              >
+                <UserPlus size={17} />
+                Add staff account
+              </button>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+        <div className="directory-tools">
+          <label className="resident-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              aria-label="Search staff accounts"
+              placeholder="Search name, email, or role…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query ? (
+              <button type="button" aria-label="Clear staff search" onClick={() => setQuery("")}>
+                <X size={16} />
+              </button>
+            ) : null}
+          </label>
+          <span role="status">
+            {query.trim() ? `${visibleAccounts.length} ${visibleAccounts.length === 1 ? "account" : "accounts"} matching “${query.trim()}”` : ""}
+          </span>
+        </div>
 
+        {message && !showCreate && !deleteTarget && !roleTarget ? (
+          <div className="admin-message" role="status">
+            <span>{message}</span>
+            <button onClick={() => setMessage("")} type="button">
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
+        <div className="resident-table staff-directory-table">
+          <div className="resident-table-head staff-directory-head">
+            <span>Account</span>
+            <span>Status</span>
+            <span>Role</span>
+            <span className="staff-actions-heading">Actions</span>
+          </div>
+
+          {visibleAccounts.length === 0 && !isLoading ? (
+            <div className="empty-state">
+              No office accounts match this search.
+            </div>
+          ) : (
+            visibleAccounts.map((account) => (
+              <article
+                className="resident-row staff-directory-row"
+                key={account.id}
+              >
+                <div className="resident-person">
+                  <span className="resident-avatar fallback">
+                    <ShieldCheck size={19} />
+                  </span>
+                  <div className="staff-directory-identity">
+                    <strong>
+                      {account.full_name || "Unnamed office user"}
+                    </strong>
+                    <span>{account.email?.trim() || "No email saved"}</span>
+                  </div>
+                </div>
+                <div className="staff-directory-cell">
+                  <span
+                    className={`status-badge ${getAccountStatusClassName(account.status)}`}
+                  >
+                    {getAccountStatusLabel(account.status)}
+                  </span>
+                </div>
+                <div className="staff-directory-cell">
+                  <UiDropdown
+                    ariaLabel={`Change role for ${account.full_name || account.id}`}
+                    disabled={!canManage || isWorking || isLoading}
+                    options={roleOptions}
+                    value={account.role}
+                    onChange={(nextRole) =>
+                      handleRoleChange(account, nextRole as "admin" | "staff")
+                    }
+                  />
+                </div>
+                <div className="row-actions staff-directory-actions">
+                  <button
+                    className="staff-delete-button"
+                    aria-label={`Delete ${account.full_name || "office account"}`}
+                    disabled={!canManage || isWorking || isLoading}
+                    onClick={() => {
+                      setMessage("");
+                      setDeleteTarget(account);
+                    }}
+                    title="Delete account"
+                    type="button"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
       {!canManage ? (
         <div className="empty-state">
           Only administrators can manage office accounts.
@@ -224,20 +319,18 @@ export default function StaffAccountsPage() {
       ) : showCreate ? (
         <Modal
           title="Create staff account"
+          className="staff-account-dialog"
           onClose={() => {
             if (!isWorking) setShowCreate(false);
           }}
         >
           <section className="announcement-panel staff-create-panel">
-            <div className="announcement-section-header">
-              <span>
-                <UserPlus size={20} />
-              </span>
+            <div className="modal-header">
               <div>
-                <h3>Create Staff Account</h3>
-                <p>Provision a new office account with staff access.</p>
+                <h2>Create staff account</h2>
+                <p>Staff can handle daily office services.</p>
               </div>
-              <em>Admin only</em>
+              <button type="button" aria-label="Close" disabled={isWorking} onClick={() => setShowCreate(false)}><X size={20} /></button>
             </div>
             {message ? (
               <div className="admin-message" role="status">
@@ -315,106 +408,33 @@ export default function StaffAccountsPage() {
         </Modal>
       ) : null}
 
-      <div className="resident-panel staff-directory-panel">
-        <div className="resident-panel-heading">
-          <div>
-            <h3>Office User Directory</h3>
-            <p>
-              Review office accounts and update their assigned access level.
-            </p>
-          </div>
-          <button disabled={isLoading} onClick={loadAccounts} type="button">
-            Refresh
-          </button>
-        </div>
-        <div className="directory-tools">
-          <label className="resident-search">
-            <input
-              aria-label="Search staff accounts"
-              placeholder="Search name, email, or role…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          <span>{visibleAccounts.length} accounts</span>
-        </div>
-        <div className="role-guidance">
-          <strong>Staff</strong> handle daily services.{" "}
-          <strong>Administrators</strong> also manage analytics, office
-          accounts, and report deletion.
-        </div>
-        <div className="resident-table staff-directory-table">
-          <div className="resident-table-head staff-directory-head">
-            <span>Account</span>
-            <span>Status</span>
-            <span>Role</span>
-            <span>Actions</span>
-          </div>
-
-          {visibleAccounts.length === 0 && !isLoading ? (
-            <div className="empty-state">
-              No office accounts match this search.
+      {roleTarget ? (
+        <Modal
+          title="Change account role"
+          className="staff-account-dialog"
+          onClose={() => { if (!isWorking) setRoleTarget(null); }}
+        >
+          <div className="reject-modal">
+            <div className="modal-header">
+              <div>
+                <h2>Change account role</h2>
+                <p>Change {roleTarget.account.full_name || "this account"} to {roleTarget.nextRole === "admin" ? "Administrator" : "Staff"}?</p>
+              </div>
+              <button type="button" aria-label="Close" disabled={isWorking} onClick={() => setRoleTarget(null)}><X size={20} /></button>
             </div>
-          ) : (
-            visibleAccounts.map((account) => (
-              <article
-                className="resident-row staff-directory-row"
-                key={account.id}
-              >
-                <div className="resident-person">
-                  <span className="resident-avatar fallback">
-                    <ShieldCheck size={19} />
-                  </span>
-                  <div className="staff-directory-identity">
-                    <strong>
-                      {account.full_name || "Unnamed office user"}
-                    </strong>
-                    <span>{account.email?.trim() || "No email saved"}</span>
-                  </div>
-                </div>
-                <div className="staff-directory-cell">
-                  <span
-                    className={`status-badge ${getAccountStatusClassName(account.status)}`}
-                  >
-                    {getAccountStatusLabel(account.status)}
-                  </span>
-                </div>
-                <div className="staff-directory-cell">
-                  <span
-                    className={`status-badge ${account.role === "admin" ? "approved" : "info"}`}
-                  >
-                    {account.role === "admin" ? "Admin" : "Staff"}
-                  </span>
-                </div>
-                <div className="row-actions staff-directory-actions">
-                  <UiDropdown
-                    ariaLabel={`Change role for ${account.full_name || account.id}`}
-                    disabled={!canManage || isWorking}
-                    options={roleOptions}
-                    value={account.role}
-                    onChange={(nextRole) =>
-                      handleRoleChange(account, nextRole as "admin" | "staff")
-                    }
-                  />
-                  <button
-                    className="staff-delete-button"
-                    aria-label={`Delete ${account.full_name || "office account"}`}
-                    disabled={isWorking}
-                    onClick={() => {
-                      setMessage("");
-                      setDeleteTarget(account);
-                    }}
-                    title="Delete account"
-                    type="button"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </div>
+            <p className="staff-role-description">
+              {roleTarget.nextRole === "admin"
+                ? "Administrators can also access analytics, manage office accounts, and delete reports."
+                : "Staff can handle daily services. Administrator permissions will be removed."}
+            </p>
+            {message ? <div className="admin-message" role="alert">{message}</div> : null}
+            <div className="modal-actions">
+              <button type="button" className="secondary-admin-button" disabled={isWorking} onClick={() => setRoleTarget(null)}>Cancel</button>
+              <button type="button" className="primary-admin-button" disabled={isWorking} onClick={handleRoleConfirmed}>{isWorking ? "Saving…" : "Change role"}</button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
       {deleteTarget ? (
         <DeleteOfficeAccountDialog
           message={message}
@@ -442,7 +462,7 @@ function DeleteOfficeAccountDialog({
   onConfirm: () => void;
 }) {
   return (
-    <Modal title="Delete office account" onClose={onClose}>
+    <Modal title="Delete office account" className="staff-account-dialog" onClose={() => { if (!isWorking) onClose(); }}>
       <div
         className="reject-modal"
         onClick={(event) => event.stopPropagation()}
@@ -455,7 +475,7 @@ function DeleteOfficeAccountDialog({
               directory and delete its login access?
             </p>
           </div>
-          <button onClick={onClose} type="button" aria-label="Close">
+          <button onClick={onClose} disabled={isWorking} type="button" aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -481,6 +501,7 @@ function DeleteOfficeAccountDialog({
         <div className="modal-actions">
           <button
             className="secondary-admin-button"
+            disabled={isWorking}
             onClick={onClose}
             type="button"
           >

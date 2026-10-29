@@ -8,18 +8,20 @@ export function Modal({
   title,
   onClose,
   className = "",
+  dismissible = true,
 }: {
   children: ReactNode | ((close:()=>void)=>ReactNode);
   title: string;
   onClose: () => void;
   className?: string;
+  dismissible?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const closingRef=useRef(false);
   const [closing,setClosing]=useState(false);
   function requestClose(){
-    if(closingRef.current)return;
+    if(!dismissible||closingRef.current)return;
     // Existing callers may have unsaved-change guards. Their close remains synchronous.
     if(typeof children!=='function'||window.matchMedia('(prefers-reduced-motion: reduce)').matches){onClose();return;}
     closingRef.current=true;setClosing(true);

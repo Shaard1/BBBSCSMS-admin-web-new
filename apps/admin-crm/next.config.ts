@@ -21,8 +21,8 @@ const nextConfig: NextConfig = {
           // Keep eval blocked in production.
           `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
           "style-src 'self' 'unsafe-inline'",
-          `img-src 'self' data: blob:${supabaseSources} https://tile.openstreetmap.org`,
-          `connect-src 'self'${supabaseSources} wss://*.supabase.co`,
+          `img-src 'self' data: blob:${supabaseSources} https://tile.openstreetmap.org https://tiles.openfreemap.org`,
+          `connect-src 'self'${supabaseSources} wss://*.supabase.co https://tiles.openfreemap.org`,
           "font-src 'self' data:",
           "worker-src 'self' blob:",
           "object-src 'none'",

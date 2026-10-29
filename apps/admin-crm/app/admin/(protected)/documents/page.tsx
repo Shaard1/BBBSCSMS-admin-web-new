@@ -3,12 +3,13 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import {DocumentRequestDialog} from "@/components/document-request-dialog";
-import { FileBadge2, RefreshCw, Search } from "lucide-react";
+import { FileBadge2, Search } from "lucide-react";
+import { UiDropdown } from "@/components/ui-dropdown";
+import { RefreshButton } from "@/components/workspace-ui";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchDocumentRequests,
 
-  summarizeDocumentRequests,
   updateDocumentRequestStatus,
   reopenDocumentRequest,
 } from "@/lib/document-requests";
@@ -31,6 +32,7 @@ type FilterValue = (typeof filters)[number]["value"];
 export default function DocumentRequestsPage() {
   const [requests, setRequests] = useState<DocumentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +41,6 @@ export default function DocumentRequestsPage() {
   const selectedRequest =
     requests.find((request) => request.id === selectedId) ?? null;
 
-  const stats = useMemo(() => summarizeDocumentRequests(requests), [requests]);
   const filteredRequests = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -88,10 +89,11 @@ export default function DocumentRequestsPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to load document requests.",
+          : "Unable to load certificate requests.",
       );
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }
 
@@ -123,7 +125,7 @@ export default function DocumentRequestsPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to update the document request.",
+          : "Unable to update the certificate request.",
       );
     } finally {
       setIsWorking(false);
@@ -146,54 +148,47 @@ export default function DocumentRequestsPage() {
     } finally { setIsWorking(false); }
   }
 
-  if (isLoading && requests.length === 0) return <AdminPageSkeleton href="/admin/documents" />;
+  if (!hasLoaded) return <AdminPageSkeleton href="/admin/documents" />;
 
   return (
     <section className="admin-page reports-page documents-page">
 
-      <div className="report-stats documents-stats">
-        <StatCard label="Total Requests" tone="dark" value={stats.total} />
-        <StatCard label="Pending Review" tone="pending" value={stats.pending} />
-        <StatCard
-          label="Awaiting Payment"
-          tone="progress"
-          value={stats.awaitingPayment}
-        />
-        <StatCard label="Processing" tone="progress" value={stats.processing} />
-        <StatCard
-          label="Ready for Release"
-          tone="resolved"
-          value={stats.readyForRelease}
-        />
-        <StatCard label="Completed" tone="resolved" value={stats.completed} />
-      </div>
-
-      <div className="reports-toolbar">
-        <div className="filter-tabs compact-tabs">
-          {filters.map((filter) => (
-            <button
-              aria-pressed={selectedFilter === filter.value}
-              className={selectedFilter === filter.value ? "active" : ""}
-              key={filter.value}
-              onClick={() => setSelectedFilter(filter.value)}
-              type="button"
-            >
-              {filter.label}
-            </button>
-          ))}
+      <div className="resident-panel document-requests-panel" aria-busy={isLoading}>
+        <div className="resident-panel-heading">
+          <div>
+            <h2>Submitted requests</h2>
+            <p>{requests.length} {requests.length === 1 ? "request" : "requests"}</p>
+          </div>
         </div>
+      <div className="certificate-queue-tools">
         <label className="resident-search">
-          <Search size={17} />
+          <Search size={17} aria-hidden="true" />
           <input
-            aria-label="Search document requests"
-            placeholder="Search name, document, or request ID…"
+            aria-label="Search certificate requests"
+            placeholder="Search name, certificate, or ID…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </label>
+        <div className="certificate-status-filter">
+          <span>Status</span>
+          <UiDropdown
+            ariaLabel="Filter certificate requests by status"
+            value={selectedFilter}
+            options={filters.map(filter => ({ ...filter }))}
+            onChange={value => setSelectedFilter(value as FilterValue)}
+          />
+        </div>
+        {searchQuery.trim() || selectedFilter !== "all" ? (
+          <button type="button" className="secondary-admin-button" onClick={() => { setSearchQuery(""); setSelectedFilter("all"); }}>Reset filters</button>
+        ) : null}
+        <RefreshButton loading={isLoading} onClick={loadRequests} />
+      </div>
+      <div className="certificate-filter-summary" role="status">
+        {searchQuery.trim() || selectedFilter !== "all" ? `${filteredRequests.length} matching ${filteredRequests.length === 1 ? "request" : "requests"}` : ""}
       </div>
 
-      {message ? (
+      {message && !selectedRequest ? (
         <div className="admin-message" role="status">
           <span>{message}</span>
           <button onClick={() => setMessage("")} type="button">
@@ -202,26 +197,12 @@ export default function DocumentRequestsPage() {
         </div>
       ) : null}
 
-      <div className="resident-panel resident-panel-improved document-requests-panel">
-        <div className="resident-panel-heading resident-panel-heading-improved">
-          <div>
-            <h3>Submitted Requests</h3>
-            <p>
-              Open a request to review the resident details, form values, and
-              payment preference.
-            </p>
-          </div>
-          <button disabled={isLoading} onClick={loadRequests} type="button">
-            <RefreshCw size={16} /> Refresh
-          </button>
-        </div>
-
         <div className="document-request-list">
           {requests.length === 0 && !isLoading ? (
-            <div className="empty-state">No document requests found.</div>
+            <div className="empty-state">No certificate requests yet.</div>
           ) : filteredRequests.length === 0 && !isLoading ? (
             <div className="empty-state">
-              No document requests match your current search/filter.
+              No certificate requests match these filters.
             </div>
           ) : (
             filteredRequests.map((request) => (
@@ -266,29 +247,12 @@ export default function DocumentRequestsPage() {
           message={message}
           isWorking={isWorking}
           request={selectedRequest}
-          onClose={() => setSelectedId(null)}
+          onClose={() => { if (!isWorking) setSelectedId(null); }}
           onStatusChange={handleStatusChange}
           onReopen={handleReopen}
         />
       ) : null}
     </section>
-  );
-}
-
-function StatCard({
-  label,
-  tone,
-  value,
-}: {
-  label: string;
-  tone: string;
-  value: number;
-}) {
-  return (
-    <article className={`report-stat ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
   );
 }
 
