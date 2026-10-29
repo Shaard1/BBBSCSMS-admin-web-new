@@ -56,7 +56,7 @@ const adminPageResults = [
         id: "page-documents",
         category: "page",
         href: "/admin/documents",
-        title: "Document Requests",
+        title: "Certificates Request",
         subtitle: "Review certificate and permit requests from residents",
         badge: "Page",
         badgeTone: "info" as const,
@@ -212,7 +212,7 @@ async function searchDocumentRequests(likePattern: string): Promise<GlobalSearch
         id: `document-${request.id}`,
         category: "document",
         href: `/admin/documents?request=${request.id}`,
-        title: request.certificate_title?.trim() || "Document Request",
+        title: request.certificate_title?.trim() || "Certificate Request",
         subtitle: request.resident_name?.trim() || request.purpose?.trim() || request.id,
         badge: normalizeDocumentStatus(request.status),
         badgeTone: normalizeDocumentStatusTone(request.status)

@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
       icon: FileText,
     },
     {
-      title: "Process document requests",
+      title: "Process certificate requests",
       detail: "Review applications, fees, and requirements",
       count: pendingDocuments.length,
       href: "/admin/documents",

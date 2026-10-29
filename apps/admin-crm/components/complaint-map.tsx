@@ -1,11 +1,12 @@
 "use client";
 
 import L from "leaflet";
+import { StyledBasemap } from "./styled-basemap";
+import { reportCategoryPaths } from "./report-category-icon";
 import { useEffect } from "react";
 import {
   MapContainer,
   Marker,
-  TileLayer,
   Tooltip,
   useMap,
 } from "react-leaflet";
@@ -33,13 +34,15 @@ export function ComplaintMap({
     <MapContainer
       center={barangayCenter}
       zoom={13}
-      scrollWheelZoom={false}
+      minZoom={1}
+      maxZoom={19}
+      scrollWheelZoom={true}
+      zoomSnap={0}
+      zoomDelta={0.5}
+      wheelPxPerZoomLevel={240}
       className="leaflet-map"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <StyledBasemap />
       <MapFocus selectedReport={selectedReport} />
       {reports.map((report) => (
         <Marker
@@ -47,6 +50,7 @@ export function ComplaintMap({
           icon={createPinIcon(
             statusColor(normalizeReportStatus(report.status)),
             selectedReport?.id === report.id,
+            report.category,
           )}
           title={`${shortReportCategory(report.category)}: ${report.reporter_name ?? "Resident"}`}
           alt={`${shortReportCategory(report.category)} report marker`}
@@ -85,16 +89,14 @@ function MapFocus({
   return null;
 }
 
-function createPinIcon(color: string, selected: boolean) {
+function createPinIcon(color: string, selected: boolean, category?: string) {
   const size = selected ? 58 : 48;
 
   return L.divIcon({
     className: "",
     html: `
       <div class="map-pin ${selected ? "selected" : ""}" style="width:${size}px;height:${size}px">
-        <svg viewBox="0 0 24 24" width="${selected ? 40 : 34}" height="${selected ? 40 : 34}" aria-hidden="true">
-          <path fill="${color}" d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z"/>
-        </svg>
+        <span class="map-category-pin" style="border-color:${color};color:${color}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${reportCategoryPaths(category).map(d => '<path d="'+d+'"/>').join('')}</svg></span>
       </div>
     `,
     iconAnchor: [size / 2, size / 2],

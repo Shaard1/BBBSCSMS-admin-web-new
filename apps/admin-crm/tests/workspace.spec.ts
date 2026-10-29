@@ -8,7 +8,7 @@ const tabs = [
   ["analytics", "Service analytics"],
   ["staff", "Staff accounts"],
   ["reports", "Community reports"],
-  ["documents", "Document requests"],
+  ["documents", "Certificates Request"],
   ["map", "Complaint map"],
   ["residents", "Resident accounts"],
   ["announcements", "Announcements"],
@@ -17,9 +17,6 @@ const tabs = [
 async function login(page: Page, role: "admin" | "staff" = "admin") {
   await page.goto("/admin/login");
   await page
-    .getByLabel(role === "admin" ? "Administrator" : "Staff", { exact: true })
-    .check();
-  await page
     .getByLabel("Email address", { exact: true })
     .fill(role + "@example.test");
   await page
@@ -27,7 +24,7 @@ async function login(page: Page, role: "admin" | "staff" = "admin") {
     .fill(" synthetic password with spaces ");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Community overview" }),
+    page.getByRole("heading", { level: 1, name: "Dashboard", exact: true }),
   ).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
 }
@@ -208,11 +205,11 @@ test("document requests: consecutive updates, rejection validation, failure reco
     .getByRole("button", { name: "View details", exact: true })
     .first()
     .click();
-  const dialog = page.getByRole("dialog", { name: "Document request details" });
-  await dialog.getByRole("button",{name:"Review request",exact:true}).click();
+  const dialog = page.getByRole("dialog", { name: "Certificate request details" });
+  await dialog.getByRole("button",{name:"Review",exact:true}).click();
   await audit(page);
   await chooseDropdownOption(page, dialog, "Update status", "Processing");
-  await dialog.getByRole("button", { name: "Update request" }).click();
+  await dialog.getByRole("button", { name: /^(Save review|Update request)$/ }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
     "Processing",
   );
@@ -222,18 +219,18 @@ test("document requests: consecutive updates, rejection validation, failure reco
     "Update status",
     "Ready for release",
   );
-  await dialog.getByRole("button", { name: "Update request" }).click();
+  await dialog.getByRole("button", { name: /^(Save review|Update request)$/ }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
     "Ready for release",
   );
   await chooseDropdownOption(page, dialog, "Update status", "Rejected");
   await expect(
-    dialog.getByRole("button", { name: "Update request" }),
+    dialog.getByRole("button", { name: /^(Save review|Update request)$/ }),
   ).toBeDisabled();
   await dialog
     .getByLabel("Reason shown to the resident")
     .fill("Please provide a readable proof of residence.");
-  await dialog.getByRole("button", { name: "Update request" }).click();
+  await dialog.getByRole("button", { name: /^(Save review|Update request)$/ }).click();
   await expect(dialog.locator(".document-request-current")).toContainText(
     "Rejected",
   );
@@ -481,6 +478,13 @@ test("staff: searchable directory, create form and role guard", async ({
 }) => {
   await login(page);
   await page.goto("/admin/staff");
+  await page.getByLabel("Search staff accounts").fill("missing-account");
+  await expect(page.getByText("No office accounts match this search.")).toBeVisible();
+  await page.getByRole("button", { name: "Clear staff search", exact: true }).click();
+  await expect(page.locator(".staff-directory-row")).toHaveCount(2);
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Office accounts", exact: true })).toBeVisible();
+  await expect(page.locator(".staff-directory-panel")).toHaveAttribute("aria-busy", "false");
   await page.getByLabel("Search staff accounts").fill("Jamie");
   await expect(page.locator(".staff-directory-row")).toHaveCount(1);
   await page
@@ -519,6 +523,37 @@ test("staff: searchable directory, create form and role guard", async ({
   await expect(
     page.getByRole("status").filter({ hasText: "At least one administrator" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss", exact: true }).click();
+  await page.getByRole("button", { name: "Clear staff search", exact: true }).click();
+  await page.getByRole("button", { name: "Delete Jamie Santos", exact: true }).click();
+  const deleteDialog = page.getByRole("dialog", { name: "Delete office account", exact: true });
+  await expect(deleteDialog).toContainText("Jamie Santos");
+  await audit(page);
+  await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(deleteDialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete Jamie Santos", exact: true })).toBeFocused();
+  await chooseDropdownOption(page, page, "Change role for Jamie Santos", "Admin");
+  const roleDialog = page.getByRole("dialog", { name: "Change account role", exact: true });
+  await expect(roleDialog).toContainText("Administrator");
+  await audit(page);
+  await roleDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(roleDialog).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Change role for Jamie Santos", exact: true })).toHaveText("Staff");
+  await chooseDropdownOption(page, page, "Change role for Jamie Santos", "Admin");
+  await roleDialog.getByRole("button", { name: "Change role", exact: true }).click();
+  await expect(roleDialog).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Change role for Jamie Santos", exact: true })).toHaveText("Admin");
+  await page.getByRole("button", { name: "Delete Jamie Santos", exact: true }).click();
+  await deleteDialog.getByRole("button", { name: "Delete account", exact: true }).click();
+  await expect(deleteDialog).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Jamie Santos account deleted." })).toBeVisible();
+  await page.getByRole("button", { name: "Add staff account", exact: true }).click();
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect(page.getByRole("button", { name: "Add staff account", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await audit(page);
 });
 
 test("announcements: library, drafts, composer, preview and safe content", async ({
@@ -560,13 +595,50 @@ test("map: filters, queue and marker selection remain synchronized", async ({
   await login(page);
   await page.goto("/admin/map");
   await expect(page.locator(".queue-list > button")).toHaveCount(3);
-  await page.getByRole("button", { name: "Resolved", exact: true }).click();
+  const map = page.locator('.leaflet-map');
+  await expect(map).toBeVisible();
+  const zoomLevel = () => page.locator('.leaflet-proxy').evaluate(element => {
+    const scale = element.getAttribute('style')?.match(/scale\(([^)]+)\)/)?.[1];
+    return Math.log2(Number(scale)) - 1;
+  });
+  const initialZoom = await zoomLevel();
+  await map.hover();
+  await page.mouse.wheel(0, -30);
+  await expect.poll(zoomLevel).toBeGreaterThan(initialZoom);
+  const wheelZoom = await zoomLevel();
+  expect(wheelZoom - initialZoom).toBeLessThan(0.5);
+  await page.locator('.map-side-panel').hover();
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(300);
+  expect(await zoomLevel()).toBe(wheelZoom);
+  await chooseDropdownOption(page, page, "Filter map by status", "Resolved");
   await expect(page.locator(".queue-list > button")).toHaveCount(1);
   await page.locator(".queue-list > button").first().click();
   await expect(page.locator(".map-details-panel")).toContainText("Drainage");
-  await page.getByRole("button", { name: "Pending", exact: true }).click();
+  await chooseDropdownOption(page, page, "Filter map by status", "Pending");
   await expect(page.locator(".map-details-panel")).toHaveCount(0);
   await expect(page.locator(".queue-list > button")).toHaveCount(2);
+  for (const name of ['Active', 'All', 'Pending', 'In Progress', 'Resolved', 'Active', 'Road Damage', 'Garbage', 'Streetlight', 'Drainage', 'Noise', 'Others', 'All Categories']) {
+    const filter = ['Active', 'All', 'Pending', 'In Progress', 'Resolved'].includes(name) ? 'Filter map by status' : 'Filter map by category';
+    await chooseDropdownOption(page, page, filter, name === 'All Categories' ? 'All categories' : name);
+  }
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Map filters', exact: true })).toBeVisible();
+  await expect(page.locator('.queue-list > button')).toHaveCount(3);
+  for (let index = 0; index < 3; index++) {
+    await page.locator('.queue-list > button').nth(index).click();
+    await expect(page.locator('.map-details-panel')).toBeVisible();
+    await page.getByRole('button', { name: 'Delete Report', exact: true }).click();
+    const confirmation = page.getByRole('dialog', { name: 'Delete report', exact: true });
+    await expect(confirmation).toContainText('cannot be undone');
+    await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Close details', exact: true }).click();
+  }
+  for (const width of [1440, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await audit(page);
+  }
 });
 
 test("mobile navigation: focus trap, Escape, route navigation", async ({
@@ -589,12 +661,12 @@ test("mobile navigation: focus trap, Escape, route navigation", async ({
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
   await page
     .getByRole("navigation")
-    .getByRole("link", { name: /^Document Requests/ })
+    .getByRole("link", { name: /^Certificates Request/ })
     .click();
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Document requests",
+      name: "Certificates Request",
       exact: true,
     }),
   ).toBeVisible();
@@ -607,14 +679,15 @@ test("failed document updates remain visible in the dialog and can be retried", 
   await login(page);
   await page.goto("/admin/documents");
   await page.getByRole("button", { name: "View details", exact: true }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Document request details" });
+  const dialog = page.getByRole("dialog", { name: "Certificate request details" });
+  await dialog.getByRole("button", { name: "Review", exact: true }).click();
   await chooseDropdownOption(page, dialog, "Update status", "Processing");
   await page.route("**/api/admin/document-requests/*", route => route.fulfill({ status: 503, json: { message: "Connection interrupted. Please try again." } }));
-  await dialog.getByRole("button", { name: "Update request" }).click();
+  await dialog.getByRole("button", { name: /^(Save review|Update request)$/ }).click();
   await expect(dialog.getByRole("status").filter({ hasText: "Connection interrupted" })).toBeVisible();
   await expect(dialog.locator(".document-request-current")).toContainText("Pending");
   await page.unroute("**/api/admin/document-requests/*");
-  await dialog.getByRole("button", { name: "Update request" }).click();
+  await dialog.getByRole("button", { name: /^(Save review|Update request)$/ }).click();
   await expect(dialog.locator(".document-request-current")).toContainText("Processing");
 });
 
@@ -692,7 +765,7 @@ test('resident accounts separate phone ownership, audit access changes, and rest
 test('document detail sections avoid duplication and collapse review history',async({page})=>{
  await login(page);await page.goto('/admin/documents');
  await page.getByRole('button',{name:'View details',exact:true}).first().click();
- const dialog=page.getByRole('dialog',{name:'Document request details'});
+ const dialog=page.getByRole('dialog',{name:'Certificate request details'});
  await expect(dialog.getByRole('button',{name:'Overview',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(dialog.getByText('resident0@example.test',{exact:true})).toHaveCount(0);
  await expect(dialog.getByText('Purok 3, Bancao-Bancao',{exact:true})).toHaveCount(1);
@@ -705,7 +778,7 @@ test('document detail sections avoid duplication and collapse review history',as
  await chooseDropdownOption(page, dialog, 'Office payment decision', 'No fee required / authorized waiver');
  await expect(dialog.getByLabel('Official receipt reference')).toHaveCount(0);
  await dialog.getByLabel('Reason no fee applies').fill('Synthetic free service');
- await dialog.getByRole('button',{name:'Update request'}).click();
+ await dialog.getByRole('button',{name:/^(Save review|Update request)$/}).click();
   await expect(dialog.getByRole('status')).toHaveText('Review details saved.');
   await expect(dialog.locator('.document-detail-content [role="status"]')).toHaveCount(0);
  await dialog.getByRole('button',{name:'History',exact:true}).click();
@@ -720,10 +793,10 @@ test('document dialog stays usable on a small phone and closed requests are read
  await page.setViewportSize({width:390,height:700});
  await login(page);await page.goto('/admin/documents');
  await page.getByRole('button',{name:'View details',exact:true}).first().click();
- const dialog=page.getByRole('dialog',{name:'Document request details'});
+ const dialog=page.getByRole('dialog',{name:'Certificate request details'});
  for(const section of ['Overview','Review','History']){
   await dialog.getByRole('button',{name:section,exact:true}).click();
-  await expect(dialog.getByRole('button',{name:'Cancel',exact:true})).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Close',exact:true})).toBeVisible();
   expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
   const buttonSizes=await dialog.locator('.document-detail-footer button').evaluateAll(buttons=>buttons.map(button=>({text:button.textContent,width:button.clientWidth,scroll:button.scrollWidth,right:button.getBoundingClientRect().right,parentRight:button.parentElement!.getBoundingClientRect().right})));
   expect(buttonSizes.every(b=>b.scroll<=b.width+1&&b.right<=b.parentRight)).toBe(true);
@@ -733,9 +806,9 @@ test('document dialog stays usable on a small phone and closed requests are read
  await dialog.getByRole('button',{name:'Review',exact:true}).click();
  await chooseDropdownOption(page,dialog,'Update status','Rejected');
  await dialog.getByLabel('Reason shown to the resident').fill('Synthetic missing requirement');
- await dialog.getByRole('button',{name:'Update request'}).click();
+ await dialog.getByRole('button',{name:/^(Save review|Update request)$/}).click();
  await expect(dialog.getByText('This request is closed. Details and recorded reviews are read-only.')).toBeVisible();
- await expect(dialog.getByRole('button',{name:'Update request'})).toHaveCount(0);
+ await expect(dialog.getByRole('button',{name:/^(Save review|Update request)$/})).toHaveCount(0);
  await expect(dialog.getByLabel('Office payment decision')).toHaveCount(0);
  await dialog.getByRole('button',{name:'Overview',exact:true}).click();
  await expect(dialog.getByText('Synthetic missing requirement',{exact:true})).toBeVisible();
@@ -751,14 +824,14 @@ test('interaction motion is short, settles at rest and respects reduced motion',
  for(const preference of ['no-preference','reduce'] as const){
   await page.emulateMedia({reducedMotion:preference});
   await page.getByRole('button',{name:'View details',exact:true}).first().click();
-  const dialog=page.getByRole('dialog',{name:'Document request details'});
+  const dialog=page.getByRole('dialog',{name:'Certificate request details'});
   const motion=await dialog.evaluate(element=>({name:getComputedStyle(element).animationName,duration:getComputedStyle(element).animationDuration}));
   if(preference==='reduce')expect(motion.name).toBe('none');else{expect(motion.name).toBe('workspace-dialog-enter');expect(parseFloat(motion.duration)).toBeLessThanOrEqual(.2);}
   await dialog.getByRole('button',{name:'Review',exact:true}).click();
-  await expect(dialog.getByLabel('Office payment decision')).toBeVisible();
+  await expect(dialog.getByRole('combobox', { name: 'Office payment decision', exact: true })).toBeVisible();
   await dialog.evaluate(async()=>{await new Promise<void>(resolve=>setTimeout(resolve,240));});
   expect(await dialog.evaluate(element=>element.getAnimations({subtree:true}).filter(a=>a.playState==='running').length)).toBe(0);
-  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button',{name:'View details',exact:true}).first()).toBeFocused();
  }
@@ -766,19 +839,19 @@ test('interaction motion is short, settles at rest and respects reduced motion',
 
 test("document unread badges clear on opening details, persist, and isolate staff", async ({ page }) => {
   await login(page);
-  const documentsLink = page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: /Document Requests/ });
+  const documentsLink = page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: /Certificates Request/ });
   await expect(documentsLink.locator("em")).toHaveText("1");
   await page.getByRole("button", { name: "Open notifications" }).click();
-  const notification = page.locator(".notification-item").filter({ hasText: "Document Requests" });
+  const notification = page.locator(".notification-item").filter({ hasText: "Certificates Request" });
   await expect(notification).toContainText("1 unread item");
   await notification.click();
   await expect(page).toHaveURL(/\/admin\/documents/);
   await expect(documentsLink.locator("em")).toHaveText("1");
   await page.locator(".document-request-card").filter({ hasText: "Barangay Clearance" }).getByRole("button", { name: "View details", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Document request details" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Certificate request details" })).toBeVisible();
   await expect(documentsLink.locator("em")).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1, name: "Document requests", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Certificates Request", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation").getByRole("link", { name: /Community Reports/ }).locator("em")).toHaveText("2");
   await expect(documentsLink.locator("em")).toHaveCount(0);
   await expect(page.locator(".document-request-card").filter({ hasText: "Barangay Clearance" })).toContainText("Pending");
@@ -798,9 +871,9 @@ test("navigation shows the destination skeleton while data is loading", async ({
   });
   try {
     const navigation = page.getByRole("navigation", { name: "Main navigation" });
-    await navigation.getByRole("link", { name: /Document Requests/ }).click();
-    await expect(navigation.getByRole("link", { name: /Document Requests/ })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { level: 1, name: "Document requests", exact: true })).toBeVisible();
+    await navigation.getByRole("link", { name: /Certificates Request/ }).click();
+    await expect(navigation.getByRole("link", { name: /Certificates Request/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { level: 1, name: "Certificates Request", exact: true })).toBeVisible();
     await expect(page.locator(".page-skeleton")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open notifications" })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
@@ -823,12 +896,12 @@ test("opening the review pane never submits a document update", async ({ page })
   page.on("request", request => {
     if (request.method() === "PATCH" && request.url().includes("/api/admin/document-requests/")) updates++;
   });
-  const dialog = page.getByRole("dialog", { name: "Document request details" });
-  await dialog.getByRole("button", { name: "Review request", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Update request", exact: true })).toBeEnabled();
+  const dialog = page.getByRole("dialog", { name: "Certificate request details" });
+  await dialog.getByRole("button", { name: "Review", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: /^(Save review|Update request)$/, exact: true })).toBeEnabled();
   await expect(dialog.locator(".document-request-current")).toContainText("Pending");
   await dialog.getByRole("button", { name: "Overview", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Review request", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Review", exact: true })).toBeVisible();
   expect(updates).toBe(0);
 });
 
@@ -861,8 +934,8 @@ test("private evidence refreshes expired links on every opening and denies fail 
   await login(page);
   await page.goto('/admin/documents');
   await page.getByRole('button', { name: 'View details', exact: true }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Document request details' });
-  await dialog.getByRole('button', { name: 'Review request', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Certificate request details' });
+  await dialog.getByRole('button', { name: 'Review', exact: true }).click();
   expect(signs).toBe(0);
   for (const kind of ['identity', 'residency', 'authorization', 'identity']) {
     await dialog.getByRole('button', { name: 'Open '+kind+' evidence', exact: true }).click();
@@ -872,6 +945,10 @@ test("private evidence refreshes expired links on every opening and denies fail 
     await expect(image).toHaveAttribute('src', /token=fresh-/);
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
     await expect(preview.getByRole('link', { name: 'Open original' })).toHaveCount(0);
+    await preview.getByRole('button', { name: 'Zoom in', exact: true }).click();
+    await expect(preview.locator('.image-viewer-toolbar')).toContainText('125%');
+    await preview.getByRole('button', { name: 'Zoom out', exact: true }).click();
+    await preview.getByRole('button', { name: 'Reset', exact: true }).click();
     await preview.getByRole('button', { name: 'Close image viewer' }).click();
   }
   expect(signs).toBe(4);
@@ -888,7 +965,7 @@ test('administrator reopens a completed request with a reason and preserved hist
   await login(page);
   await page.goto('/admin/documents');
   await page.getByRole('button',{name:'View details',exact:true}).first().click();
-  const dialog=page.getByRole('dialog',{name:'Document request details'});
+  const dialog=page.getByRole('dialog',{name:'Certificate request details'});
   await dialog.getByRole('button',{name:'Reopen request',exact:true}).click();
   for (const width of [1440,390]) {
     await page.setViewportSize({width,height:900});
@@ -905,7 +982,7 @@ test('administrator reopens a completed request with a reason and preserved hist
   await dialog.getByRole('button',{name:'Confirm reopening'}).click();
   await expect(dialog.getByRole('status')).toContainText('Request reopened.');
   await expect(dialog.locator('.document-request-current')).toContainText('Ready for release');
-  await expect(dialog.getByLabel('Document physically collected after recipient check')).not.toBeChecked();
+  await expect(dialog.getByLabel('Certificate physically collected after recipient check')).not.toBeChecked();
   await expect(dialog.getByLabel('Applicant identity checked')).toBeChecked();
   await expect(dialog.getByLabel('Reason no fee applies')).toHaveValue('Free test service');
   await dialog.getByRole('button',{name:'History',exact:true}).click();
@@ -939,8 +1016,8 @@ test("office payment dropdown fits the review dialog and supports keyboard selec
   await login(page);
   await page.goto('/admin/documents');
   await page.getByRole('button', { name: 'View details', exact: true }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Document request details' });
-  await dialog.getByRole('button', { name: 'Review request', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Certificate request details' });
+  await dialog.getByRole('button', { name: 'Review', exact: true }).click();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const trigger = dialog.getByRole('combobox', { name: 'Office payment decision', exact: true });
@@ -966,7 +1043,118 @@ test("office payment dropdown fits the review dialog and supports keyboard selec
   await expect(dialog.locator('.document-status-preview')).toBeEmpty();
   await chooseDropdownOption(page, dialog, 'Update status', 'Processing');
   await expect(dialog.locator('.document-status-preview')).toHaveText('Saving will change the status to Processing.');
-  await dialog.getByRole('button', { name: 'Update request', exact: true }).click();
+  await dialog.getByRole('button', { name: /^(Save review|Update request)$/, exact: true }).click();
   await expect(dialog.getByRole('status')).toHaveText('Request updated to Processing.');
   await expect(dialog.locator('.document-status-preview')).toBeEmpty();
+});
+
+test('certificate queue filters, search, reset and history retry work at desktop and phone widths', async ({ page }, testInfo) => {
+  await login(page);
+  await page.goto('/admin/documents');
+  await expect(page.getByRole('heading', { level: 1, name: 'Certificates Request', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Certificates Request/ })).toBeVisible();
+  for (const [label, count] of [['Pending', 1], ['Legacy payment pending', 0], ['Processing', 1], ['Ready for Release', 1], ['Completed', 0], ['Rejected', 0], ['All', 3]] as const) {
+    await chooseDropdownOption(page, page, 'Filter certificate requests by status', label);
+    await expect(page.locator('.document-request-card')).toHaveCount(count);
+    if (count === 0) await expect(page.getByText('No certificate requests match these filters.')).toBeVisible();
+  }
+  await page.getByLabel('Search certificate requests', { exact: true }).fill('Maria');
+  await expect(page.locator('.document-request-card')).toHaveCount(1);
+  await expect(page.getByRole('status')).toContainText('1 matching request');
+  await page.getByLabel('Search certificate requests', { exact: true }).fill('missing-applicant');
+  await expect(page.locator('.document-request-card')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Reset filters', exact: true }).click();
+  await expect(page.locator('.document-request-card')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Submitted requests', exact: true })).toBeVisible();
+  await expect(page.locator('.document-requests-panel')).toHaveAttribute('aria-busy', 'false');
+  for (const width of [1440, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(page.getByLabel('Search certificate requests', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await audit(page);
+    await page.screenshot({ path: testInfo.outputPath('certificates-queue-' + width + '.png') });
+  }
+  for (let index = 0; index < 3; index++) {
+    await page.getByRole('button', { name: 'View details', exact: true }).nth(index).click();
+    const dialog = page.getByRole('dialog', { name: 'Certificate request details', exact: true });
+    const sectionControl = dialog.getByRole('button', { name: 'Overview', exact: true });
+    await expect.poll(() => dialog.evaluate(element => element.getAnimations().some(animation => animation.playState === 'running'))).toBe(false);
+    const initialPosition = await sectionControl.boundingBox();
+    for (const pane of ['Overview', 'Review', 'History']) {
+      await dialog.getByRole('button', { name: pane, exact: true }).click();
+      await expect(dialog.getByRole('region', { name: pane + ' details', exact: true })).toBeVisible();
+      await expect.poll(async () => {
+        const position = await sectionControl.boundingBox();
+        return Math.abs(position!.y - initialPosition!.y);
+      }).toBeLessThanOrEqual(1);
+    }
+    await dialog.getByRole('button', { name: 'Close request details', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+  await page.route('**/rest/v1/document_request_reviews*', route => route.fulfill({ status: 503, json: { message: 'Synthetic history outage' } }));
+  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Certificate request details', exact: true });
+  await dialog.getByRole('button', { name: 'History', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Retry history', exact: true })).toBeVisible();
+  await page.unroute('**/rest/v1/document_request_reviews*');
+  await dialog.getByRole('button', { name: 'Retry history', exact: true }).click();
+  await expect(dialog.getByText('No reviews recorded yet.', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Retry history', exact: true })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+});
+
+test('certificate collection requires a recipient and completes the reviewed request', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/documents');
+  await page.getByLabel('Search certificate requests', { exact: true }).fill('Maria');
+  await page.getByRole('button', { name: 'View details', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Certificate request details', exact: true });
+  await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+  await dialog.getByLabel('Applicant identity checked', { exact: true }).check();
+  await dialog.getByLabel('Residency checked', { exact: true }).check();
+  await chooseDropdownOption(page, dialog, 'Office payment decision', 'No fee required / authorized waiver');
+  await dialog.getByLabel('Reason no fee applies', { exact: true }).fill('Synthetic fee waiver');
+  for (const status of ['Processing', 'Ready for release']) {
+    await chooseDropdownOption(page, dialog, 'Update status', status);
+    await dialog.getByRole('button', { name: 'Update request', exact: true }).click();
+    await expect(dialog.locator('.document-request-current')).toContainText(status);
+  }
+  await dialog.getByLabel('Certificate physically collected after recipient check', { exact: true }).check();
+  await expect(dialog.getByLabel('Collected by', { exact: true })).toBeVisible();
+  await dialog.getByLabel('Collected by', { exact: true }).fill('Synthetic recipient');
+  await chooseDropdownOption(page, dialog, 'Update status', 'Completed');
+  await dialog.getByRole('button', { name: 'Update request', exact: true }).click();
+  await expect(dialog.locator('.document-request-current')).toContainText('Completed');
+  await expect(dialog.getByText('Synthetic recipient', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save review', exact: true })).toHaveCount(0);
+  await audit(page);
+});
+
+test('certificate review stays usable when Escape is pressed during saving', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/documents');
+  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Certificate request details', exact: true });
+  await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/admin/document-requests/*', async route => {
+    await waiting;
+    await route.fulfill({ json: { updated: true } });
+  });
+  try {
+    await dialog.getByRole('button', { name: 'Save review', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Updating…', exact: true })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute('data-closing', 'false');
+    await expect(dialog).not.toHaveAttribute('inert');
+    release();
+    await expect(dialog.getByRole('status')).toHaveText('Review details saved.');
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  } finally {
+    release();
+  }
 });

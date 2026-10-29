@@ -4,7 +4,9 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import { Modal } from "@/components/modal";
-import { PageActions } from "@/components/workspace-ui";
+import { ReportCategoryIcon } from "@/components/report-category-icon";
+import { UiDropdown } from "@/components/ui-dropdown";
+import { RefreshButton } from "@/components/workspace-ui";
 import dynamic from "next/dynamic";
 import {
   ChevronLeft,
@@ -13,7 +15,6 @@ import {
   Minus,
   Plus,
   RotateCcw,
-  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -82,7 +83,9 @@ export default function ComplaintMapPage() {
   } | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CommunityReport | null>(null);
   const dragStateRef = useRef<{
     startX: number;
     startY: number;
@@ -106,6 +109,7 @@ export default function ComplaintMapPage() {
       );
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }
 
@@ -135,21 +139,6 @@ export default function ComplaintMapPage() {
     });
   }, [mappedReports, selectedCategory, selectedStatus]);
 
-  const metrics = useMemo(() => {
-    return {
-      pending: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "pending",
-      ).length,
-      progress: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "in progress",
-      ).length,
-      resolved: reports.filter(
-        (report) => normalizeReportStatus(report.status) === "resolved",
-      ).length,
-      mapped: mappedReports.length,
-    };
-  }, [mappedReports.length, reports]);
-
   async function handleDelete(report: CommunityReport) {
     if (isDeleting) return;
     if (!canDelete) {
@@ -157,14 +146,10 @@ export default function ComplaintMapPage() {
       return;
     }
 
-    const shouldDelete = window.confirm(
-      `Delete this report from ${report.reporter_name ?? "Unknown resident"}?`,
-    );
-    if (!shouldDelete) return;
-
     setIsDeleting(true);
     try {
       await deleteReport(report.id);
+      setDeleteTarget(null);
       setMessage("Report deleted.");
       setSelectedReport(null);
       await loadReports();
@@ -288,31 +273,16 @@ export default function ComplaintMapPage() {
     dragStateRef.current = null;
   }
 
-  if (isLoading) return <AdminPageSkeleton href="/admin/map" />;
+  if (!hasLoaded) return <AdminPageSkeleton href="/admin/map" />;
 
   return (
     <section className="map-page">
-      <PageActions>
-        <span className="sync-note">
-          {visibleReports.length} of {mappedReports.length} mapped
-        </span>
-        <button
-          type="button"
-          className="secondary-admin-button"
-          disabled={isLoading}
-          onClick={loadReports}
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </PageActions>
-      <p className="map-location-note">
-        {reports.length - mappedReports.length} reports without valid
-        coordinates are available in Community reports.
-      </p>
+      {reports.length > mappedReports.length ? (
+        <p className="map-location-note">{reports.length - mappedReports.length} reports have no valid location. <a href="/admin/reports">View in Community Reports</a></p>
+      ) : null}
 
-      {message ? (
-        <div className="admin-message map-message">
+      {message && !deleteTarget ? (
+        <div className="admin-message map-message" role="status">
           <span>{message}</span>
           <button onClick={() => setMessage("")} type="button">
             Dismiss
@@ -320,75 +290,11 @@ export default function ComplaintMapPage() {
         </div>
       ) : null}
 
-      <div className="map-control-deck">
-        <div className="map-metrics">
-          <MapMetric
-            label="Pending Review"
-            value={metrics.pending}
-            tone="pending"
-          />
-          <MapMetric
-            label="In Progress"
-            value={metrics.progress}
-            tone="progress"
-          />
-          <MapMetric
-            label="Resolved"
-            value={metrics.resolved}
-            tone="resolved"
-          />
-          <MapMetric
-            label="Mapped Reports"
-            value={metrics.mapped}
-            tone="mapped"
-          />
-        </div>
-        <div className="map-filters">
-          <div className="map-filters-header">
-            <div>
-              <h3>Filter Complaints</h3>
-              <p>Narrow the map view by report status and issue category.</p>
-            </div>
-            <span className="map-filter-summary">
-              Showing {visibleReports.length} of {mappedReports.length} mapped
-              reports
-            </span>
-          </div>
-          <section className="map-filter-group">
-            <span className="map-filter-label">Status</span>
-            <div>
-              {statusFilters.map((filter) => (
-                <button
-                  aria-pressed={selectedStatus === filter.value}
-                  className={selectedStatus === filter.value ? "active" : ""}
-                  key={filter.value}
-                  onClick={() => setSelectedStatus(filter.value)}
-                  type="button"
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          </section>
-          <section className="map-filter-group">
-            <span className="map-filter-label">Category</span>
-            <div>
-              {categories.map((category) => (
-                <button
-                  aria-pressed={selectedCategory === category}
-                  className={selectedCategory === category ? "active" : ""}
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  type="button"
-                >
-                  {category === "all"
-                    ? "All Categories"
-                    : shortReportCategory(category)}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
+      <div className="map-compact-toolbar" role="group" aria-label="Map filters">
+        <div className="map-compact-field"><span>Status</span><UiDropdown ariaLabel="Filter map by status" value={selectedStatus} options={statusFilters} onChange={setSelectedStatus} /></div>
+        <div className="map-compact-field"><span>Category</span><UiDropdown ariaLabel="Filter map by category" value={selectedCategory} options={categories.map(value => ({ value, label: value === "all" ? "All categories" : shortReportCategory(value), icon: <ReportCategoryIcon category={value} /> }))} onChange={setSelectedCategory} /></div>
+        <MapLegend />
+        <RefreshButton loading={isLoading} onClick={loadReports} />
       </div>
 
       <div className="map-workspace">
@@ -399,13 +305,16 @@ export default function ComplaintMapPage() {
               selectedReport={activeSelectedReport}
               onSelect={setSelectedReport}
             />
-            <MapLegend />
             {visibleReports.length === 0 ? (
               <div className="empty-map-overlay">
-                <MapPinned size={32} />
-                <strong>
-                  No mapped complaints match the selected filters.
-                </strong>
+                <span className="map-empty-icon" aria-hidden="true"><MapPinned size={24} /></span>
+                <div role="status">
+                  <h2>{mappedReports.length ? "No matching complaints" : "No mapped complaints yet"}</h2>
+                  <p>{mappedReports.length ? "Try another status or category to see more reports." : "Reports with a valid location will appear here."}</p>
+                </div>
+                {mappedReports.length > 0 ? (
+                  <button type="button" className="secondary-admin-button" onClick={() => { setSelectedStatus("all"); setSelectedCategory("all"); }}>Reset filters</button>
+                ) : null}
               </div>
             ) : null}
           </>
@@ -416,7 +325,7 @@ export default function ComplaintMapPage() {
               report={activeSelectedReport}
               canDelete={canDelete && !isDeleting}
               onClose={() => setSelectedReport(null)}
-              onDelete={handleDelete}
+              onDelete={(report) => { setMessage(""); setDeleteTarget(report); }}
               onPreviewImage={openImageViewer}
             />
           ) : (
@@ -427,6 +336,14 @@ export default function ComplaintMapPage() {
           )}
         </aside>
       </div>
+
+      {deleteTarget ? <Modal title="Delete report" dismissible={!isDeleting} onClose={() => setDeleteTarget(null)} className="staff-account-dialog">
+        <div className="reject-modal">
+          <div className="modal-header"><div><h2>Delete report?</h2><p>This permanently removes the report from {deleteTarget.reporter_name || "this resident"}. This cannot be undone.</p></div><button type="button" aria-label="Close confirmation" disabled={isDeleting} onClick={() => setDeleteTarget(null)}><X size={20} /></button></div>
+          {message ? <div className="admin-message" role="alert">{message}</div> : null}
+          <div className="modal-actions"><button type="button" className="secondary-admin-button" disabled={isDeleting} onClick={() => setDeleteTarget(null)}>Cancel</button><button type="button" className="danger-admin-button" disabled={isDeleting} onClick={() => void handleDelete(deleteTarget)}>{isDeleting ? "Deleting…" : "Delete report"}</button></div>
+        </div>
+      </Modal> : null}
 
       {imageViewer ? (
         <Modal
@@ -522,36 +439,15 @@ export default function ComplaintMapPage() {
   );
 }
 
-function MapMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) {
-  return (
-    <article className={`map-metric ${tone}`}>
-      <span>{value}</span>
-      <strong>{label}</strong>
-    </article>
-  );
-}
-
 function MapLegend() {
   return (
-    <div className="map-legend">
-      <strong>Pin Status</strong>
-      <span>
-        <i className="pending" /> Pending
-      </span>
-      <span>
-        <i className="progress" /> In Progress
-      </span>
-      <span>
-        <i className="resolved" /> Resolved
-      </span>
+    <div className="map-legend" role="group" aria-label="Report status legend">
+      <strong>Report status</strong>
+      <div className="map-legend-items">
+        <span><i className="pending" aria-hidden="true" />Pending</span>
+        <span><i className="progress" aria-hidden="true" />In progress</span>
+        <span><i className="resolved" aria-hidden="true" />Resolved</span>
+      </div>
     </div>
   );
 }
@@ -567,8 +463,8 @@ function ReportQueuePanel({
     <div className="queue-panel">
       <div className="queue-panel-header">
         <div>
-          <h3>Mapped Complaint Queue</h3>
-          <p>Select a map pin or queue item to inspect complaint details.</p>
+          <h3>Mapped reports</h3>
+          <p>Select a report to view its details.</p>
         </div>
         <span className="queue-count">{reports.length}</span>
       </div>
@@ -583,7 +479,7 @@ function ReportQueuePanel({
               type="button"
             >
               <span>
-                <strong>{shortReportCategory(report.category)}</strong>
+                <strong className="map-category-label"><ReportCategoryIcon category={report.category} />{shortReportCategory(report.category)}</strong>
                 <StatusMini status={normalizeReportStatus(report.status)} />
               </span>
               <p>{report.description?.trim() || "No description provided."}</p>
@@ -615,7 +511,7 @@ function ReportDetailsPanel({
     <div className="map-details-panel">
       <div className="map-details-head">
         <div>
-          <h3>{shortReportCategory(report.category)}</h3>
+          <h3 className="map-category-label"><ReportCategoryIcon category={report.category} />{shortReportCategory(report.category)}</h3>
           <div>
             <StatusMini status={normalizeReportStatus(report.status)} />
             <StatusMini status={shortDate(report.created_at)} variant="date" />

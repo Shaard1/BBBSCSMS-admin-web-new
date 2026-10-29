@@ -148,7 +148,7 @@ function normalizeDocumentRequestRecord(record: RawDocumentRequestRecord): Docum
     resident_id: stringValue(record.resident_id),
     resident_name: stringValue(record.resident_name) || "Unnamed resident",
     certificate_key: stringValue(record.certificate_key) || "",
-    certificate_title: stringValue(record.certificate_title) || "Document Request",
+    certificate_title: stringValue(record.certificate_title) || "Certificate Request",
     certificate_variant: stringValue(record.certificate_variant),
     contact_number: stringValue(record.contact_number),
     email: stringValue(record.email),
