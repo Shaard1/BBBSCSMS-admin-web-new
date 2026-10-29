@@ -2340,30 +2340,35 @@ caption {
   color: var(--muted);
 }
 .map-legend {
-  position: absolute;
-  left: 1rem;
-  bottom: 1.6rem;
+  display: grid;
+  gap: 0.5rem;
+  margin-left: auto;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.map-legend strong {
+  font-size: 0.75rem;
+  color: #52647b;
+  font-weight: 600;
+}
+.map-legend-items {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  background: #fff;
-  padding: 0.65rem;
-  border: 1px solid #d1dcea;
-  border-radius: 8px;
-  z-index: 500;
-  font-size: 0.65rem;
-  box-shadow: var(--shadow);
+  gap: 0.65rem 1rem;
 }
 .map-legend span {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 .map-legend i {
   height: 8px;
   width: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px #eef2f6;
 }
 .map-legend .pending {
   background: #bd903d;
@@ -3122,11 +3127,7 @@ caption {
     padding-top: 0.7rem;
   }
   .map-legend {
-    left: 0.5rem;
     gap: 0.45rem;
-  }
-  .map-legend strong {
-    display: none;
   }
 }
 @media (max-width: 480px) {
@@ -3632,7 +3633,6 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .map-page .queue-panel-header p { font-size: .78rem; line-height: 1.5; color: var(--muted); }
 .map-page .map-location-note { font-size: .8rem; line-height: 1.5; }
 .map-page .map-location-note a { text-decoration: underline; }
-.map-page .map-legend { pointer-events: none; }
 @media (max-width: 48em) {
   .map-page .map-workspace { height: auto; grid-template-columns: minmax(0, 1fr); }
   .map-page .map-canvas { height: 380px; }
@@ -3646,7 +3646,11 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .map-compact-field > span { font-size: .8rem; color: var(--muted); }
 .map-compact-field .ui-dropdown { width: 180px; }
 .map-compact-field:nth-child(2) .ui-dropdown { width: 220px; }
-.map-compact-toolbar > button { margin-left: auto; }
+.map-compact-toolbar > button { flex-shrink: 0; }
+@media (max-width: 75em) {
+  .map-compact-toolbar .map-legend { margin-left: 0; padding-left: 0; border-left: 0; }
+  .map-compact-toolbar > button { margin-left: auto; }
+}
 @media (max-width: 40em) { .map-compact-field { flex: 1 1 100%; } .map-compact-field > span { min-width: 65px; } .map-compact-field .ui-dropdown, .map-compact-field:nth-child(2) .ui-dropdown { width: auto; flex: 1; } }
 
 .map-compact-toolbar .ui-dropdown-menu { scrollbar-width: none; }

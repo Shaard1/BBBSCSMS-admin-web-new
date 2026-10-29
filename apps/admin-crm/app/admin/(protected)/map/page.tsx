@@ -293,6 +293,7 @@ export default function ComplaintMapPage() {
       <div className="map-compact-toolbar" role="group" aria-label="Map filters">
         <div className="map-compact-field"><span>Status</span><UiDropdown ariaLabel="Filter map by status" value={selectedStatus} options={statusFilters} onChange={setSelectedStatus} /></div>
         <div className="map-compact-field"><span>Category</span><UiDropdown ariaLabel="Filter map by category" value={selectedCategory} options={categories.map(value => ({ value, label: value === "all" ? "All categories" : shortReportCategory(value), icon: <ReportCategoryIcon category={value} /> }))} onChange={setSelectedCategory} /></div>
+        <MapLegend />
         <RefreshButton loading={isLoading} onClick={loadReports} />
       </div>
 
@@ -304,7 +305,6 @@ export default function ComplaintMapPage() {
               selectedReport={activeSelectedReport}
               onSelect={setSelectedReport}
             />
-            <MapLegend />
             {visibleReports.length === 0 ? (
               <div className="empty-map-overlay">
                 <span className="map-empty-icon" aria-hidden="true"><MapPinned size={24} /></span>
@@ -441,17 +441,13 @@ export default function ComplaintMapPage() {
 
 function MapLegend() {
   return (
-    <div className="map-legend">
-      <strong>Pin Status</strong>
-      <span>
-        <i className="pending" /> Pending
-      </span>
-      <span>
-        <i className="progress" /> In Progress
-      </span>
-      <span>
-        <i className="resolved" /> Resolved
-      </span>
+    <div className="map-legend" role="group" aria-label="Report status legend">
+      <strong>Report status</strong>
+      <div className="map-legend-items">
+        <span><i className="pending" aria-hidden="true" />Pending</span>
+        <span><i className="progress" aria-hidden="true" />In progress</span>
+        <span><i className="resolved" aria-hidden="true" />Resolved</span>
+      </div>
     </div>
   );
 }

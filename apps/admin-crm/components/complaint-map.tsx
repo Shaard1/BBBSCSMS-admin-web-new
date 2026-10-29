@@ -36,7 +36,10 @@ export function ComplaintMap({
       zoom={13}
       minZoom={1}
       maxZoom={19}
-      scrollWheelZoom={false}
+      scrollWheelZoom={true}
+      zoomSnap={0}
+      zoomDelta={0.5}
+      wheelPxPerZoomLevel={240}
       className="leaflet-map"
     >
       <StyledBasemap />

@@ -595,6 +595,22 @@ test("map: filters, queue and marker selection remain synchronized", async ({
   await login(page);
   await page.goto("/admin/map");
   await expect(page.locator(".queue-list > button")).toHaveCount(3);
+  const map = page.locator('.leaflet-map');
+  await expect(map).toBeVisible();
+  const zoomLevel = () => page.locator('.leaflet-proxy').evaluate(element => {
+    const scale = element.getAttribute('style')?.match(/scale\(([^)]+)\)/)?.[1];
+    return Math.log2(Number(scale)) - 1;
+  });
+  const initialZoom = await zoomLevel();
+  await map.hover();
+  await page.mouse.wheel(0, -30);
+  await expect.poll(zoomLevel).toBeGreaterThan(initialZoom);
+  const wheelZoom = await zoomLevel();
+  expect(wheelZoom - initialZoom).toBeLessThan(0.5);
+  await page.locator('.map-side-panel').hover();
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(300);
+  expect(await zoomLevel()).toBe(wheelZoom);
   await chooseDropdownOption(page, page, "Filter map by status", "Resolved");
   await expect(page.locator(".queue-list > button")).toHaveCount(1);
   await page.locator(".queue-list > button").first().click();
