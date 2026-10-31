@@ -17,7 +17,7 @@ import {
   RotateCcw,
   Trash2,
   X,
-} from "lucide-react";
+} from "@/components/crm-icons";
 import {
   useEffect,
   useMemo,

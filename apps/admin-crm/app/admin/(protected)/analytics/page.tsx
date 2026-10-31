@@ -79,12 +79,10 @@ export default function AnalyticsPage() {
       aria-busy={isLoading}
     >
       <PageActions>
+        <p className="section-kicker">Current snapshot · all recorded submissions</p>
         <RefreshButton loading={isLoading} onClick={load} />
       </PageActions>
       <Notice message={message} onDismiss={() => setMessage("")} />
-      <p className="section-kicker">
-        Current snapshot · all recorded submissions
-      </p>
       <div className="workspace-metrics">
         <Metric
           label="Community reports"

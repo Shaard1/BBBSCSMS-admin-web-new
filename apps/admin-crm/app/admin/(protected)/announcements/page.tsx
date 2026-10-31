@@ -17,7 +17,7 @@ import {
   Trash2,
   Underline,
   X,
-} from "lucide-react";
+} from "@/components/crm-icons";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createAnnouncement,
@@ -72,6 +72,9 @@ export default function AnnouncementsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   async function loadAnnouncements() {
     setIsLoading(true);
@@ -207,23 +210,21 @@ export default function AnnouncementsPage() {
   }
 
   async function removeAnnouncement(announcement: Announcement) {
-    const shouldDelete = window.confirm(
-      `Delete "${announcement.title || "Untitled announcement"}"?`,
-    );
-    if (!shouldDelete) return;
-
+    setIsDeleting(true);
+    setDeleteError("");
     try {
       await deleteAnnouncement(announcement.id);
+      setDeleteTarget(null);
       setSelectedAnnouncement(null);
       setMessage("Announcement deleted.");
       await loadAnnouncements();
     } catch (error) {
-      setMessage(
+      setDeleteError(
         error instanceof Error
           ? error.message
           : "Failed to delete announcement.",
       );
-    }
+    } finally { setIsDeleting(false); }
   }
 
   if (isLoading) return <AdminPageSkeleton href="/admin/announcements" />;
@@ -285,7 +286,7 @@ export default function AnnouncementsPage() {
           statusFilter={statusFilter}
           totalCount={announcements.length}
           authorNames={authorNames}
-          onDelete={removeAnnouncement}
+          onDelete={(announcement) => { setDeleteError(""); setDeleteTarget(announcement); }}
           onEdit={(announcement) => unsavedChanges.requestDiscard(() => editAnnouncement(announcement))}
           onSearchChange={setSearchQuery}
           onStatusFilterChange={setStatusFilter}
@@ -298,11 +299,20 @@ export default function AnnouncementsPage() {
           announcement={selectedAnnouncement}
           author={announcementCreatorName(selectedAnnouncement, authorNames)}
           onClose={() => setSelectedAnnouncement(null)}
-          onDelete={removeAnnouncement}
+          onDelete={(announcement) => { setDeleteError(""); setDeleteTarget(announcement); }}
           onEdit={(announcement) => unsavedChanges.requestDiscard(() => editAnnouncement(announcement))}
           onImageView={setViewingImage}
         />
       ) : null}
+
+      {deleteTarget ? <Modal title="Delete announcement" dismissible={!isDeleting} onClose={() => setDeleteTarget(null)}>
+        <div className="reject-modal">
+          <div className="modal-header"><div><h2>Delete announcement?</h2><p>{deleteTarget.title || "Untitled announcement"}</p></div><button type="button" aria-label="Close delete confirmation" disabled={isDeleting} onClick={() => setDeleteTarget(null)}><X size={20} /></button></div>
+          <p>This permanently removes the announcement. This cannot be undone.</p>
+          {deleteError ? <p className="admin-message" role="alert">{deleteError}</p> : null}
+          <div className="modal-actions"><button type="button" disabled={isDeleting} onClick={() => setDeleteTarget(null)}>Cancel</button><button type="button" className="danger-admin-button" disabled={isDeleting} onClick={() => void removeAnnouncement(deleteTarget)}>{isDeleting ? "Deleting…" : "Delete announcement"}</button></div>
+        </div>
+      </Modal> : null}
 
       {unsavedChanges.showConfirmation ? (
         <Modal title="Discard unsaved changes?" onClose={unsavedChanges.cancelDiscard}>
@@ -747,14 +757,24 @@ function PostedAnnouncementsPanel({
         trailing={`${totalCount} total`}
       />
       <div className="announcement-tools">
-        <div className="announcement-stats">
-          <span className="published">
-            Published <strong>{publishedCount}</strong>
-          </span>
-          <span className="draft">
-            Drafts <strong>{draftCount}</strong>
-          </span>
-        </div>
+      <div className="filter-tabs compact-tabs">
+        {[
+          ["All Posts", "all"],
+          ["Published", "published"],
+          ["Drafts", "draft"],
+        ].map(([label, value]) => (
+          <button
+            aria-label={label}
+            aria-pressed={statusFilter === value}
+            className={statusFilter === value ? "active" : ""}
+            key={value}
+            onClick={() => onStatusFilterChange(value)}
+            type="button"
+          >
+            {label} <span className="announcement-filter-count">{value === "all" ? totalCount : value === "published" ? publishedCount : draftCount}</span>
+          </button>
+        ))}
+      </div>
         <label className="resident-search">
           <Search size={17} />
           <input
@@ -764,23 +784,6 @@ function PostedAnnouncementsPanel({
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
-      </div>
-      <div className="filter-tabs compact-tabs">
-        {[
-          ["All Posts", "all"],
-          ["Published", "published"],
-          ["Drafts", "draft"],
-        ].map(([label, value]) => (
-          <button
-            aria-pressed={statusFilter === value}
-            className={statusFilter === value ? "active" : ""}
-            key={value}
-            onClick={() => onStatusFilterChange(value)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
       </div>
       <div className="announcement-list">
         {announcements.length === 0 && !isLoading ? (

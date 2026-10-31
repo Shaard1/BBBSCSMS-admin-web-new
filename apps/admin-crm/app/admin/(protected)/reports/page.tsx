@@ -11,7 +11,7 @@ import {
   Search,
   UserRound,
   X,
-} from "lucide-react";
+} from "@/components/crm-icons";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -83,6 +83,7 @@ export default function ReportsPage() {
   const [viewingImage, setViewingImage] = useState<{
     title: string;
     url: string;
+    images?: string[];
   } | null>(null);
   const [editingNoteReport, setEditingNoteReport] =
     useState<CommunityReport | null>(null);
@@ -393,6 +394,7 @@ export default function ReportsPage() {
       {viewingImage ? (
         <ImageViewer
           imageUrl={viewingImage.url}
+          images={viewingImage.images}
           title={viewingImage.title}
           onClose={() => setViewingImage(null)}
         />
@@ -496,10 +498,11 @@ function ReportDetailsDialog({
   onClose: () => void;
   onDelete: (report: CommunityReport) => void;
   onEditNote: (report: CommunityReport) => void;
-  onImageView: (image: { title: string; url: string }) => void;
+  onImageView: (image: { title: string; url: string; images?: string[] }) => void;
 }) {
   const images = reportImages(report);
   const coordinates = formatCoordinates(report);
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -520,7 +523,7 @@ function ReportDetailsDialog({
   }
 
   return (
-    <Modal title="Report details" onClose={requestClose}>
+    <Modal title="Report details" onClose={requestClose} className="report-details-dialog">
       <div
         className="report-modal"
         onClick={(event) => event.stopPropagation()}
@@ -531,13 +534,14 @@ function ReportDetailsDialog({
               <h2>Report Details</h2>
             </div>
             <StatusBadge status={normalizeReportStatus(report.status)} />
+            <button type="button" aria-label="Close report details" onClick={requestClose}><X size={20} /></button>
           </div>
 
           {images.length > 0 ? (
             <div className="report-modal-images">
               <button
                 onClick={() =>
-                  onImageView({ title: "Report evidence", url: images[0] })
+                  onImageView({ title: "Report evidence", url: images[0], images })
                 }
                 type="button"
               >
@@ -545,13 +549,14 @@ function ReportDetailsDialog({
               </button>
               {images.length > 1 ? (
                 <div>
-                  {images.slice(1).map((image, index) => (
+                  {images.slice(1).map((image) => (
                     <button
                       key={image}
                       onClick={() =>
                         onImageView({
-                          title: `Report evidence ${index + 2}`,
+                          title: "Report evidence",
                           url: image,
+                          images,
                         })
                       }
                       type="button"
@@ -590,17 +595,18 @@ function ReportDetailsDialog({
           </div>
 
           {hasCoordinates(report) ? (
-            <div className="map-preview">
-              <ReportLocationMap
+            <details className="report-location-section" onToggle={event => setIsLocationOpen(event.currentTarget.open)}><summary>Location preview</summary><div className="map-preview">
+              {isLocationOpen ? <ReportLocationMap
                 latitude={report.latitude as number}
                 longitude={report.longitude as number}
-              />
-            </div>
+              /> : null}
+            </div></details>
           ) : (
             <div className="map-placeholder">No map preview available.</div>
           )}
 
-          <div className="modal-actions">
+        </div>
+          <div className="modal-actions report-details-actions">
             {canDelete ? (
               <button
                 className="danger-admin-button"
@@ -625,7 +631,6 @@ function ReportDetailsDialog({
               Close
             </button>
           </div>
-        </div>
       </div>
     </Modal>
   );

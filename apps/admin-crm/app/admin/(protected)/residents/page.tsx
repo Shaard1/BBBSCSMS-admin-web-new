@@ -5,8 +5,9 @@ import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import Link from 'next/link';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import {useSearchParams} from 'next/navigation';
-import { Eye, RefreshCw, Search, UserRound, X } from 'lucide-react';
+import { Eye, RefreshCw, Search, UserRound, X } from "@/components/crm-icons";
 import { Modal } from '@/components/modal';
+import { UiDropdown } from '@/components/ui-dropdown';
 import { ImageViewer } from '@/components/image-viewer';
 import { useAdminRole } from '@/components/admin-role-context';
 import { fetchResidentDirectory, fetchResidentDetails, fetchResidentHistory, setResidentAccess, approveResident, rejectResident, type ResidentDirectory, type ResidentHistory } from '@/lib/residents';
@@ -131,15 +132,15 @@ function ResidentDirectoryPage() {
       {([['Total accounts', s.total], ['Active', s.active], ['Suspended', s.suspended], ['Phone verified', s.phoneVerified]] as const).map(([label, count]) => <article className="resident-summary-card" key={label}><span>{label}</span><strong>{count}</strong></article>)}
     </div>
     {directory.testAccess ? <p className="account-context-note">Test preview: unverified accounts may use basic services. This does not verify a phone or authorize document release.</p> : null}
-    {!directory.serverPaged ? <p className="admin-message">Account-management migration is pending. Showing the legacy-compatible directory; server pagination, service history and access actions require the new migration.</p> : null}
-    <div className="resident-account-toolbar">
-      <label className="resident-search"><Search size={18}/><input aria-label="Search resident accounts" placeholder="Search name, contact, email or ID…" value={search} maxLength={150} onChange={e => { setSearch(e.target.value); setPage(0); }}/></label>
-      <label>Account access<select value={access} onChange={e => { setAccess(e.target.value); setPage(0); }}><option value="all">All accounts</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="legacy_pending">Legacy review pending</option><option value="legacy_rejected">Legacy registration rejected</option></select></label>
-      <label>Phone ownership<select value={phone} onChange={e => { setPhone(e.target.value); setPage(0); }}><option value="all">All phone states</option><option value="verified">Verified</option><option value="unverified">Not verified</option><option value="unknown">Not recorded (legacy)</option></select></label>
-    </div>
+    {!directory.serverPaged ? <p className="admin-message">Some accounts use the previous registration process. Service history and account access changes are currently unavailable.</p> : null}
     {message ? <div className="admin-message" role="status"><span>{message}</span><button type="button" onClick={() => setMessage('')}>Dismiss</button></div> : null}
     <div className="resident-panel">
-      <div className="resident-panel-heading"><div><h3>Resident directory</h3><p>Phone ownership is verified by SMS in the mobile app when SMS is enabled. Staff review identity and residency within document applications.</p></div><button type="button" disabled={loading} onClick={() => setRevision(r => r + 1)}><RefreshCw size={16}/> Refresh</button></div>
+      <div className="resident-panel-heading"><div><h3>Resident directory</h3><p>Review resident contact details, phone verification, and account access.</p></div><button type="button" disabled={loading} onClick={() => setRevision(r => r + 1)}><RefreshCw size={16}/> Refresh</button></div>
+    <div className="resident-account-toolbar">
+      <label className="resident-search"><Search size={18}/><input aria-label="Search resident accounts" placeholder="Search name, contact, email or ID…" value={search} maxLength={150} onChange={e => { setSearch(e.target.value); setPage(0); }}/></label>
+      <div className="resident-account-filter"><span>Account access</span><UiDropdown ariaLabel="Account access" value={access} onChange={value => { setAccess(value); setPage(0); }} options={[{value:'all',label:'All accounts'},{value:'active',label:'Active'},{value:'suspended',label:'Suspended'},{value:'legacy_pending',label:'Legacy review pending'},{value:'legacy_rejected',label:'Legacy registration rejected'}]} /></div>
+      <div className="resident-account-filter"><span>Phone ownership</span><UiDropdown ariaLabel="Phone ownership" value={phone} onChange={value => { setPhone(value); setPage(0); }} options={[{value:'all',label:'All phone states'},{value:'verified',label:'Verified'},{value:'unverified',label:'Not verified'},{value:'unknown',label:'Not recorded (legacy)'}]} /></div>
+    </div>
       <div className="resident-directory-scroll" role="region" aria-label="Resident directory table" tabIndex={0}><table className="resident-directory-table"><thead><tr><th>Resident</th><th>Contact</th><th>Phone ownership</th><th>Account access</th><th>Actions</th></tr></thead><tbody>
         {directory.items.map(resident => <tr key={resident.id}><td><div className="resident-person">{resident.profile_image ? <img className="resident-avatar" alt="" src={resident.profile_image}/> : <span className="resident-avatar fallback"><UserRound size={19}/></span>}<div><strong>{resident.full_name}</strong><small>Joined {new Date(resident.created_at).toLocaleDateString('en-PH')}</small></div></div></td><td>{resident.basic_account?.declared_phone || resident.contact_number || 'Not provided'}</td><td><PhoneBadge resident={resident}/></td><td><AccessBadge resident={resident}/></td><td><button aria-label={`View ${resident.full_name}`} type="button" onClick={() => void openResident(resident)}><Eye size={18}/></button></td></tr>)}
       </tbody></table></div>
