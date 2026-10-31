@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/crm-icons";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -15,6 +15,7 @@ import { useViewportPopover } from "@/components/use-viewport-popover";
 type UiDropdownProps = {
   ariaLabel: string;
   className?: string;
+  matchTriggerWidth?: boolean;
   placement?: "auto" | "below";
   disabled?: boolean;
   options: { label: string; value: string; icon?: ReactNode }[];
@@ -25,6 +26,7 @@ type UiDropdownProps = {
 export function UiDropdown({
   ariaLabel,
   className = "",
+  matchTriggerWidth = false,
   placement = "auto",
   disabled = false,
   options,
@@ -47,7 +49,7 @@ export function UiDropdown({
     panelRef: menuRef,
     isOpen: isOpen && placement === "auto",
     setIsOpen,
-    minWidth: 184,
+    minWidth: matchTriggerWidth ? 0 : 184,
     maxHeight: 320,
   });
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { ArrowUpRight, RefreshCw } from "@/components/crm-icons";
 
 export function PageActions({ children }: { children: ReactNode }) {
   if (!children) return null;

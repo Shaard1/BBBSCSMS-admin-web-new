@@ -4,7 +4,7 @@ import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
+import { Search, ShieldCheck, Trash2, UserPlus, X } from "@/components/crm-icons";
 import { useAdminRole } from "@/components/admin-role-context";
 import { UiDropdown } from "@/components/ui-dropdown";
 import {
@@ -200,6 +200,11 @@ export default function StaffAccountsPage() {
             </p>
           </div>
           <div className="staff-toolbar-actions">
+            <label className="resident-search">
+              <Search size={17} aria-hidden="true" />
+              <input aria-label="Search staff accounts" placeholder="Search name, email, or role…" value={query} onChange={(event) => setQuery(event.target.value)} />
+              {query ? <button type="button" aria-label="Clear staff search" onClick={() => setQuery("")}><X size={16} /></button> : null}
+            </label>
             <RefreshButton loading={isLoading} onClick={loadAccounts} />
             {canManage ? (
               <button
@@ -216,24 +221,8 @@ export default function StaffAccountsPage() {
             ) : null}
           </div>
         </div>
-        <div className="directory-tools">
-          <label className="resident-search">
-            <Search size={17} aria-hidden="true" />
-            <input
-              aria-label="Search staff accounts"
-              placeholder="Search name, email, or role…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            {query ? (
-              <button type="button" aria-label="Clear staff search" onClick={() => setQuery("")}>
-                <X size={16} />
-              </button>
-            ) : null}
-          </label>
-          <span role="status">
+        <div className="staff-search-summary" role="status">
             {query.trim() ? `${visibleAccounts.length} ${visibleAccounts.length === 1 ? "account" : "accounts"} matching “${query.trim()}”` : ""}
-          </span>
         </div>
 
         {message && !showCreate && !deleteTarget && !roleTarget ? (
@@ -283,6 +272,7 @@ export default function StaffAccountsPage() {
                 </div>
                 <div className="staff-directory-cell">
                   <UiDropdown
+                    matchTriggerWidth
                     ariaLabel={`Change role for ${account.full_name || account.id}`}
                     disabled={!canManage || isWorking || isLoading}
                     options={roleOptions}
@@ -304,7 +294,7 @@ export default function StaffAccountsPage() {
                     title="Delete account"
                     type="button"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={20} aria-hidden="true" />
                   </button>
                 </div>
               </article>
@@ -408,6 +398,7 @@ export default function StaffAccountsPage() {
         </Modal>
       ) : null}
 
+      <p className="staff-icon-credit">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer">Flaticon</a></p>
       {roleTarget ? (
         <Modal
           title="Change account role"

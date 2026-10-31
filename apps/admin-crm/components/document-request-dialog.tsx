@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
-import { X } from 'lucide-react';
+import { X } from "@/components/crm-icons";
 import {Modal} from './modal';
 import {UiDropdown} from './ui-dropdown';
 import {PrivateEvidenceButton} from './private-evidence-button';

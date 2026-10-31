@@ -9,7 +9,7 @@ import {
   MapPinned,
   Megaphone,
   ShieldCheck,
-} from "lucide-react";
+} from "@/components/crm-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   PageActions,

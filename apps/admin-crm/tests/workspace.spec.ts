@@ -4,13 +4,13 @@ import { monthlyActivity, reportSnapshot } from "../lib/workspace-metrics";
 
 const origin = "http://127.0.0.1:3218";
 const tabs = [
-  ["dashboard", "Community overview"],
-  ["analytics", "Service analytics"],
-  ["staff", "Staff accounts"],
-  ["reports", "Community reports"],
+  ["dashboard", "Dashboard"],
+  ["analytics", "Analytics"],
+  ["staff", "Staff Accounts"],
+  ["reports", "Community Reports"],
   ["documents", "Certificates Request"],
-  ["map", "Complaint map"],
-  ["residents", "Resident accounts"],
+  ["map", "Complaint Map"],
+  ["residents", "Resident Accounts"],
   ["announcements", "Announcements"],
 ] as const;
 
@@ -247,6 +247,7 @@ test("reports: keyboard details, note and status update, category filter", async
   await login(page);
   await page.goto("/admin/reports");
   await page.getByLabel("Search community reports").fill("Road surface");
+  await expect(page.locator(".report-card")).toHaveCount(1);
   const card = page.locator(".report-card");
   await expect(card).toHaveCount(1);
   await card
@@ -260,13 +261,13 @@ test("reports: keyboard details, note and status update, category filter", async
   ).toBeVisible();
   await audit(page);
   await page.keyboard.press("Escape");
-  await card.getByRole("button", { name: "Note", exact: true }).click();
+  await card.getByRole("button", { name: "Resident update", exact: true }).click();
   await page
-    .getByLabel("Staff note visible to the resident")
+    .getByLabel("Update visible to the resident")
     .fill("Inspection scheduled for tomorrow.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "Edit staff note" }),
+    page.getByRole("dialog", { name: "Resident update" }),
   ).toHaveCount(0);
   const reportStatus = await chooseDropdownOption(
     page,
@@ -274,6 +275,7 @@ test("reports: keyboard details, note and status update, category filter", async
     "Change report status",
     "In Progress",
   );
+  await page.getByRole("dialog", { name: "Change report status?", exact: true }).getByRole("button", { name: "Confirm status change", exact: true }).click();
   await expect(reportStatus).toHaveAttribute("data-value", "in progress");
   await card
     .getByRole("button", {
@@ -291,6 +293,7 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   await login(page);
   await page.goto("/admin/reports");
   await page.getByLabel("Search community reports").fill("Road surface");
+  await expect(page.locator(".report-card")).toHaveCount(1);
   const dropdown = page.getByRole("combobox", {
     name: "Change report status",
     exact: true,
@@ -305,6 +308,7 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   await audit(page);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
+  await page.getByRole("dialog", { name: "Change report status?", exact: true }).getByRole("button", { name: "Confirm status change", exact: true }).click();
   await expect(dropdown).toHaveAttribute("data-value", "in progress");
 
   await dropdown.focus();
@@ -339,6 +343,7 @@ test("dropdown panel flips and scrolls within small viewports", async ({ page },
   await login(page);
   await page.goto("/admin/reports");
   await page.getByLabel("Search community reports").fill("Road surface");
+  await expect(page.locator(".report-card")).toHaveCount(1);
   const trigger = page.getByRole("combobox", { name: "Change report category" });
   const wrapper = trigger.locator("..");
   const menu = page.getByRole("listbox", { name: "Change report category" });
@@ -393,6 +398,7 @@ test("dropdown follows its trigger in a scrolling card", async ({ page }) => {
   await login(page);
   await page.goto("/admin/reports");
   await page.getByLabel("Search community reports").fill("Road surface");
+  await expect(page.locator(".report-card")).toHaveCount(1);
   const card = page.locator(".report-card");
   await card.evaluate((element) => {
     element.style.height = "135px";
@@ -427,6 +433,7 @@ test("dropdowns stay visible in tables and a modal", async ({ page }) => {
   await page.goto("/admin/documents");
   await page.getByRole("button", { name: "View details", exact: true }).first().click();
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Review", exact: true }).click();
   const status = dialog.getByRole("combobox", { name: "Update status" });
   await status.click();
   const statusMenu = page.getByRole("listbox", { name: "Update status" });
@@ -1157,4 +1164,74 @@ test('certificate review stays usable when Escape is pressed during saving', asy
   } finally {
     release();
   }
+});
+test('desktop audit: announcement confirmation and resident filters', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/announcements');
+  await page.locator('.announcement-card').first().getByRole('button', { name: 'Delete announcement', exact: true }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Delete announcement', exact: true });
+  await expect(confirmation).toContainText('cannot be undone');
+  await audit(page);
+  await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  await page.goto('/admin/residents');
+  await chooseDropdownOption(page, page, 'Account access', 'Active');
+  await expect(page.getByRole('combobox', { name: 'Account access', exact: true })).toHaveAttribute('data-value', 'active');
+  await chooseDropdownOption(page, page, 'Phone ownership', 'Not verified');
+  await expect(page.getByRole('combobox', { name: 'Phone ownership', exact: true })).toHaveAttribute('data-value', 'unverified');
+});
+test('report evidence gallery supports arrows, keyboard, wrapping, and thumbnail selection', async ({ page, request }) => {
+  await request.patch(origin + '/rest/v1/reports?id=eq.20000000-0000-4000-8000-000000000001', { data: { image_urls: [origin + '/evidence.svg?photo=2', origin + '/evidence.svg?photo=3'] } });
+  await login(page);
+  await page.goto('/admin/reports');
+  await page.getByRole('button', { name: 'Road surface damaged near the community center', exact: true }).click();
+  await page.getByRole('button', { name: 'Report evidence', exact: true }).click();
+  const viewer = page.getByRole('dialog', { name: 'Report evidence', exact: true });
+  await expect(viewer).toContainText('Image 1 of 3');
+  const image = viewer.locator('.image-viewer-stage img');
+  await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const centered = () => viewer.getByRole('region', { name: 'Image preview', exact: true }).evaluate(stage => {
+    const picture = stage.querySelector('img')!.getBoundingClientRect();
+    const bounds = stage.getBoundingClientRect();
+    return Math.abs(picture.x + picture.width / 2 - bounds.x - stage.clientWidth / 2) < 2 && Math.abs(picture.y + picture.height / 2 - bounds.y - stage.clientHeight / 2) < 2;
+  });
+  await viewer.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  await expect.poll(centered).toBe(true);
+  await viewer.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  await expect.poll(centered).toBe(true);
+  await viewer.getByRole('button', { name: 'Reset', exact: true }).click();
+  const wheelBounds = await viewer.getByRole('region', { name: 'Image preview', exact: true }).boundingBox();
+  await page.mouse.move(wheelBounds!.x + wheelBounds!.width / 2, wheelBounds!.y + wheelBounds!.height / 2);
+  await page.mouse.wheel(0, -40);
+  await expect.poll(() => viewer.getByLabel('Zoom level', { exact: true }).textContent()).not.toBe('100%');
+  await expect.poll(centered).toBe(true);
+  await viewer.getByRole('button', { name: 'Reset', exact: true }).click();
+  for (let step = 0; step < 8; step++) await viewer.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect.poll(centered).toBe(true);
+  const stage = viewer.getByRole('region', { name: 'Image preview', exact: true });
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + 250, bounds!.y + 200);
+  await page.mouse.down();
+  await expect(stage).toHaveCSS('cursor', 'grabbing');
+  await page.mouse.move(bounds!.x + 150, bounds!.y + 140, { steps: 8 });
+  await page.mouse.up();
+  expect(await stage.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+  expect(await stage.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await expect(stage).toHaveCSS('cursor', 'grab');
+  await viewer.getByRole('button', { name: 'Next image', exact: true }).click();
+  await expect(viewer).toContainText('Image 2 of 3');
+  await expect(viewer.getByLabel('Zoom level', { exact: true })).toHaveText('100%');
+  await page.keyboard.press('ArrowRight');
+  await expect(viewer).toContainText('Image 3 of 3');
+  await viewer.getByRole('button', { name: 'Next image', exact: true }).click();
+  await expect(viewer).toContainText('Image 1 of 3');
+  await page.keyboard.press('ArrowLeft');
+  await expect(viewer).toContainText('Image 3 of 3');
+  await viewer.getByRole('button', { name: 'Previous image', exact: true }).click();
+  await expect(viewer).toContainText('Image 2 of 3');
+  await audit(page);
+  await viewer.getByRole('button', { name: 'Close image viewer', exact: true }).click();
+  await page.getByRole('button', { name: 'Report evidence thumbnail', exact: true }).last().click();
+  await expect(viewer).toContainText('Image 3 of 3');
 });

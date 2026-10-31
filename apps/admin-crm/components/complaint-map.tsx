@@ -96,7 +96,7 @@ function createPinIcon(color: string, selected: boolean, category?: string) {
     className: "",
     html: `
       <div class="map-pin ${selected ? "selected" : ""}" style="width:${size}px;height:${size}px">
-        <span class="map-category-pin" style="border-color:${color};color:${color}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${reportCategoryPaths(category).map(d => '<path d="'+d+'"/>').join('')}</svg></span>
+        <span class="map-category-pin" style="border-color:${color};color:${color}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${reportCategoryPaths(category).map(d => '<path d="'+d+'"/>').join('')}</svg></span>
       </div>
     `,
     iconAnchor: [size / 2, size / 2],

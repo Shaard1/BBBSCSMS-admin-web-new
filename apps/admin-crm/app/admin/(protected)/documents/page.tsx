@@ -3,7 +3,7 @@ import { markOfficeNotificationRead } from "@/lib/notifications";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 import {DocumentRequestDialog} from "@/components/document-request-dialog";
-import { FileBadge2, Search } from "lucide-react";
+import { FileBadge2, Search } from "@/components/crm-icons";
 import { UiDropdown } from "@/components/ui-dropdown";
 import { RefreshButton } from "@/components/workspace-ui";
 import { useEffect, useMemo, useState } from "react";

@@ -4,6 +4,7 @@ import { fetchPendingNotificationIds, notificationReadEvent, unreadIds, type Pen
 import {
   BarChart3,
   Bell,
+  BellNotification,
   FileText,
   FileBadge2,
   LayoutDashboard,
@@ -16,7 +17,7 @@ import {
   UserCog,
   UsersRound,
   X,
-} from "lucide-react";
+} from "@/components/crm-icons";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { Brand } from "@/components/brand";
 import Link from "next/link";
@@ -517,13 +518,6 @@ export function AdminShell({ children }: AdminShellProps) {
             );
           })}
         </nav>
-        <div className="sidebar-access">
-          <ShieldCheck size={17} />
-          <span>
-            {officeRoleLabel(role)} access
-            <small>Authorized personnel only</small>
-          </span>
-        </div>
         <button className="sidebar-logout" onClick={handleLogout} type="button">
           <LogOut size={18} />
           Logout
@@ -639,7 +633,7 @@ export function AdminShell({ children }: AdminShellProps) {
               onClick={() => setIsNotificationOpen((current) => !current)}
               type="button"
             >
-              <Bell size={18} />
+              <BellNotification size={18} />
               {notificationCount > 0 ? (
                 <span>
                   {notificationCount > 99 ? "99+" : notificationCount}

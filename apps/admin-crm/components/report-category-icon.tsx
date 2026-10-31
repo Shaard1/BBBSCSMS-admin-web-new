@@ -1,4 +1,5 @@
 import { normalizeReportCategory } from '@/lib/report-utils';
+import { Category } from '@/components/crm-icons';
 
 const categoryPaths: Record<string, string[]> = {
   'Road Damage': ['M6 3 3 21M18 3l3 18M12 3v4m0 10v4M10 9l4 2-4 2 4 2'],
@@ -15,5 +16,6 @@ export function reportCategoryPaths(category?: string) {
 }
 
 export function ReportCategoryIcon({ category, size = 18 }: { category?: string; size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{reportCategoryPaths(category).map((d, index) => <path key={index} d={d} />)}</svg>;
+  if (category === 'all') return <Category size={size} />;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{reportCategoryPaths(category).map((d, index) => <path key={index} d={d} />)}</svg>;
 }
