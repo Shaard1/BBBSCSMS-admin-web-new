@@ -97,7 +97,7 @@ const adminPageResults = [
 }>;
 export async function fetchGlobalSearchResults(query: string, role: OfficeRole) {
     const normalizedQuery = query.trim();
-    if (normalizedQuery.length < 2) {
+    if (normalizedQuery.length === 0) {
         return [];
     }
     const likePattern = buildLikePattern(normalizedQuery);

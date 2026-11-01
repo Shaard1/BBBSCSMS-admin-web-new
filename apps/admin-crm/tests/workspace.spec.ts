@@ -444,6 +444,36 @@ test("dropdowns stay visible in tables and a modal", async ({ page }) => {
   await expectMenuAnchored(status, statusMenu);
 });
 
+test("workspace search suggests matches from one letter and clears empty queries", async ({ page }) => {
+  await login(page);
+  const search = page.getByRole("textbox", { name: "Search across the admin portal" });
+  const results = page.getByRole("region", { name: "Global search results" });
+  await search.fill("r");
+  await expect(results.getByRole("button", { name: /Road surface damaged/ })).toBeVisible();
+  const searchBox = await search.locator("..").boundingBox();
+  const panelBox = await results.boundingBox();
+  expect(Math.abs(searchBox!.width - panelBox!.width)).toBeLessThan(2);
+  const rowHeights = await results.locator(".topbar-search-result").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+  expect(Math.max(...rowHeights) - Math.min(...rowHeights)).toBeLessThan(2);
+
+  await page.route("**/rest/v1/*", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("or")?.includes("zzzz-no-match")) {
+      return route.fulfill({ json: [] });
+    }
+    return route.continue();
+  });
+  await search.fill("zzzz-no-match");
+  await expect(results.getByText("No results found.")).toBeVisible();
+  await search.fill("r");
+  await expect(results.getByRole("button", { name: /Road surface damaged/ })).toBeVisible();
+  await search.fill("   ");
+  await expect(results).toBeHidden();
+  await search.fill("r");
+  await results.getByRole("button", { name: /Community Reports/ }).click();
+  await expect(page).toHaveURL(/\/admin\/reports$/);
+  await expect(search).toHaveValue("");
+});
+
 test("header search and notification panels fit a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 420 });
   await login(page);
@@ -1234,4 +1264,19 @@ test('report evidence gallery supports arrows, keyboard, wrapping, and thumbnail
   await viewer.getByRole('button', { name: 'Close image viewer', exact: true }).click();
   await page.getByRole('button', { name: 'Report evidence thumbnail', exact: true }).last().click();
   await expect(viewer).toContainText('Image 3 of 3');
+});
+
+
+test("logout requires confirmation and Cancel keeps the session", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Log out?", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/\/admin\/login/);
+  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  await dialog.getByRole("button", { name: "Log out", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/login/);
 });

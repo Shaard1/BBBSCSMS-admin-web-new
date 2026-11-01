@@ -347,7 +347,7 @@ strong {
   gap: 0.8rem;
 }
 .topbar-search {
-  width: min(310px, 35%);
+  width: min(380px, 35%);
   margin-left: auto;
   position: relative;
 }
@@ -394,6 +394,16 @@ strong {
   border-radius: 12px;
   box-shadow: 0 12px 36px #19325024;
 }
+.topbar-search-panel {
+  scrollbar-width: thin;
+  scrollbar-color: #c5d1e0 transparent;
+  scrollbar-gutter: stable;
+}
+.topbar-search-group + .topbar-search-group {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
 .topbar-search-group > strong {
   display: block;
   font-size: 0.7rem;
@@ -407,18 +417,29 @@ strong {
   gap: 0.25rem;
 }
 .topbar-search-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
   text-align: left;
-  justify-content: space-between;
   border: 0;
   width: 100%;
+  min-height: 64px;
+  padding: 0.65rem;
   font-size: 0.8rem;
+  font-weight: 500;
 }
 .topbar-search-copy {
+  display: grid;
+  gap: 0.2rem;
   min-width: 0;
 }
 .topbar-search-copy > * {
   display: block;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 .topbar-search-copy small {
   color: var(--muted);
@@ -426,6 +447,12 @@ strong {
   font-size: 0.7rem;
 }
 .topbar-search-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 24px;
+  font-style: normal;
   font-size: 0.65rem;
   background: var(--soft-blue);
   color: var(--blue);
@@ -3678,8 +3705,6 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 }
 
 
-.staff-icon-credit { padding: .75rem 1.3rem; font-size: .7rem; color: var(--muted); }
-.staff-icon-credit a { color: inherit; text-decoration: underline; }
 /* Desktop audit: compact page tools and predictable dialog sizing. */
 .analytics-workspace .workspace-page-actions { align-items: center; justify-content: space-between; gap: 1rem; }
 .analytics-workspace .workspace-page-actions .section-kicker { margin: 0; }
@@ -3748,3 +3773,8 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
   .image-viewer-toolbar > .image-viewer-close { grid-column: 2; grid-row: 1; order: 0; margin: 0; }
   .image-viewer-toolbar > .image-viewer-adjustments { grid-column: 1 / -1; grid-row: 2; justify-content: center; padding: 0; border: 0; }
 }
+
+.logout-dialog { width: min(420px, calc(100vw - 2rem)); padding: 1.5rem; }
+.logout-dialog h2 { margin: 0 0 .65rem; font-size: 1.15rem; }
+.logout-dialog > p { color: var(--muted); line-height: 1.5; }
+.logout-dialog-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.5rem; }

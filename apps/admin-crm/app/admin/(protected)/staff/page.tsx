@@ -398,7 +398,6 @@ export default function StaffAccountsPage() {
         </Modal>
       ) : null}
 
-      <p className="staff-icon-credit">Icons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer">Flaticon</a></p>
       {roleTarget ? (
         <Modal
           title="Change account role"

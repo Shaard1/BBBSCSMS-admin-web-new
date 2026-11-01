@@ -19,6 +19,7 @@ import {
   X,
 } from "@/components/crm-icons";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
+import { Modal } from "@/components/modal";
 import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -88,6 +89,9 @@ export function AdminShell({ children }: AdminShellProps) {
   const [accessFailed, setAccessFailed] = useState(false);
   const [accessAttempt, setAccessAttempt] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [adminName, setAdminName] = useState("Admin");
   const [role, setRole] = useState<OfficeRole>("staff");
   const [pendingIds, setPendingIds] = useState<PendingNotificationIds>({ reports: [], documents: [], residents: [] });
@@ -130,7 +134,7 @@ export function AdminShell({ children }: AdminShellProps) {
     panelRef: searchPanelRef,
     isOpen: isSearchOpen,
     setIsOpen: setIsSearchOpen,
-    minWidth: 360,
+    minWidth: 0,
     maxWidth: 420,
     maxHeight: 480,
   });
@@ -392,13 +396,18 @@ export function AdminShell({ children }: AdminShellProps) {
   useEffect(() => {
     const normalizedQuery = searchQuery.trim();
 
-    if (normalizedQuery.length < 2) {
+    if (normalizedQuery.length === 0) {
       setSearchResults([]);
       setSearchError("");
       setIsSearchLoading(false);
+      setIsSearchOpen(false);
       return;
     }
 
+    setSearchResults([]);
+    setSearchError("");
+    setIsSearchLoading(true);
+    setIsSearchOpen(true);
     let isCancelled = false;
     const timer = window.setTimeout(async () => {
       setIsSearchLoading(true);
@@ -432,9 +441,18 @@ export function AdminShell({ children }: AdminShellProps) {
   }, [role, searchQuery]);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    await clearAdminServerSession();
-    router.replace("/admin/login");
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setLogoutError("");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      await clearAdminServerSession();
+      router.replace("/admin/login");
+    } catch {
+      setLogoutError("Could not log out. Please try again.");
+      setIsLoggingOut(false);
+    }
   }
 
   function navigateTo(href: string) {
@@ -518,7 +536,7 @@ export function AdminShell({ children }: AdminShellProps) {
             );
           })}
         </nav>
-        <button className="sidebar-logout" onClick={handleLogout} type="button">
+        <button className="sidebar-logout" onClick={() => { setLogoutError(""); setIsLogoutOpen(true); }} type="button">
           <LogOut size={18} />
           Logout
         </button>
@@ -531,6 +549,19 @@ export function AdminShell({ children }: AdminShellProps) {
           aria-label="Close navigation"
           onClick={() => setIsSidebarOpen(false)}
         />
+      ) : null}
+      {isLogoutOpen ? (
+        <Modal title="Log out?" onClose={() => setIsLogoutOpen(false)} dismissible={!isLoggingOut} className="logout-dialog">
+          <h2>Log out?</h2>
+          <p>Are you sure you want to log out of the CRM?</p>
+          {logoutError ? <p role="alert">{logoutError}</p> : null}
+          <div className="logout-dialog-actions">
+            <button autoFocus type="button" disabled={isLoggingOut} onClick={() => setIsLogoutOpen(false)}>Cancel</button>
+            <button className="primary-admin-button" type="button" disabled={isLoggingOut} onClick={handleLogout}>
+              <LogOut size={18} /> {isLoggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </div>
+        </Modal>
       ) : null}
       <div className="admin-main">
         <header className="admin-topbar">
@@ -557,7 +588,7 @@ export function AdminShell({ children }: AdminShellProps) {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onFocus={() => {
-                  if (searchQuery.trim().length >= 2 || searchError) {
+                  if (searchQuery.trim().length > 0 || searchError) {
                     setIsSearchOpen(true);
                   }
                 }}
@@ -575,9 +606,9 @@ export function AdminShell({ children }: AdminShellProps) {
                   <div className="topbar-search-state">Searching...</div>
                 ) : searchError ? (
                   <div className="topbar-search-state">{searchError}</div>
-                ) : searchQuery.trim().length < 2 ? (
+                ) : searchQuery.trim().length === 0 ? (
                   <div className="topbar-search-state">
-                    Type at least 2 characters.
+                    Type to search the workspace.
                   </div>
                 ) : searchResults.length === 0 ? (
                   <div className="topbar-search-state">No results found.</div>
