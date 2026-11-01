@@ -119,6 +119,7 @@ function reset() {
   };
 }
 reset();
+const profilePhotos = new Map();
 const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:3217");
   res.setHeader(
@@ -142,6 +143,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/__reset" && req.method === "POST") {
     reset();
+    profilePhotos.clear();
     return json({ ok: true });
   }
   if (url.pathname === "/evidence.svg") {
@@ -149,6 +151,24 @@ const server = http.createServer(async (req, res) => {
     return res.end(
       '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460" viewBox="0 0 800 460"><rect width="800" height="460" fill="#dfe9e6"/><path d="M0 300L270 150L480 280L700 110L800 190V460H0Z" fill="#93b4a3"/><path d="M0 460L320 220H400L620 460Z" fill="#c6cfd3"/><rect x="90" y="180" width="145" height="110" rx="5" fill="#f9fbf9"/><path d="M70 180L165 110L255 180Z" fill="#557d7b"/><text x="24" y="430" fill="#25423e" font-family="Arial" font-size="20">SYNTHETIC QA IMAGE · NO REAL RESIDENT DATA</text></svg>',
     );
+  }
+  if(url.pathname==="/storage/v1/bucket/office-profile-photos")return json({id:"office-profile-photos",name:"office-profile-photos",public:false});
+  if(url.pathname.startsWith("/storage/v1/object/")) {
+    const path=url.pathname.replace(/^\/storage\/v1\/object\/(authenticated\/)?/, "");
+    if(req.method==="POST") {
+      const chunks=[];for await(const chunk of req)chunks.push(chunk);
+      profilePhotos.set(path,{bytes:Buffer.concat(chunks),type:req.headers['content-type']});
+      return json({Key:path});
+    }
+    if(req.method==="DELETE") {
+      let raw="";for await(const chunk of req)raw+=chunk;
+      const {prefixes=[]}=JSON.parse(raw);
+      prefixes.forEach(prefix=>profilePhotos.delete("office-profile-photos/"+prefix));
+      return json([]);
+    }
+    const photo=profilePhotos.get(path);
+    if(!photo)return json({message:"Not found"},404);
+    res.writeHead(200,{"Content-Type":photo.type});return res.end(photo.bytes);
   }
   let body = {};
   try {

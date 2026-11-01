@@ -12,6 +12,7 @@ export type GlobalSearchResult = {
     badgeTone?: "approved" | "pending" | "flagged" | "info";
 };
 const adminPageResults = [
+    { id: "page-settings", category: "page", href: "/admin/settings", title: "Settings", subtitle: "Account details, password and notification preferences", badge: "Page", badgeTone: "info" as const, keywords: ["profile", "password", "preferences", "settings"] },
     {
         id: "page-dashboard",
         category: "page",
