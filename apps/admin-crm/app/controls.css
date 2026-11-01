@@ -1,0 +1,105 @@
+/* Shared control surfaces. Navigation, image canvases, map controls and text
+   actions keep their specialized interaction styles. */
+:root {
+  --control-radius:14px;
+  --control-border:#d5dae2;
+  --control-shadow:0 1px 2px #172b4d14,inset 0 1px 0 #ffffffd9;
+  --field-shadow:0 1px 2px #172b4d0d,inset 0 1px 2px #172b4d05;
+}
+body :is(.admin-shell,.workspace-dialog,.office-login-card) button:not(:where(
+  .admin-sidebar button,.sidebar-scrim,.sidebar-toggle,.mobile-nav-close,
+  .topbar-search-result,.notification-button,.notification-item,
+  .sidebar-account-panel button,.ui-dropdown-option,
+  .staff-delete-button,.map-delete-button,.report-title-button,
+  .resident-search button,.office-password-field button,.settings-input-group button,
+  .image-viewer-zoom button,.image-viewer-nav,.leaflet-container button,
+  .report-modal-images button,[class*="thumbnail"],.rich-editor-toolbar button,.rich-editor-swatches button,.queue-list > button,.announcement-view-tabs button,.document-detail-tabs button,.reason-options button,.map-filter-group button,.account-evidence-grid button,.announcement-modal-images button,.map-image-strip button,.report-actions .delete-button,
+  .photo-crop-stage button
+)),
+a.secondary-admin-button,a.primary-admin-button,.file-upload-control {
+  min-height:44px;
+  padding:.65rem 1rem;
+  border-radius:var(--control-radius);
+  border-color:var(--control-border);
+  background:linear-gradient(180deg,#fff,#fbfcfe);
+  box-shadow:var(--control-shadow);
+  font-size:.875rem;
+  font-weight:500;
+  transition:background-color 140ms ease,border-color 140ms ease,box-shadow 140ms ease;
+}
+button:not(:where(.admin-sidebar button,.sidebar-scrim,.sidebar-toggle,.mobile-nav-close,.topbar-search-result,.notification-button,.notification-item,.sidebar-account-panel button,.ui-dropdown-option,.staff-delete-button,.map-delete-button,.report-title-button,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.image-viewer-nav,.leaflet-container button,.report-modal-images button,[class*="thumbnail"],.rich-editor-toolbar button,.rich-editor-swatches button,.queue-list > button,.announcement-view-tabs button,.document-detail-tabs button,.reason-options button,.map-filter-group button,.account-evidence-grid button,.announcement-modal-images button,.map-image-strip button,.report-actions .delete-button)):hover:not(:disabled),
+a.secondary-admin-button:hover,.file-upload-control:hover {
+  background:linear-gradient(180deg,#fff,#f0f3f8);
+  border-color:#b9c3d1;
+  box-shadow:0 2px 3px #172b4d1a,inset 0 1px 0 #fff;
+}
+body button.primary-admin-button,a.primary-admin-button,
+body button.primary-admin-button:hover:not(:disabled),a.primary-admin-button:hover {
+  color:white;
+  border-color:#184cb4;
+  background:linear-gradient(180deg,#3279ef,#225cda);
+  box-shadow:0 1px 2px #183f8529,inset 0 1px 0 #ffffff40;
+}
+body button.primary-admin-button:hover:not(:disabled),a.primary-admin-button:hover {
+  background:linear-gradient(180deg,#286de0,#1c50c5);
+  border-color:#153f99;
+}
+body button.danger-admin-button,body button.danger-admin-button:hover:not(:disabled) {
+  color:#a42635;
+  border-color:#efc6cc;
+  background:linear-gradient(180deg,#fff7f8,#ffecee);
+}
+body button.danger-admin-button:hover:not(:disabled) { border-color:#d59aa4; background:#ffe0e3; }
+body :is(.admin-shell,.workspace-dialog,.office-login-card) button:active:not(:disabled):not(:where(.admin-sidebar button,.leaflet-container button,.ui-dropdown-option,.topbar-search-result,.notification-button,.notification-item,.report-title-button,.staff-delete-button,.map-delete-button,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.report-modal-images button)) { box-shadow:inset 0 1px 2px #172b4d26; }
+body button:disabled { box-shadow:none; }
+
+input:not(:where([type="checkbox"],[type="radio"],[type="range"],[type="file"],[type="color"],[type="hidden"],[type="submit"])),
+select,textarea,.office-login-card form > input,.office-password-field input,
+.document-reopen-form textarea,.rich-editor,.ui-dropdown button.ui-dropdown-trigger,
+.resident-search,.topbar-search-bar,.staff-page .staff-toolbar-actions .resident-search,
+.settings-input-group {
+  min-height:46px;
+  border:1px solid var(--control-border);
+  border-radius:var(--control-radius);
+  background:#fcfcfd;
+  box-shadow:var(--field-shadow);
+  font-size:.875rem;
+}
+input:not(:where([type="checkbox"],[type="radio"],[type="range"],[type="file"],[type="color"],[type="hidden"],[type="submit"])),select,textarea { padding:.7rem .875rem; }
+textarea { min-height:110px; }
+.resident-search input,.staff-page .resident-search input,.topbar-search input,
+.account-settings .settings-input-group input:not([type="checkbox"]):not([type="file"]) {
+  border:0; border-radius:0; box-shadow:none; background:transparent;
+  min-height:44px; outline:none;
+}
+.resident-search input,.staff-page .resident-search input { padding:.7rem 0; }
+.reports-refine-controls .resident-search { height:auto; }
+input:not(:where([type="checkbox"],[type="radio"],[type="range"],[type="file"],[type="color"],[type="hidden"])):focus-visible,
+select:focus-visible,textarea:focus-visible,
+.office-login-card form > input:focus-visible,.office-password-field input:focus-visible,.rich-editor:focus-within,
+.ui-dropdown button.ui-dropdown-trigger:focus-visible,
+.ui-dropdown button.ui-dropdown-trigger[aria-expanded="true"],
+.resident-search:focus-within,.staff-page .resident-search:focus-within,
+.topbar-search:has(input:focus-visible) .topbar-search-bar,.settings-input-group:focus-within {
+  outline:none; border-color:#3178d9;
+  background:white; box-shadow:0 0 0 3px #3178d926,inset 0 1px 2px #172b4d05;
+}
+.resident-search input:focus-visible,.staff-page .resident-search input:focus-visible,
+.topbar-search input:focus-visible,.account-settings .settings-input-group input:focus-visible {
+  outline:none; border:0; box-shadow:none; background:transparent;
+}
+.ui-dropdown .ui-dropdown-menu {
+  padding:6px; border-color:var(--control-border); border-radius:var(--control-radius);
+  box-shadow:0 8px 24px #142a461a,0 2px 6px #142a460a;
+}
+.ui-dropdown .ui-dropdown-option { border-radius:9px; min-height:40px; padding:.6rem .75rem; box-shadow:none; }
+.ui-dropdown.pending button.ui-dropdown-trigger { background:#fff7e6; color:#936611; }
+.ui-dropdown.in-progress button.ui-dropdown-trigger { background:#edf4ff; color:#1c58ae; }
+.ui-dropdown.resolved button.ui-dropdown-trigger { background:#edf8f1; color:#23714b; }
+input:disabled:not(:where([type="checkbox"],[type="radio"],[type="range"])),select:disabled,textarea:disabled { background:#f1f3f6; color:var(--muted); box-shadow:none; }
+input[aria-invalid="true"],textarea[aria-invalid="true"],input:user-invalid,textarea:user-invalid { border-color:#bd3348; }
+/* Quiet actions stay secondary to the save/upload controls. */
+#profile-section .settings-photo-actions button + button,
+#profile-section .settings-photo-actions button + button:hover:not(:disabled) { border-color:transparent; background:transparent; box-shadow:none; color:var(--muted); }
+.photo-editor header button { width:44px; padding:0; }
+@media(prefers-reduced-motion:reduce) { button,input,select,textarea { transition:none; } }

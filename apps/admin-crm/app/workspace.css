@@ -3872,3 +3872,23 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .photo-editor footer { display:flex; align-items:center; gap:.5rem; padding:1rem 1.25rem; border-top:1px solid var(--border); }
 .photo-editor footer span { flex:1; }
 .photo-editor footer button { font-size:.8rem; }
+.settings-password-field { display:grid; gap:.5rem; min-width:0; }
+.settings-input-group { display:flex; align-items:center; overflow:visible; }
+.account-settings .settings-input-group input:not([type="checkbox"]):not([type="file"]),
+.account-settings .settings-input-group input:not([type="checkbox"]):not([type="file"]):focus-visible {
+  flex:1; min-width:0; width:0; min-height:44px; border:0; box-shadow:none; background:transparent; outline:none;
+}
+.account-settings .settings-input-group button,
+.account-settings .settings-input-group button:hover:not(:disabled) {
+  width:44px; min-width:44px; height:44px; padding:0; margin:0 .1rem 0 0;
+  background:transparent; border:0; border-radius:12px; box-shadow:none; color:var(--muted);
+}
+.account-settings .settings-input-group button:hover:not(:disabled) { background:#edf1f7; color:var(--text); }
+.account-settings .settings-section input:disabled:not([type="checkbox"]):not([type="file"]),
+.settings-input-group:has(input:disabled) { background:#f1f3f6; box-shadow:none; color:var(--muted); }
+@media(prefers-reduced-motion:reduce) {
+  .account-settings .settings-section input,.settings-input-group { transition:none; }
+}
+.account-settings .settings-section input:user-invalid:not([type="checkbox"]):not([type="file"]),
+.settings-input-group:has(input:user-invalid) { border-color:#bd3348; box-shadow:0 0 0 3px #bd334814; }
+.account-settings .settings-input-group input:user-invalid:not([type="checkbox"]):not([type="file"]) { border:0; box-shadow:none; }

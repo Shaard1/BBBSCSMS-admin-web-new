@@ -157,6 +157,7 @@ test("login selection, labels, password integrity and session recovery", async (
   await expect(page).toHaveURL(/dashboard/);
   await page.getByRole("button", { name: "Account options", exact: true }).click();
   await page.getByRole("region", { name: "Account options", exact: true }).getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("dialog", {name:"Log out?",exact:true}).getByRole("button",{name:"Log out",exact:true}).click();
   await expect(page).toHaveURL(/login/);
 });
 
@@ -306,6 +307,7 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   await expect(
     page.getByRole("option", { name: "Pending", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({path:"test-results/shared-dropdown-controls.png"});
   await audit(page);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
@@ -606,6 +608,7 @@ test("announcements: library, drafts, composer, preview and safe content", async
     .click();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByLabel("Title", { exact: true }).fill("Synthetic QA notice");
+  await page.screenshot({path:"test-results/shared-controls-composer.png",fullPage:true});
   await page
     .getByRole("textbox", { name: "Announcement content", exact: true })
     .fill("Community service hours will be updated tomorrow.");
@@ -1294,7 +1297,7 @@ test("account settings opens from the menu and saves notification preferences", 
   await expect(page).toHaveURL(/\/admin\/settings$/);
   await expect(page.getByRole("heading", {name:"Profile",exact:true})).toBeVisible();
   await expect(page.getByText("admin@example.test", {exact:true})).toBeVisible();
-  await page.screenshot({path:"test-results/settings-direct-layout.png"});
+  await page.screenshot({path:"test-results/settings-direct-layout.png",fullPage:true});
   const toggle=page.getByRole("checkbox",{name:/Show unread count/});
   await toggle.uncheck();
   await expect(page.getByRole("button",{name:"Open notifications"}).locator("span")).toHaveCount(0);
@@ -1302,6 +1305,10 @@ test("account settings opens from the menu and saves notification preferences", 
   await expect(toggle).not.toBeChecked();
   await toggle.check();
   await page.getByLabel("New password",{exact:true}).fill("fixture-password-only");
+  await page.getByRole("button",{name:"Show new password",exact:true}).click();
+  await expect(page.getByLabel("New password",{exact:true})).toHaveAttribute("type","text");
+  await page.getByRole("button",{name:"Hide new password",exact:true}).click();
+  await expect(page.getByLabel("New password",{exact:true})).toHaveAttribute("type","password");
   await page.getByLabel("Confirm new password",{exact:true}).fill("different-password");
   await page.getByRole("button",{name:"Update password",exact:true}).click();
   await expect(page.getByRole("alert").filter({hasText:"Passwords do not match."})).toBeVisible();

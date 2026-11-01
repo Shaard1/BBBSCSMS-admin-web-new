@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "leaflet/dist/leaflet.css";
 import "./workspace.css";
+import "./controls.css";
 
 export const metadata: Metadata = {
   title: "Bancao Connect Admin",
