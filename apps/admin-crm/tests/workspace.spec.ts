@@ -155,7 +155,9 @@ test("login selection, labels, password integrity and session recovery", async (
   await expect(page).toHaveURL(/dashboard/);
   await page.goto("/admin/analytics");
   await expect(page).toHaveURL(/dashboard/);
-  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  await page.getByRole("button", { name: "Account options", exact: true }).click();
+  await page.getByRole("region", { name: "Account options", exact: true }).getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("dialog", {name:"Log out?",exact:true}).getByRole("button",{name:"Log out",exact:true}).click();
   await expect(page).toHaveURL(/login/);
 });
 
@@ -305,6 +307,7 @@ test("dropdown menus support keyboard selection and dismissal", async ({
   await expect(
     page.getByRole("option", { name: "Pending", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({path:"test-results/shared-dropdown-controls.png"});
   await audit(page);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
@@ -444,6 +447,36 @@ test("dropdowns stay visible in tables and a modal", async ({ page }) => {
   await expectMenuAnchored(status, statusMenu);
 });
 
+test("workspace search suggests matches from one letter and clears empty queries", async ({ page }) => {
+  await login(page);
+  const search = page.getByRole("textbox", { name: "Search across the admin portal" });
+  const results = page.getByRole("region", { name: "Global search results" });
+  await search.fill("r");
+  await expect(results.getByRole("button", { name: /Road surface damaged/ })).toBeVisible();
+  const searchBox = await search.locator("..").boundingBox();
+  const panelBox = await results.boundingBox();
+  expect(Math.abs(searchBox!.width - panelBox!.width)).toBeLessThan(2);
+  const rowHeights = await results.locator(".topbar-search-result").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+  expect(Math.max(...rowHeights) - Math.min(...rowHeights)).toBeLessThan(2);
+
+  await page.route("**/rest/v1/*", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("or")?.includes("zzzz-no-match")) {
+      return route.fulfill({ json: [] });
+    }
+    return route.continue();
+  });
+  await search.fill("zzzz-no-match");
+  await expect(results.getByText("No results found.")).toBeVisible();
+  await search.fill("r");
+  await expect(results.getByRole("button", { name: /Road surface damaged/ })).toBeVisible();
+  await search.fill("   ");
+  await expect(results).toBeHidden();
+  await search.fill("r");
+  await results.getByRole("button", { name: /Community Reports/ }).click();
+  await expect(page).toHaveURL(/\/admin\/reports$/);
+  await expect(search).toHaveValue("");
+});
+
 test("header search and notification panels fit a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 420 });
   await login(page);
@@ -575,6 +608,7 @@ test("announcements: library, drafts, composer, preview and safe content", async
     .click();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByLabel("Title", { exact: true }).fill("Synthetic QA notice");
+  await page.screenshot({path:"test-results/shared-controls-composer.png",fullPage:true});
   await page
     .getByRole("textbox", { name: "Announcement content", exact: true })
     .fill("Community service hours will be updated tomorrow.");
@@ -862,7 +896,8 @@ test("document unread badges clear on opening details, persist, and isolate staf
   await expect(page.getByRole("navigation").getByRole("link", { name: /Community Reports/ }).locator("em")).toHaveText("2");
   await expect(documentsLink.locator("em")).toHaveCount(0);
   await expect(page.locator(".document-request-card").filter({ hasText: "Barangay Clearance" })).toContainText("Pending");
-  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  await page.getByRole("button", { name: "Account options", exact: true }).click();
+  await page.getByRole("region", { name: "Account options", exact: true }).getByRole("button", { name: "Log out", exact: true }).click();
   await login(page, "staff");
   await expect(documentsLink.locator("em")).toHaveText("1");
 });
@@ -1234,4 +1269,125 @@ test('report evidence gallery supports arrows, keyboard, wrapping, and thumbnail
   await viewer.getByRole('button', { name: 'Close image viewer', exact: true }).click();
   await page.getByRole('button', { name: 'Report evidence thumbnail', exact: true }).last().click();
   await expect(viewer).toContainText('Image 3 of 3');
+});
+
+
+test("logout requires confirmation and Cancel keeps the session", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Account options", exact: true }).click();
+  await page.getByRole("region", { name: "Account options", exact: true }).getByRole("button", { name: "Log out", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Log out?", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/\/admin\/login/);
+  await page.getByRole("button", { name: "Account options", exact: true }).click();
+  await page.getByRole("region", { name: "Account options", exact: true }).getByRole("button", { name: "Log out", exact: true }).click();
+  await dialog.getByRole("button", { name: "Log out", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/login/);
+});
+
+
+test("account settings opens from the menu and saves notification preferences", async ({ page }) => {
+  await page.setViewportSize({width:1440,height:900});
+  await login(page);
+  await page.getByRole("button", { name: "Account options", exact: true }).click();
+  await page.getByRole("region", { name: "Account options", exact: true }).getByRole("link", {name:"Settings",exact:true}).click();
+  await expect(page).toHaveURL(/\/admin\/settings$/);
+  await expect(page.getByRole("heading", {name:"Profile",exact:true})).toBeVisible();
+  await expect(page.getByText("admin@example.test", {exact:true})).toBeVisible();
+  await page.screenshot({path:"test-results/settings-direct-layout.png",fullPage:true});
+  const toggle=page.getByRole("checkbox",{name:/Show unread count/});
+  await toggle.uncheck();
+  await expect(page.getByRole("button",{name:"Open notifications"}).locator("span")).toHaveCount(0);
+  await page.reload();
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  await page.getByLabel("New password",{exact:true}).fill("fixture-password-only");
+  await page.getByRole("button",{name:"Show new password",exact:true}).click();
+  await expect(page.getByLabel("New password",{exact:true})).toHaveAttribute("type","text");
+  await page.getByRole("button",{name:"Hide new password",exact:true}).click();
+  await expect(page.getByLabel("New password",{exact:true})).toHaveAttribute("type","password");
+  await page.getByLabel("Confirm new password",{exact:true}).fill("different-password");
+  await page.getByRole("button",{name:"Update password",exact:true}).click();
+  await expect(page.getByRole("alert").filter({hasText:"Passwords do not match."})).toBeVisible();
+  await page.getByLabel("Confirm new password",{exact:true}).fill("fixture-password-only");
+  const passwordRequest=page.waitForRequest(request=>request.url().includes("/auth/v1/user") && request.method()==="PUT");
+  await page.getByRole("button",{name:"Update password",exact:true}).click();
+  expect((await passwordRequest).postDataJSON().password).toBe("fixture-password-only");
+  await expect(page.getByRole("status").filter({hasText:"Password updated."})).toBeVisible();
+  await expect(page.getByLabel("New password",{exact:true})).toHaveValue("");
+  await page.setViewportSize({width:360,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+
+test("users can edit their own name and cannot change another account or role", async ({page}) => {
+  await login(page);
+  await page.goto("/admin/settings");
+  const name=page.getByRole("textbox",{name:"Full name",exact:true});
+  await expect(name).toHaveValue("Alex Reyes");
+  await name.fill("Alex Updated");
+  await page.getByRole("button",{name:"Save profile",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Profile updated."})).toBeVisible();
+  await expect(page.locator(".sidebar-account-copy strong")).toHaveText("Alex Updated");
+  await page.reload();
+  await expect(name).toHaveValue("Alex Updated");
+  const response=await page.request.patch("/api/admin/profile",{data:{fullName:"Alex Own Name",userId:"10000000-0000-4000-8000-000000000002",role:"staff"}});
+  expect(response.ok()).toBe(true);
+  await page.reload();
+  await expect(name).toHaveValue("Alex Own Name");
+  await expect(page.locator(".sidebar-account-copy small")).toHaveText("Administrator");
+  expect((await page.request.patch("/api/admin/profile",{data:{fullName:" "}})).status()).toBe(400);
+});
+
+
+test("profile photos upload, persist, replace and remove", async ({page})=>{
+  await login(page);
+  await page.goto("/admin/settings");
+  await expect(page.getByRole("textbox",{name:"Full name",exact:true})).toBeVisible();
+  const input=page.getByLabel("Choose profile photo",{exact:true});
+  const png=Buffer.from(await page.evaluate(()=>{
+    const canvas=document.createElement("canvas");canvas.width=400;canvas.height=200;
+    const ctx=canvas.getContext("2d")!;ctx.fillStyle="#e4aa45";ctx.fillRect(0,0,200,200);ctx.fillStyle="#3469bc";ctx.fillRect(200,0,200,200);
+    return canvas.toDataURL("image/png").split(",")[1];
+  }),"base64");
+  await input.setInputFiles({name:"avatar.png",mimeType:"image/png",buffer:png});
+  const editor=page.getByRole("dialog",{name:"Adjust profile photo",exact:true});
+  await expect(editor).toBeVisible();
+  await expect(page.getByRole("status").filter({hasText:"Profile photo updated."})).toHaveCount(0);
+  await editor.getByLabel("Photo zoom",{exact:true}).fill("2");
+  await editor.getByRole("group",{name:"Photo position",exact:true}).press("ArrowLeft");
+  await editor.getByRole("button",{name:"Reset",exact:true}).click();
+  await expect(editor.getByLabel("Photo zoom",{exact:true})).toHaveValue("1");
+  await editor.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(editor).toBeHidden();
+  await input.setInputFiles({name:"avatar.png",mimeType:"image/png",buffer:png});
+  await editor.getByRole("button",{name:"Apply",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Profile photo updated."})).toBeVisible();
+  await expect(page.locator(".sidebar-account-avatar img")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button",{name:"Change photo",exact:true})).toBeVisible();
+  await input.setInputFiles({name:"replacement.png",mimeType:"image/png",buffer:png});
+  await editor.getByLabel("Photo zoom",{exact:true}).fill("1.5");
+  await editor.getByRole("group",{name:"Photo position",exact:true}).press("ArrowRight");
+  const crop=editor.getByRole("group",{name:"Photo position",exact:true});
+  const bounds=await crop.boundingBox();
+  const before=await crop.locator("img").evaluate(image=>image.style.left);
+  await page.mouse.move(bounds!.x+140,bounds!.y+140);
+  await page.mouse.down();await page.mouse.move(bounds!.x+180,bounds!.y+160,{steps:5});await page.mouse.up();
+  expect(await crop.locator("img").evaluate(image=>image.style.left)).not.toBe(before);
+  await page.screenshot({path:"test-results/profile-photo-crop-editor.png"});
+  await editor.getByRole("button",{name:"Apply",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Profile photo updated."})).toBeVisible();
+  await page.getByRole("button",{name:"Remove photo",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Profile photo removed."})).toBeVisible();
+  await expect(page.locator(".sidebar-account-avatar img")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("button",{name:"Upload photo",exact:true})).toBeVisible();
+  await input.setInputFiles({name:"bad.svg",mimeType:"image/svg+xml",buffer:Buffer.from("<svg/>")});
+  await expect(page.getByRole("alert").filter({hasText:/Choose a JPG/})).toBeVisible();
+  const invalid=await page.request.post("/api/admin/profile/photo",{multipart:{file:{name:"fake.png",mimeType:"image/png",buffer:Buffer.from("not an image")}}});
+  expect(invalid.status()).toBe(400);
 });

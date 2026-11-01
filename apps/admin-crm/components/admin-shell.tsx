@@ -1,7 +1,10 @@
 "use client";
+import Image from "next/image";
 import { fetchPendingNotificationIds, notificationReadEvent, unreadIds, type PendingNotificationIds } from "@/lib/notifications";
 
 import {
+  Settings,
+  ChevronsUpDown,
   BarChart3,
   Bell,
   BellNotification,
@@ -13,12 +16,13 @@ import {
   Megaphone,
   Menu,
   Search,
-  ShieldCheck,
   UserCog,
   UsersRound,
   X,
 } from "@/components/crm-icons";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
+import { notificationPreferenceKey, notificationPreferenceEvent } from "@/lib/account-preferences";
+import { Modal } from "@/components/modal";
 import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -88,6 +92,15 @@ export function AdminShell({ children }: AdminShellProps) {
   const [accessFailed, setAccessFailed] = useState(false);
   const [accessAttempt, setAccessAttempt] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showNotificationBadge, setShowNotificationBadge] = useState(true);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement | null>(null);
+  const accountPanelRef = useRef<HTMLDivElement | null>(null);
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const [hasProfilePhoto, setHasProfilePhoto] = useState(true);
+  const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
   const [adminName, setAdminName] = useState("Admin");
   const [role, setRole] = useState<OfficeRole>("staff");
   const [pendingIds, setPendingIds] = useState<PendingNotificationIds>({ reports: [], documents: [], residents: [] });
@@ -114,6 +127,43 @@ export function AdminShell({ children }: AdminShellProps) {
   const searchRef = useRef<HTMLDivElement | null>(null);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    function refreshProfile(event: Event) {
+      const name = (event as CustomEvent<{fullName:string}>).detail?.fullName;
+      if (name) setAdminName(name);
+    }
+    function refreshPhoto(event: Event) {
+      setHasProfilePhoto((event as CustomEvent<{hasPhoto:boolean}>).detail.hasPhoto);
+      setProfilePhotoVersion(Date.now());
+    }
+    window.addEventListener("bc-photo-updated", refreshPhoto);
+    window.addEventListener("bc-profile-updated", refreshProfile);
+    return () => { window.removeEventListener("bc-profile-updated", refreshProfile); window.removeEventListener("bc-photo-updated", refreshPhoto); };
+  }, []);
+  useEffect(() => {
+    function loadPreference() {
+      try { setShowNotificationBadge(!officeUserId || localStorage.getItem(notificationPreferenceKey(officeUserId)) !== "off"); }
+      catch { setShowNotificationBadge(true); }
+    }
+    loadPreference();
+    window.addEventListener(notificationPreferenceEvent, loadPreference);
+    window.addEventListener("storage", loadPreference);
+    return () => { window.removeEventListener(notificationPreferenceEvent, loadPreference); window.removeEventListener("storage", loadPreference); };
+  }, [officeUserId]);
+  useViewportPopover({ anchorRef: accountRef, panelRef: accountPanelRef, isOpen: isAccountOpen, setIsOpen: setIsAccountOpen, minWidth: 0, maxWidth: 320, maxHeight: 240 });
+  useEffect(() => {
+    if (!isAccountOpen) return;
+    function dismiss(event: MouseEvent) {
+      if (!accountRef.current?.contains(event.target as Node) && !accountPanelRef.current?.contains(event.target as Node)) setIsAccountOpen(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape") { setIsAccountOpen(false); accountRef.current?.querySelector("button")?.focus(); }
+    }
+    document.addEventListener("mousedown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", dismiss); document.removeEventListener("keydown", escape); };
+  }, [isAccountOpen]);
+
   useViewportPopover({
     align: "end",
     anchorRef: notificationRef,
@@ -130,7 +180,7 @@ export function AdminShell({ children }: AdminShellProps) {
     panelRef: searchPanelRef,
     isOpen: isSearchOpen,
     setIsOpen: setIsSearchOpen,
-    minWidth: 360,
+    minWidth: 0,
     maxWidth: 420,
     maxHeight: 480,
   });
@@ -213,6 +263,7 @@ export function AdminShell({ children }: AdminShellProps) {
   }, [role]);
 
   const pageTitle = useMemo(() => {
+    if (displayedPath.startsWith("/admin/settings")) return "Settings";
     return (
       visibleNavItems.find((item) => displayedPath.startsWith(item.href))?.label ??
       "Admin"
@@ -392,13 +443,18 @@ export function AdminShell({ children }: AdminShellProps) {
   useEffect(() => {
     const normalizedQuery = searchQuery.trim();
 
-    if (normalizedQuery.length < 2) {
+    if (normalizedQuery.length === 0) {
       setSearchResults([]);
       setSearchError("");
       setIsSearchLoading(false);
+      setIsSearchOpen(false);
       return;
     }
 
+    setSearchResults([]);
+    setSearchError("");
+    setIsSearchLoading(true);
+    setIsSearchOpen(true);
     let isCancelled = false;
     const timer = window.setTimeout(async () => {
       setIsSearchLoading(true);
@@ -432,9 +488,18 @@ export function AdminShell({ children }: AdminShellProps) {
   }, [role, searchQuery]);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    await clearAdminServerSession();
-    router.replace("/admin/login");
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setLogoutError("");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      await clearAdminServerSession();
+      router.replace("/admin/login");
+    } catch {
+      setLogoutError("Could not log out. Please try again.");
+      setIsLoggingOut(false);
+    }
   }
 
   function navigateTo(href: string) {
@@ -518,10 +583,19 @@ export function AdminShell({ children }: AdminShellProps) {
             );
           })}
         </nav>
-        <button className="sidebar-logout" onClick={handleLogout} type="button">
-          <LogOut size={18} />
-          Logout
-        </button>
+        <div className="sidebar-account" ref={accountRef}>
+          <button className="sidebar-account-trigger" type="button" aria-label="Account options" aria-expanded={isAccountOpen} aria-controls="account-options" onClick={() => setIsAccountOpen(value => !value)}>
+            <span className="sidebar-account-avatar" aria-hidden="true">{hasProfilePhoto ? <Image unoptimized width={64} height={64} src={"/api/admin/profile/photo?v="+profilePhotoVersion} alt="" onError={()=>setHasProfilePhoto(false)}/> : adminName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
+            <span className="sidebar-account-copy"><strong>{adminName}</strong><small>{officeRoleLabel(role)}</small></span>
+            <ChevronsUpDown size={16} aria-hidden="true" />
+          </button>
+          {isAccountOpen ? (
+            <div id="account-options" className="sidebar-account-panel" ref={accountPanelRef} role="region" aria-label="Account options" popover="manual">
+              <Link href="/admin/settings" onClick={() => { setIsAccountOpen(false); setIsSidebarOpen(false); }}><Settings size={18} /> Settings</Link>
+              <button type="button" onClick={() => { setIsAccountOpen(false); setLogoutError(""); setIsLogoutOpen(true); }}><LogOut size={18} /> Log out</button>
+            </div>
+          ) : null}
+        </div>
       </aside>
 
       {isSidebarOpen ? (
@@ -531,6 +605,21 @@ export function AdminShell({ children }: AdminShellProps) {
           aria-label="Close navigation"
           onClick={() => setIsSidebarOpen(false)}
         />
+      ) : null}
+      {isLogoutOpen ? (
+        <Modal title="Log out?" onClose={() => setIsLogoutOpen(false)} dismissible={!isLoggingOut} className="logout-dialog">
+          <div className="logout-dialog-copy">
+            <h2>Log out?</h2>
+            <p>You’ll need to sign in again to access the workspace.</p>
+          </div>
+          {logoutError ? <p role="alert">{logoutError}</p> : null}
+          <div className="logout-dialog-actions">
+            <button autoFocus type="button" disabled={isLoggingOut} onClick={() => setIsLogoutOpen(false)}>Cancel</button>
+            <button className="primary-admin-button" type="button" disabled={isLoggingOut} onClick={handleLogout}>
+              {isLoggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </div>
+        </Modal>
       ) : null}
       <div className="admin-main">
         <header className="admin-topbar">
@@ -557,7 +646,7 @@ export function AdminShell({ children }: AdminShellProps) {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onFocus={() => {
-                  if (searchQuery.trim().length >= 2 || searchError) {
+                  if (searchQuery.trim().length > 0 || searchError) {
                     setIsSearchOpen(true);
                   }
                 }}
@@ -575,9 +664,9 @@ export function AdminShell({ children }: AdminShellProps) {
                   <div className="topbar-search-state">Searching...</div>
                 ) : searchError ? (
                   <div className="topbar-search-state">{searchError}</div>
-                ) : searchQuery.trim().length < 2 ? (
+                ) : searchQuery.trim().length === 0 ? (
                   <div className="topbar-search-state">
-                    Type at least 2 characters.
+                    Type to search the workspace.
                   </div>
                 ) : searchResults.length === 0 ? (
                   <div className="topbar-search-state">No results found.</div>
@@ -634,7 +723,7 @@ export function AdminShell({ children }: AdminShellProps) {
               type="button"
             >
               <BellNotification size={18} />
-              {notificationCount > 0 ? (
+              {showNotificationBadge && notificationCount > 0 ? (
                 <span>
                   {notificationCount > 99 ? "99+" : notificationCount}
                 </span>
@@ -702,14 +791,6 @@ export function AdminShell({ children }: AdminShellProps) {
                 </div>
               </div>
             ) : null}
-          </div>
-          <div className="admin-account">
-            <span>
-              <ShieldCheck size={15} />
-            </span>
-            <strong>
-              {adminName} · {officeRoleLabel(role)}
-            </strong>
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>
