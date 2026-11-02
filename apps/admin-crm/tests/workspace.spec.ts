@@ -622,7 +622,7 @@ test("announcements: library, drafts, composer, preview and safe content", async
   await page
     .locator(".announcement-card")
     .filter({ hasText: "Synthetic QA notice" })
-    .getByRole("button", { name: "View announcement" })
+    .locator(".announcement-card-open")
     .click();
   await expect(
     page.getByRole("dialog", { name: "Announcement preview" }),
@@ -748,10 +748,10 @@ test("announcement uploads disable saving until completed", async ({ page }) => 
   });
   try {
     await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeDisabled();
-    await expect(page.getByText("Uploading image files...", { exact: true })).toBeVisible();
+    await expect(page.locator(".announcement-upload-tile")).toBeVisible();
   } finally { finishUpload(); }
   await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeEnabled();
-  await expect(page.locator(".announcement-thumbnail-preview img")).toBeVisible();
+  await expect(page.locator(".announcement-gallery-tile img").first()).toBeVisible();
 });
 
 test("empty and failed requests have understandable recovery", async ({
@@ -1390,4 +1390,164 @@ test("profile photos upload, persist, replace and remove", async ({page})=>{
   await expect(page.getByRole("alert").filter({hasText:/Choose a JPG/})).toBeVisible();
   const invalid=await page.request.post("/api/admin/profile/photo",{multipart:{file:{name:"fake.png",mimeType:"image/png",buffer:Buffer.from("not an image")}}});
   expect(invalid.status()).toBe(400);
+});
+
+
+test("announcement redesign: compact cards, clear creation, search and unsaved return", async ({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  for(const index of [3,4]) await page.request.post(origin+"/rest/v1/announcements",{data:{id:"50000000-0000-4000-8000-00000000000"+index,title:index===3?"Water service advisory":"Barangay event reminder",content:"Synthetic community announcement for layout verification.",is_published:true,thumbnail_url:origin+"/evidence.svg",image_urls:[],created_at:"2026-04-16T08:00:00Z"}});
+  await login(page);await page.goto("/admin/announcements");
+  const write=page.getByRole("button",{name:"Write announcement",exact:true});
+  await expect(write).toHaveClass(/primary-admin-button/);
+  const searchBounds=await page.getByLabel("Search announcements",{exact:true}).boundingBox();
+  const writeBounds=await write.boundingBox();
+  expect(Math.abs((searchBounds!.y+searchBounds!.height/2)-(writeBounds!.y+writeBounds!.height/2))).toBeLessThan(2);
+  expect(searchBounds!.x+searchBounds!.width).toBeLessThan(writeBounds!.x);
+  expect((await page.locator(".announcement-card").first().boundingBox())!.height).toBeLessThan(370);
+  const columns=await page.locator(".announcement-list").evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(columns).toBe(4);
+  await page.screenshot({path:"test-results/announcements-redesign-desktop.png",fullPage:true});
+  await expect(page.getByRole("button",{name:"View announcement",exact:true})).toHaveCount(0);
+  await page.locator(".announcement-card").first().click({position:{x:24,y:24}});
+  const preview=page.getByRole("dialog",{name:"Announcement preview",exact:true});
+  await expect(preview).toBeVisible();await preview.getByRole("button",{name:"Close",exact:true}).click();
+  await page.locator(".announcement-card-open").first().press("Enter");
+  await expect(preview).toBeVisible();await preview.getByRole("button",{name:"Close",exact:true}).click();
+  await page.getByLabel("Search announcements",{exact:true}).fill("missing-post");
+  await expect(page.getByText("No matching announcements",{exact:true})).toBeVisible();
+  await page.getByLabel("Search announcements",{exact:true}).fill("");
+  await write.click();await page.getByLabel("Title",{exact:true}).fill("QA resident update");
+  const library=page.getByRole("button",{name:"Back to announcement library",exact:true});
+  await library.click();
+  const discard=page.getByRole("dialog",{name:"Discard unsaved changes?",exact:true});
+  await discard.getByRole("button",{name:"Keep editing",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveValue("QA resident update");
+  await library.click();await discard.getByRole("button",{name:"Discard changes",exact:true}).click();
+  await expect(write).toBeVisible();
+  await write.click();await expect(page.getByLabel("Title",{exact:true})).toHaveValue("");
+  await page.getByLabel("Title",{exact:true}).fill("QA published update");
+  await page.getByRole("textbox",{name:"Announcement content",exact:true}).fill("Synthetic resident update for publication testing.");
+  await page.getByRole("checkbox").check();
+  await page.screenshot({path:"test-results/announcements-redesign-composer.png",fullPage:true});
+  await page.getByRole("button",{name:"Publish announcement",exact:true}).click();
+  const review=page.getByRole("dialog",{name:"Review before publishing",exact:true});
+  await expect(review).toBeVisible();
+  await review.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await page.getByRole("button",{name:"Publish announcement",exact:true}).click();
+  await review.getByRole("button",{name:"Confirm publication",exact:true}).click();
+  await expect(page.locator(".announcement-card").filter({hasText:"QA published update"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Published",exact:true})).toHaveAttribute("aria-pressed","true");
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:"test-results/announcements-redesign-mobile.png",fullPage:true});
+  await audit(page);
+});
+
+
+test("announcement redesign: edit and delete a draft from library controls",async({page})=>{
+  await login(page);await page.goto("/admin/announcements");
+  await page.getByRole("button",{name:"Drafts",exact:true}).click();
+  await page.locator(".announcement-card").first().getByRole("button",{name:"Edit announcement",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Edit announcement",exact:true})).toBeVisible();
+  await page.getByLabel("Title",{exact:true}).fill("Edited QA draft");
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  const card=page.locator(".announcement-card").filter({hasText:"Edited QA draft"});
+  await expect(card).toBeVisible();
+  await card.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  const dialog=page.getByRole("dialog",{name:"Delete announcement",exact:true});
+  await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(card).toBeVisible();
+  await card.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  await dialog.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("No matching announcements",{exact:true})).toBeVisible();
+});
+
+
+test("composer QA: formatting, images, draft preview and recovery",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await login(page);await page.goto("/admin/announcements");
+  await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toBeFocused();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveAttribute("aria-invalid","true");
+  await page.getByRole("button",{name:"Dismiss",exact:true}).click();
+  await page.getByLabel("Title",{exact:true}).fill("QA composer controls");
+  const editor=page.getByRole("textbox",{name:"Announcement content",exact:true});
+  await editor.fill("Synthetic formatting check");
+  for(const label of ["Bold","Italic","Underline"]) {
+    await editor.press("ControlOrMeta+A");
+    const button=page.getByRole("button",{name:label,exact:true});
+    await button.click();await expect(button).toHaveAttribute("aria-pressed","true");
+    await button.click();await expect(button).toHaveAttribute("aria-pressed","false");
+  }
+  for(const color of ["#172033","#0077d9","#1f8a70","#e4a000","#b3261e"]) {
+    await editor.press("ControlOrMeta+A");
+    await page.getByRole("button",{name:"Use "+color+" text color",exact:true}).click();
+    await expect(editor.locator("font")).toHaveAttribute("color",color);
+  }
+  await editor.press("ControlOrMeta+A");
+  await page.getByLabel("Announcement text color",{exact:true}).fill("#172033");
+  await expect(editor.locator("font")).toHaveAttribute("color","#172033");
+  const file={name:"qa-only.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")};
+  let upload=0;
+  await page.route("**/api/admin/announcements/upload",route=>route.fulfill({json:{url:origin+"/evidence.svg?photo="+(++upload)}}));
+  const images=page.getByLabel("Upload announcement images",{exact:true});
+  await expect(page.getByRole("button",{name:"Remove thumbnail",exact:true})).toHaveCount(0);
+  await images.setInputFiles([file,{...file,name:"qa-two.png"}]);
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(2);
+  await expect(page.getByAltText("Cover image",{exact:true})).toHaveAttribute("src",/photo=1/);
+  await page.locator(".announcement-gallery-tile").first().hover();
+  await page.getByRole("button",{name:"Remove gallery image 1",exact:true}).click();
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(1);
+  await expect(page.getByAltText("Cover image",{exact:true})).toHaveAttribute("src",/photo=2/);
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  const preview=page.getByRole("dialog",{name:"Draft preview",exact:true});await expect(preview).toContainText("QA composer controls");
+  await preview.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await page.screenshot({path:"test-results/composer-qa-desktop.png",fullPage:true});
+  await audit(page);
+  let fail=true;
+  await page.route("**/rest/v1/announcements*",async route=>{
+    if(route.request().method()==="POST"&&fail){fail=false;return route.fulfill({status:500,json:{message:"Synthetic save failure"}});}
+    return route.continue();
+  });
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveValue("QA composer controls");
+  await expect(page.getByRole("status")).toContainText(/Failed to save|Synthetic save failure/);
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  await expect(page.locator(".announcement-card").filter({hasText:"QA composer controls"})).toBeVisible();
+  const saved=(await (await page.request.get(origin+"/rest/v1/announcements?title=eq."+encodeURIComponent("QA composer controls"))).json())[0];
+  expect(saved.thumbnail_url).toContain("photo=2");
+  expect(saved.image_urls).toEqual([saved.thumbnail_url]);
+  await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await audit(page);
+});
+
+
+test("composer QA: gallery limit and upload failure recovery",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await login(page);await page.goto("/admin/announcements");await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  const file={name:"qa.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")};
+  let fail=true,count=0;
+  await page.route("**/api/admin/announcements/upload",route=>{
+    if(fail){fail=false;return route.fulfill({status:500,json:{message:"Synthetic upload failure"}});}
+    return route.fulfill({json:{url:origin+"/evidence.svg?limit="+(++count)}});
+  });
+  await page.getByLabel("Upload announcement images",{exact:true}).setInputFiles(file);
+  await expect(page.getByRole("status")).toContainText("Synthetic upload failure");
+  await expect(page.getByRole("button",{name:"Save draft",exact:true})).toBeEnabled();
+  const gallery=page.getByLabel("Upload announcement images",{exact:true});
+  await gallery.setInputFiles(Array.from({length:10},(_,index)=>({...file,name:"qa-"+index+".png"})));
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(10);
+  await page.screenshot({path:"test-results/composer-multiple-images.png",fullPage:false});
+  await gallery.setInputFiles(file);
+  await expect(page.getByRole("status")).toContainText("up to 10 gallery images");
+  expect(count).toBe(10);
+  await page.locator(".announcement-gallery-tile").first().hover();
+  await page.getByRole("button",{name:"Remove gallery image 1",exact:true}).click();
+  await gallery.setInputFiles(file);
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(10);
+  expect(count).toBe(11);
 });

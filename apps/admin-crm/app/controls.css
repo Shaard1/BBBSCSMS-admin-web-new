@@ -10,7 +10,7 @@ body :is(.admin-shell,.workspace-dialog,.office-login-card) button:not(:where(
   .admin-sidebar button,.sidebar-scrim,.sidebar-toggle,.mobile-nav-close,
   .topbar-search-result,.notification-button,.notification-item,
   .sidebar-account-panel button,.ui-dropdown-option,
-  .staff-delete-button,.map-delete-button,.report-title-button,
+  .staff-delete-button,.map-delete-button,.report-title-button,.announcement-card-open,
   .resident-search button,.office-password-field button,.settings-input-group button,
   .image-viewer-zoom button,.image-viewer-nav,.leaflet-container button,
   .report-modal-images button,[class*="thumbnail"],.rich-editor-toolbar button,.rich-editor-swatches button,.queue-list > button,.announcement-view-tabs button,.document-detail-tabs button,.reason-options button,.map-filter-group button,.account-evidence-grid button,.announcement-modal-images button,.map-image-strip button,.report-actions .delete-button,
@@ -27,7 +27,7 @@ a.secondary-admin-button,a.primary-admin-button,.file-upload-control {
   font-weight:500;
   transition:background-color 140ms ease,border-color 140ms ease,box-shadow 140ms ease;
 }
-button:not(:where(.admin-sidebar button,.sidebar-scrim,.sidebar-toggle,.mobile-nav-close,.topbar-search-result,.notification-button,.notification-item,.sidebar-account-panel button,.ui-dropdown-option,.staff-delete-button,.map-delete-button,.report-title-button,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.image-viewer-nav,.leaflet-container button,.report-modal-images button,[class*="thumbnail"],.rich-editor-toolbar button,.rich-editor-swatches button,.queue-list > button,.announcement-view-tabs button,.document-detail-tabs button,.reason-options button,.map-filter-group button,.account-evidence-grid button,.announcement-modal-images button,.map-image-strip button,.report-actions .delete-button)):hover:not(:disabled),
+button:not(:where(.admin-sidebar button,.sidebar-scrim,.sidebar-toggle,.mobile-nav-close,.topbar-search-result,.notification-button,.notification-item,.sidebar-account-panel button,.ui-dropdown-option,.staff-delete-button,.map-delete-button,.report-title-button,.announcement-card-open,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.image-viewer-nav,.leaflet-container button,.report-modal-images button,[class*="thumbnail"],.rich-editor-toolbar button,.rich-editor-swatches button,.queue-list > button,.announcement-view-tabs button,.document-detail-tabs button,.reason-options button,.map-filter-group button,.account-evidence-grid button,.announcement-modal-images button,.map-image-strip button,.report-actions .delete-button)):hover:not(:disabled),
 a.secondary-admin-button:hover,.file-upload-control:hover {
   background:linear-gradient(180deg,#fff,#f0f3f8);
   border-color:#b9c3d1;
@@ -50,7 +50,7 @@ body button.danger-admin-button,body button.danger-admin-button:hover:not(:disab
   background:linear-gradient(180deg,#fff7f8,#ffecee);
 }
 body button.danger-admin-button:hover:not(:disabled) { border-color:#d59aa4; background:#ffe0e3; }
-body :is(.admin-shell,.workspace-dialog,.office-login-card) button:active:not(:disabled):not(:where(.admin-sidebar button,.leaflet-container button,.ui-dropdown-option,.topbar-search-result,.notification-button,.notification-item,.report-title-button,.staff-delete-button,.map-delete-button,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.report-modal-images button)) { box-shadow:inset 0 1px 2px #172b4d26; }
+body :is(.admin-shell,.workspace-dialog,.office-login-card) button:active:not(:disabled):not(:where(.admin-sidebar button,.leaflet-container button,.ui-dropdown-option,.topbar-search-result,.notification-button,.notification-item,.report-title-button,.announcement-card-open,.staff-delete-button,.map-delete-button,.resident-search button,.office-password-field button,.settings-input-group button,.image-viewer-zoom button,.report-modal-images button)) { box-shadow:inset 0 1px 2px #172b4d26; }
 body button:disabled { box-shadow:none; }
 
 input:not(:where([type="checkbox"],[type="radio"],[type="range"],[type="file"],[type="color"],[type="hidden"],[type="submit"])),
@@ -89,6 +89,7 @@ select:focus-visible,textarea:focus-visible,
   outline:none; border:0; box-shadow:none; background:transparent;
 }
 .ui-dropdown .ui-dropdown-menu {
+  scrollbar-width:none;
   padding:6px; border-color:var(--control-border); border-radius:var(--control-radius);
   box-shadow:0 8px 24px #142a461a,0 2px 6px #142a460a;
 }
@@ -103,3 +104,5 @@ input[aria-invalid="true"],textarea[aria-invalid="true"],input:user-invalid,text
 #profile-section .settings-photo-actions button + button:hover:not(:disabled) { border-color:transparent; background:transparent; box-shadow:none; color:var(--muted); }
 .photo-editor header button { width:44px; padding:0; }
 @media(prefers-reduced-motion:reduce) { button,input,select,textarea { transition:none; } }
+
+.ui-dropdown .ui-dropdown-menu::-webkit-scrollbar { display:none; }
