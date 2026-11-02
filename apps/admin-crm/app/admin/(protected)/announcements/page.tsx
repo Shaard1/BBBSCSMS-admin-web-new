@@ -5,13 +5,18 @@ import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { Modal } from "@/components/modal";
 import { useUnsavedChanges } from "@/components/use-unsaved-changes";
 import {
+  ArrowLeft,
   Bold,
   Edit3,
   Eye,
   ImageIcon,
   Italic,
-  Megaphone,
   Palette,
+  ChevronDown,
+  List,
+  ListOrdered,
+  Link2,
+  RemoveFormatting,
   Plus,
   Search,
   Trash2,
@@ -69,9 +74,17 @@ export default function AnnouncementsPage() {
   const [savedForm, setSavedForm] = useState<AnnouncementForm>(emptyForm);
   const unsavedChanges = useUnsavedChanges(JSON.stringify(form) !== JSON.stringify(savedForm));
   const [message, setMessage] = useState("");
+  const isSuccessMessage = /(?:uploaded|updated|deleted|removed|saved|published)\.$/i.test(message);
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 8000);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -142,7 +155,8 @@ export default function AnnouncementsPage() {
     }
 
     if (isSubmitting || isUploading) return;
-    if (form.isPublished) {
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    if (form.isPublished || (submitter instanceof HTMLButtonElement && submitter.value === "preview")) {
       setMessage("");
       setShowPreview(true);
       return;
@@ -162,7 +176,7 @@ export default function AnnouncementsPage() {
           id: form.id,
           title: form.title,
           content: form.content,
-          thumbnailUrl: form.thumbnailUrl,
+          thumbnailUrl: imageUrls[0] || "",
           imageUrls,
           isPublished: form.isPublished,
         });
@@ -171,7 +185,7 @@ export default function AnnouncementsPage() {
         await createAnnouncement({
           title: form.title,
           content: form.content,
-          thumbnailUrl: form.thumbnailUrl,
+          thumbnailUrl: imageUrls[0] || "",
           imageUrls,
           isPublished: form.isPublished,
         });
@@ -184,6 +198,8 @@ export default function AnnouncementsPage() {
       setSavedForm(emptyForm);
       setShowPreview(false);
       setActiveView("posted");
+      setStatusFilter(form.isPublished ? "published" : "draft");
+      setSearchQuery("");
       await loadAnnouncements();
     } catch (error) {
       setMessage(
@@ -231,32 +247,25 @@ export default function AnnouncementsPage() {
 
   return (
     <section className="announcement-page">
-      <div className="announcement-header">
-        <div className="announcement-view-tabs">
-          <button
-            aria-pressed={activeView === "create"}
-            className={activeView === "create" ? "active" : ""}
-            onClick={() => setActiveView("create")}
-            type="button"
-          >
-            <Plus size={16} /> Write announcement
-          </button>
-          <button
-            aria-pressed={activeView === "posted"}
-            className={activeView === "posted" ? "active" : ""}
-            onClick={() => setActiveView("posted")}
-            type="button"
-          >
-            <Megaphone size={16} /> Announcement library
-          </button>
+      {activeView === "create" ? <button className="announcement-back" disabled={isSubmitting || isUploading} onClick={() => unsavedChanges.requestDiscard(() => { setForm(emptyForm); setSavedForm(emptyForm); setActiveView("posted"); })} type="button"><ArrowLeft size={18}/> Back to announcement library</button> : null}
+      {activeView === "create" ? <header className="announcement-header">
+        <div className="announcement-heading-copy">
+          <h2>{form.id ? "Edit announcement" : "New announcement"}</h2>
+          <p>Prepare your message, then save a draft or publish it.</p>
         </div>
-      </div>
+
+      </header> : null}
 
       {message ? (
-        <div className="admin-message" role="status">
-          <span>{message}</span>
-          <button onClick={() => setMessage("")} type="button">
-            Dismiss
+        <div className="announcement-toast" role="status" aria-live="polite" aria-atomic="true">
+          <span className={"announcement-toast-icon" + (isSuccessMessage ? " success" : "")} aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isSuccessMessage ? <path d="m5 12 4 4L19 6" /> : <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7h.01" /></>}
+            </svg>
+          </span>
+          <span className="announcement-toast-message">{message}</span>
+          <button onClick={() => setMessage("")} type="button" aria-label="Dismiss notification">
+            <X size={18} />
           </button>
         </div>
       ) : null}
@@ -265,16 +274,17 @@ export default function AnnouncementsPage() {
         <CreateAnnouncementPanel
           form={form}
           isUploading={isUploading}
+          pendingImages={pendingImages}
           isSubmitting={isSubmitting}
           onCancelEdit={() => unsavedChanges.requestDiscard(() => {
             setForm(emptyForm);
             setSavedForm(emptyForm);
+            setActiveView("posted");
           })}
           onChange={setForm}
           onGalleryRemove={handleGalleryRemove}
           onGalleryUpload={handleGalleryUpload}
           onSubmit={handleSubmit}
-          onThumbnailUpload={handleThumbnailUpload}
         />
       ) : (
         <PostedAnnouncementsPanel
@@ -288,6 +298,7 @@ export default function AnnouncementsPage() {
           authorNames={authorNames}
           onDelete={(announcement) => { setDeleteError(""); setDeleteTarget(announcement); }}
           onEdit={(announcement) => unsavedChanges.requestDiscard(() => editAnnouncement(announcement))}
+          onCreate={() => setActiveView("create")}
           onSearchChange={setSearchQuery}
           onStatusFilterChange={setStatusFilter}
           onView={setSelectedAnnouncement}
@@ -328,16 +339,16 @@ export default function AnnouncementsPage() {
       ) : null}
 
       {showPreview ? (
-        <Modal title="Review before publishing" onClose={() => { if (!isSubmitting) setShowPreview(false); }}>
+        <Modal title={form.isPublished ? "Review before publishing" : "Draft preview"} onClose={() => { if (!isSubmitting) setShowPreview(false); }}>
           <div className="announcement-modal">
-            <div className="modal-header"><div><h2>Review before publishing</h2><p>This announcement will be visible in the resident app.</p></div></div>
+            <div className="modal-header"><div><h2>{form.isPublished ? "Review before publishing" : "Draft preview"}</h2><p>{form.isPublished ? "This announcement will be visible in the resident app." : "Review your announcement before saving."}</p></div></div>
             <h3>{form.title}</h3>
             {parseImageUrls(form.imageUrlsText, form.thumbnailUrl).map((url, index) => <img className="announcement-publish-image" key={url} src={url} alt={`Announcement attachment ${index + 1}`} />)}
             <div className="announcement-content-view rich-content-view" dangerouslySetInnerHTML={{ __html: richContentHtml(form.content) }} />
             {message ? <p role="alert">{message}</p> : null}
             <div className="modal-actions">
               <button type="button" disabled={isSubmitting} onClick={() => setShowPreview(false)}>Back to editing</button>
-              <button type="button" className="primary-admin-button" disabled={isSubmitting} onClick={() => void saveAnnouncement()}>{isSubmitting ? "Publishing…" : "Confirm publication"}</button>
+              <button type="button" className="primary-admin-button" disabled={isSubmitting} onClick={() => void saveAnnouncement()}>{isSubmitting ? "Saving…" : form.isPublished ? "Confirm publication" : "Save draft"}</button>
             </div>
           </div>
         </Modal>
@@ -353,27 +364,12 @@ export default function AnnouncementsPage() {
     </section>
   );
 
-  async function handleThumbnailUpload(file: File) {
-    setIsUploading(true);
-    setMessage("");
-
-    try {
-      const url = await uploadAnnouncementImage(file, "thumbnails");
-      setForm((current) => ({ ...current, thumbnailUrl: url }));
-      setMessage("Thumbnail uploaded.");
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Failed to upload thumbnail.",
-      );
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
   async function handleGalleryUpload(files: FileList) {
-    const selectedFiles = Array.from(files).slice(0, 10);
-    if (selectedFiles.length === 0) return;
+    const remaining = Math.max(0, 10 - parseImageUrls(form.imageUrlsText, form.thumbnailUrl).length);
+    const selectedFiles = Array.from(files).slice(0, remaining);
+    if (selectedFiles.length === 0) { setMessage("You can add up to 10 gallery images. Remove one before adding another."); return; }
 
+    setPendingImages(selectedFiles.map(file => file.name));
     setIsUploading(true);
     setMessage("");
 
@@ -383,11 +379,11 @@ export default function AnnouncementsPage() {
       );
 
       setForm((current) => {
-        const existingUrls = parseImageUrls(current.imageUrlsText, "");
+        const existingUrls = parseImageUrls(current.imageUrlsText, current.thumbnailUrl);
         const mergedUrls = Array.from(new Set([...existingUrls, ...urls]));
         return {
           ...current,
-          thumbnailUrl: current.thumbnailUrl || urls[0] || "",
+          thumbnailUrl: mergedUrls[0] || "",
           imageUrlsText: mergedUrls.join("\n"),
         };
       });
@@ -401,18 +397,20 @@ export default function AnnouncementsPage() {
           : "Failed to upload announcement images.",
       );
     } finally {
+      setPendingImages([]);
       setIsUploading(false);
     }
   }
 
   function handleGalleryRemove(imageUrl: string) {
     setForm((current) => {
-      const remainingUrls = parseImageUrls(current.imageUrlsText, "").filter(
+      const remainingUrls = parseImageUrls(current.imageUrlsText, current.thumbnailUrl).filter(
         (url) => url !== imageUrl,
       );
       return {
         ...current,
         imageUrlsText: remainingUrls.join("\n"),
+        thumbnailUrl: remainingUrls[0] || "",
       };
     });
     setMessage("Gallery image removed.");
@@ -421,6 +419,7 @@ export default function AnnouncementsPage() {
 
 function CreateAnnouncementPanel({
   form,
+  pendingImages,
   isUploading,
   isSubmitting,
   onCancelEdit,
@@ -428,9 +427,9 @@ function CreateAnnouncementPanel({
   onGalleryRemove,
   onGalleryUpload,
   onSubmit,
-  onThumbnailUpload,
 }: {
   form: AnnouncementForm;
+  pendingImages: string[];
   isUploading: boolean;
   isSubmitting: boolean;
   onCancelEdit: () => void;
@@ -438,23 +437,20 @@ function CreateAnnouncementPanel({
   onGalleryRemove: (imageUrl: string) => void;
   onGalleryUpload: (files: FileList) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onThumbnailUpload: (file: File) => void;
 }) {
-  const galleryImages = parseImageUrls(form.imageUrlsText, "");
+  const galleryImages = parseImageUrls(form.imageUrlsText, form.thumbnailUrl);
 
   return (
-    <section className="announcement-panel">
-      <PanelHeader
-        icon={Edit3}
-        title={form.id ? "Edit Announcement" : "Write announcement"}
-        subtitle="Prepare a notice with images and publish controls for residents."
-      />
+    <section className="announcement-panel announcement-composer">
       <form className="announcement-form" onSubmit={onSubmit} onInput={event => {
         if (event.target instanceof HTMLElement) event.target.removeAttribute("aria-invalid");
       }}>
+        <div className="announcement-writing">
+        <h3>Message</h3>
         <label>
           Title
           <input
+            aria-required="true"
             value={form.title}
             onChange={(event) =>
               onChange({ ...form, title: event.target.value })
@@ -470,107 +466,29 @@ function CreateAnnouncementPanel({
             onChange={(content) => onChange({ ...form, content })}
           />
         </div>
-        <div className="announcement-media-grid">
-          <section className="announcement-media-card">
-            <div className="announcement-media-heading">
-              <div>
-                <h4>Thumbnail image</h4>
-                <span>Shown in the announcement list</span>
-              </div>
-              <em>Main image</em>
-            </div>
-            <p className="announcement-image-guidance">
-              Recommended landscape sizes: 1920x1080, 1600x900, or 1366x768.
-            </p>
-            <div
-              className={`announcement-thumbnail-preview ${form.thumbnailUrl ? "" : "empty"}`}
-            >
-              {form.thumbnailUrl ? (
-                <img src={form.thumbnailUrl} alt="" />
-              ) : (
-                <div>
-                  <ImageIcon size={30} />
-                  <span>No thumbnail selected</span>
-                </div>
-              )}
-            </div>
-            <span className="file-upload-control">
-              <input
-                type="file"
-                aria-label="Upload announcement images"
-                accept="image/*"
-                disabled={isUploading || isSubmitting}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) onThumbnailUpload(file);
-                  event.target.value = "";
-                }}
-              />
-              {form.thumbnailUrl ? "Replace thumbnail" : "Upload thumbnail"}
-            </span>
-          </section>
-          <section className="announcement-media-card">
-            <div className="announcement-media-heading">
-              <div>
-                <h4>Gallery images</h4>
-                <span>Optional photos shown in details</span>
-              </div>
-              <em>
-                {galleryImages.length} image
-                {galleryImages.length === 1 ? "" : "s"}
-              </em>
-            </div>
-            <p className="announcement-image-guidance">
-              Use landscape images when possible: 1920x1080, 1600x900, or
-              1366x768.
-            </p>
-            <div
-              className={`announcement-gallery-preview ${galleryImages.length > 0 ? "" : "empty"}`}
-            >
-              {galleryImages.length > 0 ? (
-                galleryImages.map((imageUrl, index) => (
-                  <article className="announcement-gallery-tile" key={imageUrl}>
-                    <img src={imageUrl} alt={`Gallery image ${index + 1}`} />
-                    <div className="announcement-gallery-tile-bar">
-                      <span>Image {index + 1}</span>
-                      <button
-                        type="button"
-                        className="announcement-remove-image"
-                        onClick={() => onGalleryRemove(imageUrl)}
-                        aria-label={`Remove gallery image ${index + 1}`}
-                      >
-                        <Trash2 size={15} />
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <div>
-                  <ImageIcon size={28} />
-                  <span>No gallery images yet</span>
-                </div>
-              )}
-            </div>
-            <span className="file-upload-control">
-              <input
-                type="file"
-                aria-label="Upload announcement images"
-                accept="image/*"
-                multiple
-                disabled={isUploading || isSubmitting}
-                onChange={(event) => {
-                  if (event.target.files) onGalleryUpload(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              Upload gallery images
-            </span>
-          </section>
         </div>
-        {isUploading ? (
-          <p className="upload-status">Uploading image files...</p>
-        ) : null}
+        <aside className="announcement-media-grid" aria-label="Announcement images">
+          <section className="announcement-media-card">
+            <div className="announcement-media-heading"><div><h3>Images</h3><span>The first image is your cover photo.</span></div><span className="announcement-image-count">{galleryImages.length + pendingImages.length}/10</span></div>
+            <p className="announcement-image-guidance">JPG, PNG or WebP. Up to 5 MB per image.</p>
+            <div className={"announcement-gallery-preview " + (galleryImages.length || pendingImages.length ? "" : "empty")}>
+              {galleryImages.map((imageUrl,index)=>(
+                <div className="announcement-gallery-tile" key={imageUrl}>
+                  <img src={imageUrl} alt={index===0 ? "Cover image" : "Announcement image " + (index+1)}/>
+                  {index===0?<span className="announcement-cover-badge">Cover</span>:null}
+                  <button type="button" className="announcement-remove-image" disabled={isUploading || isSubmitting} onClick={()=>onGalleryRemove(imageUrl)} aria-label={"Remove gallery image " + (index+1)} title="Remove image"><X size={16}/></button>
+                </div>
+              ))}
+              {pendingImages.map((name,index)=>(
+                <div className="announcement-gallery-tile announcement-upload-tile" key={"upload-"+index} role="status" aria-label={"Uploading " + name}>
+                  <span className="announcement-upload-spinner" aria-hidden="true" />
+                </div>
+              ))}
+              {!galleryImages.length && !pendingImages.length ? <div><ImageIcon size={28}/><span>No images added</span></div> : null}
+            </div>
+            <span className="file-upload-control"><input type="file" aria-label="Upload announcement images" accept="image/jpeg,image/png,image/webp" multiple disabled={isUploading || isSubmitting} onChange={event=>{if(event.target.files)onGalleryUpload(event.target.files);event.target.value="";}}/>{galleryImages.length?"Add images":"Upload images"}</span>
+          </section>
+        </aside>
         <div className="announcement-form-footer">
           <label className="publish-toggle">
             <input
@@ -580,8 +498,9 @@ function CreateAnnouncementPanel({
                 onChange({ ...form, isPublished: event.target.checked })
               }
             />
-            Publish to the resident app (leave unchecked to save a draft)
+            <span>Publish to residents<small>Leave off to save a draft.</small></span>
           </label>
+          <button className="secondary-admin-button" type="submit" name="intent" value="preview" disabled={isSubmitting || isUploading}><Eye size={18}/> Preview</button>
           {form.id ? (
             <button
               className="secondary-admin-button"
@@ -619,6 +538,32 @@ function RichTextEditor({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const changeFrameRef = useRef<number | null>(null);
+  const selectionRef = useRef<Range | null>(null);
+  const [formatting, setFormatting] = useState({bold:false,italic:false,underline:false,bullet:false,numbered:false});
+  const colorMenuRef = useRef<HTMLDetailsElement>(null);
+  const linkMenuRef = useRef<HTMLDetailsElement>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkError, setLinkError] = useState("");
+  useEffect(() => {
+    function dismiss(event: PointerEvent) {
+      for (const menu of [colorMenuRef.current, linkMenuRef.current]) {
+        if (menu && !menu.contains(event.target as Node)) menu.open = false;
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, []);
+
+  useEffect(() => {
+    function trackSelection() {
+      const selection = document.getSelection();
+      if (!selection?.rangeCount || !editorRef.current?.contains(selection.anchorNode)) return;
+      selectionRef.current = selection.getRangeAt(0).cloneRange();
+      setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline"),bullet:document.queryCommandState("insertUnorderedList"),numbered:document.queryCommandState("insertOrderedList")});
+    }
+    document.addEventListener("selectionchange",trackSelection);
+    return () => document.removeEventListener("selectionchange",trackSelection);
+  }, []);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -636,7 +581,15 @@ function RichTextEditor({
 
   function runCommand(command: string, commandValue?: string) {
     editorRef.current?.focus();
+    const range = selectionRef.current;
+    if (range && editorRef.current?.contains(range.commonAncestorContainer)) {
+      const selection = document.getSelection();
+      selection?.removeAllRanges(); selection?.addRange(range);
+    }
     document.execCommand(command, false, commandValue);
+    const updatedSelection = document.getSelection();
+    if (updatedSelection?.rangeCount) selectionRef.current = updatedSelection.getRangeAt(0).cloneRange();
+    setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline"),bullet:document.queryCommandState("insertUnorderedList"),numbered:document.queryCommandState("insertOrderedList")});
     commitEditorChange();
   }
 
@@ -661,7 +614,9 @@ function RichTextEditor({
       >
         <button
           type="button"
+          title="Bold"
           aria-label="Bold"
+          aria-pressed={formatting.bold}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => runCommand("bold")}
         >
@@ -669,7 +624,9 @@ function RichTextEditor({
         </button>
         <button
           type="button"
+          title="Italic"
           aria-label="Italic"
+          aria-pressed={formatting.italic}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => runCommand("italic")}
         >
@@ -677,32 +634,43 @@ function RichTextEditor({
         </button>
         <button
           type="button"
+          title="Underline"
           aria-label="Underline"
+          aria-pressed={formatting.underline}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => runCommand("underline")}
         >
           <Underline size={16} />
         </button>
-        <label className="rich-editor-color" aria-label="Text color">
-          <Palette size={16} />
-          <input
-            type="color"
-            aria-label="Announcement text color"
-            defaultValue={editorColors[1]}
-            onChange={(event) => runCommand("foreColor", event.target.value)}
-          />
-        </label>
-        <div className="rich-editor-swatches" aria-label="Quick text colors">
-          {editorColors.map((color) => (
-            <button
-              key={color}
-              type="button"
-              aria-label={`Use ${color} text color`}
-              onClick={() => runCommand("foreColor", color)}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
+        <details className="editor-popover" ref={colorMenuRef} onKeyDown={event => { if(event.key === "Escape") { event.currentTarget.open=false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+          <summary title="Text color" aria-label="Text color"><Palette size={16}/> <span>Text color</span><ChevronDown size={12}/></summary>
+          <div className="editor-color-menu">
+            <span className="editor-menu-label">Text color</span>
+            <div className="editor-color-options">
+              {editorColors.map(color => <button key={color} type="button" title={color} aria-label={"Use " + color + " text color"} onMouseDown={event=>event.preventDefault()} onClick={()=>{runCommand("foreColor",color);if(colorMenuRef.current)colorMenuRef.current.open=false;}} style={{backgroundColor:color}}/>)}
+            </div>
+            <label className="editor-custom-color">Custom color<input type="color" aria-label="Announcement text color" defaultValue={editorColors[1]} onChange={event=>runCommand("foreColor",event.target.value)}/></label>
+          </div>
+        </details>
+        <button type="button" aria-label="Bulleted list" title="Bulleted list" aria-pressed={formatting.bullet} onMouseDown={event=>event.preventDefault()} onClick={()=>runCommand("insertUnorderedList")}><List size={18}/></button>
+        <button type="button" aria-label="Numbered list" title="Numbered list" aria-pressed={formatting.numbered} onMouseDown={event=>event.preventDefault()} onClick={()=>runCommand("insertOrderedList")}><ListOrdered size={18}/></button>
+        <details className="editor-popover" ref={linkMenuRef} onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();}}}>
+          <summary aria-label="Insert link" title="Insert link"><Link2 size={18}/></summary>
+          <div className="editor-link-menu">
+            <label htmlFor="announcement-link-url">Link address</label>
+            <input id="announcement-link-url" type="url" placeholder="https://example.com" value={linkUrl} onChange={event=>{setLinkUrl(event.target.value);setLinkError("");}} onKeyDown={event=>{if(event.key==="Enter")event.preventDefault();}}/>
+            {linkError ? <span role="alert">{linkError}</span> : null}
+            <button type="button" onClick={()=>{
+              let url: URL;
+              try { url=new URL(linkUrl); if(!["https:","http:"].includes(url.protocol))throw new Error(); }
+              catch { setLinkError("Enter a valid http or https address.");return; }
+              if(!selectionRef.current || selectionRef.current.collapsed){setLinkError("Select the text you want to link first.");return;}
+              runCommand("createLink",url.href); if(linkMenuRef.current)linkMenuRef.current.open=false;setLinkUrl("");
+            }}>Apply link</button>
+            <button type="button" onClick={()=>{runCommand("unlink");if(linkMenuRef.current)linkMenuRef.current.open=false;}}>Remove link</button>
+          </div>
+        </details>
+        <button type="button" aria-label="Clear formatting" title="Clear formatting" onMouseDown={event=>event.preventDefault()} onClick={()=>{runCommand("removeFormat");runCommand("unlink");}}><RemoveFormatting size={18}/></button>
       </div>
       <div
         className="rich-editor-surface"
@@ -713,6 +681,7 @@ function RichTextEditor({
         role="textbox"
         aria-label="Announcement content"
         aria-multiline="true"
+        aria-required="true"
         suppressContentEditableWarning
       />
     </div>
@@ -728,6 +697,7 @@ function PostedAnnouncementsPanel({
   searchQuery,
   statusFilter,
   totalCount,
+  onCreate,
   onDelete,
   onEdit,
   onSearchChange,
@@ -742,6 +712,7 @@ function PostedAnnouncementsPanel({
   searchQuery: string;
   statusFilter: string;
   totalCount: number;
+  onCreate: () => void;
   onDelete: (announcement: Announcement) => void;
   onEdit: (announcement: Announcement) => void;
   onSearchChange: (value: string) => void;
@@ -749,13 +720,7 @@ function PostedAnnouncementsPanel({
   onView: (announcement: Announcement) => void;
 }) {
   return (
-    <section className="announcement-panel posted-panel">
-      <PanelHeader
-        icon={Megaphone}
-        title="Announcement library"
-        subtitle="Browse, review, and manage all published or draft posts."
-        trailing={`${totalCount} total`}
-      />
+    <section className="announcement-panel posted-panel" aria-label="Announcement library">
       <div className="announcement-tools">
       <div className="filter-tabs compact-tabs">
         {[
@@ -775,6 +740,7 @@ function PostedAnnouncementsPanel({
           </button>
         ))}
       </div>
+        <div className="announcement-library-actions">
         <label className="resident-search">
           <Search size={17} />
           <input
@@ -784,6 +750,8 @@ function PostedAnnouncementsPanel({
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
+        <button className="primary-admin-button" onClick={onCreate} type="button"><Plus size={18}/> Write announcement</button>
+        </div>
       </div>
       <div className="announcement-list">
         {announcements.length === 0 && !isLoading ? (
@@ -825,7 +793,8 @@ function AnnouncementCard({
   const thumbnail = announcement.thumbnail_url || images[0] || "";
 
   return (
-    <article className="announcement-card" onClick={() => onView(announcement)}>
+    <article className="announcement-card">
+      <button className="announcement-card-open" type="button" aria-label={`Open announcement: ${announcement.title.trim() || "Untitled announcement"}`} onClick={() => onView(announcement)} />
       <div className="announcement-thumb">
         {thumbnail ? <img src={thumbnail} alt="" /> : <ImageIcon size={30} />}
       </div>
@@ -834,10 +803,7 @@ function AnnouncementCard({
           <h3>{announcement.title.trim() || "Untitled announcement"}</h3>
           <AnnouncementStatus isPublished={announcement.is_published} />
         </div>
-        <p className="announcement-date">
-          {formatDate(announcement.created_at)}
-        </p>
-        <p className="announcement-author">By: {author}</p>
+        <p className="announcement-meta"><time dateTime={announcement.created_at}>{formatDate(announcement.created_at)}</time><span>By {author}</span><span>{images.length} photo{images.length === 1 ? "" : "s"}</span></p>
         <p className="announcement-summary">
           {plainText(announcement.content) ||
             "No announcement details available."}
@@ -846,20 +812,11 @@ function AnnouncementCard({
           className="announcement-card-actions"
           onClick={(event) => event.stopPropagation()}
         >
-          <span>
-            {images.length} photo{images.length === 1 ? "" : "s"}
-          </span>
-          <span>{announcement.updated_at ? "Updated" : "New post"}</span>
-          <button
-            onClick={() => onView(announcement)}
-            type="button"
-            aria-label="View announcement"
-          >
-            <Eye size={18} />
-          </button>
-          <button
+
+<button
             onClick={() => onEdit(announcement)}
             type="button"
+            title="Edit announcement"
             aria-label="Edit announcement"
           >
             <Edit3 size={18} />
@@ -868,6 +825,7 @@ function AnnouncementCard({
             className="danger-icon"
             onClick={() => onDelete(announcement)}
             type="button"
+            title="Delete announcement"
             aria-label="Delete announcement"
           >
             <Trash2 size={18} />
@@ -957,31 +915,6 @@ function AnnouncementDetailsDialog({
         </div>
       </div>
     </Modal>
-  );
-}
-
-function PanelHeader({
-  icon: Icon,
-  title,
-  subtitle,
-  trailing,
-}: {
-  icon: typeof Megaphone;
-  title: string;
-  subtitle: string;
-  trailing?: string;
-}) {
-  return (
-    <div className="announcement-section-header">
-      <span>
-        <Icon size={20} />
-      </span>
-      <div>
-        <h3>{title}</h3>
-        <p>{subtitle}</p>
-      </div>
-      {trailing ? <em>{trailing}</em> : null}
-    </div>
   );
 }
 

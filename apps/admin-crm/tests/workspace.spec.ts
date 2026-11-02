@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { dailyActivity, dayKey, shiftDay, formatDay } from "../lib/analytics";
 import { monthlyActivity, reportSnapshot } from "../lib/workspace-metrics";
 
 const origin = "http://127.0.0.1:3218";
@@ -428,9 +429,9 @@ test("dropdowns stay visible in tables and a modal", async ({ page }) => {
   await page.keyboard.press("Escape");
 
   await page.goto("/admin/analytics");
-  const year = page.getByRole("combobox", { name: "Select analytics year" });
+  const year = page.getByRole("combobox", { name: "Analytics period" });
   await year.click();
-  await expectMenuInViewport(page.getByRole("listbox", { name: "Select analytics year" }));
+  await expectMenuInViewport(page.getByRole("listbox", { name: "Analytics period" }));
   await page.keyboard.press("Escape");
 
   await page.goto("/admin/documents");
@@ -622,7 +623,7 @@ test("announcements: library, drafts, composer, preview and safe content", async
   await page
     .locator(".announcement-card")
     .filter({ hasText: "Synthetic QA notice" })
-    .getByRole("button", { name: "View announcement" })
+    .locator(".announcement-card-open")
     .click();
   await expect(
     page.getByRole("dialog", { name: "Announcement preview" }),
@@ -748,10 +749,10 @@ test("announcement uploads disable saving until completed", async ({ page }) => 
   });
   try {
     await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeDisabled();
-    await expect(page.getByText("Uploading image files...", { exact: true })).toBeVisible();
+    await expect(page.locator(".announcement-upload-tile")).toBeVisible();
   } finally { finishUpload(); }
   await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeEnabled();
-  await expect(page.locator(".announcement-thumbnail-preview img")).toBeVisible();
+  await expect(page.locator(".announcement-gallery-tile img").first()).toBeVisible();
 });
 
 test("empty and failed requests have understandable recovery", async ({
@@ -1390,4 +1391,285 @@ test("profile photos upload, persist, replace and remove", async ({page})=>{
   await expect(page.getByRole("alert").filter({hasText:/Choose a JPG/})).toBeVisible();
   const invalid=await page.request.post("/api/admin/profile/photo",{multipart:{file:{name:"fake.png",mimeType:"image/png",buffer:Buffer.from("not an image")}}});
   expect(invalid.status()).toBe(400);
+});
+
+
+test("announcement redesign: compact cards, clear creation, search and unsaved return", async ({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  for(const index of [3,4]) await page.request.post(origin+"/rest/v1/announcements",{data:{id:"50000000-0000-4000-8000-00000000000"+index,title:index===3?"Water service advisory":"Barangay event reminder",content:"Synthetic community announcement for layout verification.",is_published:true,thumbnail_url:origin+"/evidence.svg",image_urls:[],created_at:"2026-04-16T08:00:00Z"}});
+  await login(page);await page.goto("/admin/announcements");
+  const write=page.getByRole("button",{name:"Write announcement",exact:true});
+  await expect(write).toHaveClass(/primary-admin-button/);
+  const searchBounds=await page.getByLabel("Search announcements",{exact:true}).boundingBox();
+  const writeBounds=await write.boundingBox();
+  expect(Math.abs((searchBounds!.y+searchBounds!.height/2)-(writeBounds!.y+writeBounds!.height/2))).toBeLessThan(2);
+  expect(searchBounds!.x+searchBounds!.width).toBeLessThan(writeBounds!.x);
+  expect((await page.locator(".announcement-card").first().boundingBox())!.height).toBeLessThan(370);
+  const columns=await page.locator(".announcement-list").evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(columns).toBe(4);
+  await page.screenshot({path:"test-results/announcements-redesign-desktop.png",fullPage:true});
+  await expect(page.getByRole("button",{name:"View announcement",exact:true})).toHaveCount(0);
+  await page.locator(".announcement-card").first().click({position:{x:24,y:24}});
+  const preview=page.getByRole("dialog",{name:"Announcement preview",exact:true});
+  await expect(preview).toBeVisible();await preview.getByRole("button",{name:"Close",exact:true}).click();
+  await page.locator(".announcement-card-open").first().press("Enter");
+  await expect(preview).toBeVisible();await preview.getByRole("button",{name:"Close",exact:true}).click();
+  await page.getByLabel("Search announcements",{exact:true}).fill("missing-post");
+  await expect(page.getByText("No matching announcements",{exact:true})).toBeVisible();
+  await page.getByLabel("Search announcements",{exact:true}).fill("");
+  await write.click();await page.getByLabel("Title",{exact:true}).fill("QA resident update");
+  const library=page.getByRole("button",{name:"Back to announcement library",exact:true});
+  await library.click();
+  const discard=page.getByRole("dialog",{name:"Discard unsaved changes?",exact:true});
+  await discard.getByRole("button",{name:"Keep editing",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveValue("QA resident update");
+  await library.click();await discard.getByRole("button",{name:"Discard changes",exact:true}).click();
+  await expect(write).toBeVisible();
+  await write.click();await expect(page.getByLabel("Title",{exact:true})).toHaveValue("");
+  await page.getByLabel("Title",{exact:true}).fill("QA published update");
+  await page.getByRole("textbox",{name:"Announcement content",exact:true}).fill("Synthetic resident update for publication testing.");
+  await page.getByRole("checkbox").check();
+  await page.screenshot({path:"test-results/announcements-redesign-composer.png",fullPage:true});
+  await page.getByRole("button",{name:"Publish announcement",exact:true}).click();
+  const review=page.getByRole("dialog",{name:"Review before publishing",exact:true});
+  await expect(review).toBeVisible();
+  await review.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await page.getByRole("button",{name:"Publish announcement",exact:true}).click();
+  await review.getByRole("button",{name:"Confirm publication",exact:true}).click();
+  await expect(page.locator(".announcement-card").filter({hasText:"QA published update"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Published",exact:true})).toHaveAttribute("aria-pressed","true");
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:"test-results/announcements-redesign-mobile.png",fullPage:true});
+  await audit(page);
+});
+
+
+test("announcement redesign: edit and delete a draft from library controls",async({page})=>{
+  await login(page);await page.goto("/admin/announcements");
+  await page.getByRole("button",{name:"Drafts",exact:true}).click();
+  await page.locator(".announcement-card").first().getByRole("button",{name:"Edit announcement",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Edit announcement",exact:true})).toBeVisible();
+  await page.getByLabel("Title",{exact:true}).fill("Edited QA draft");
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  const card=page.locator(".announcement-card").filter({hasText:"Edited QA draft"});
+  await expect(card).toBeVisible();
+  await card.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  const dialog=page.getByRole("dialog",{name:"Delete announcement",exact:true});
+  await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(card).toBeVisible();
+  await card.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  await dialog.getByRole("button",{name:"Delete announcement",exact:true}).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("No matching announcements",{exact:true})).toBeVisible();
+});
+
+
+test("composer QA: formatting, images, draft preview and recovery",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await login(page);await page.goto("/admin/announcements");
+  await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toBeFocused();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveAttribute("aria-invalid","true");
+  await page.getByRole("button",{name:"Dismiss notification",exact:true}).click();
+  await page.getByLabel("Title",{exact:true}).fill("QA composer controls");
+  const editor=page.getByRole("textbox",{name:"Announcement content",exact:true});
+  await editor.fill("Synthetic formatting check");
+  for(const label of ["Bold","Italic","Underline"]) {
+    await editor.press("ControlOrMeta+A");
+    const button=page.getByRole("button",{name:label,exact:true});
+    await button.click();await expect(button).toHaveAttribute("aria-pressed","true");
+    await button.click();await expect(button).toHaveAttribute("aria-pressed","false");
+  }
+  for(const color of ["#172033","#0077d9","#1f8a70","#e4a000","#b3261e"]) {
+    await editor.press("ControlOrMeta+A");
+    await page.locator(".editor-popover").first().locator("summary").click();
+    await page.getByRole("button",{name:"Use "+color+" text color",exact:true}).click();
+    await expect(editor.locator("font")).toHaveAttribute("color",color);
+  }
+  await editor.press("ControlOrMeta+A");
+  await page.locator(".editor-popover").first().locator("summary").click();
+  await page.getByLabel("Announcement text color",{exact:true}).fill("#172033");
+  await expect(editor.locator("font")).toHaveAttribute("color","#172033");
+  await editor.click();
+  await editor.press("ControlOrMeta+A");
+  await page.getByRole("button",{name:"Bulleted list",exact:true}).click();
+  await expect(editor.locator("ul li")).toHaveCount(1);
+  await page.getByRole("button",{name:"Numbered list",exact:true}).click();
+  await expect(editor.locator("ol li")).toHaveCount(1);
+  await editor.press("ControlOrMeta+A");
+  await page.locator("summary[aria-label='Insert link']").click();
+  await page.getByLabel("Link address",{exact:true}).fill("https://example.com/notice");
+  await page.getByRole("button",{name:"Apply link",exact:true}).click();
+  await expect(editor.locator("a")).toHaveAttribute("href","https://example.com/notice");
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  await expect(page.getByRole("dialog").locator("a[href='https://example.com/notice']")).toBeVisible();
+  await page.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await editor.press("ControlOrMeta+A");
+  await page.getByRole("button",{name:"Clear formatting",exact:true}).click();
+  await expect(editor.locator("a,font,b,i,u")).toHaveCount(0);
+  const file={name:"qa-only.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")};
+  let upload=0;
+  await page.route("**/api/admin/announcements/upload",route=>route.fulfill({json:{url:origin+"/evidence.svg?photo="+(++upload)}}));
+  const images=page.getByLabel("Upload announcement images",{exact:true});
+  await expect(page.getByRole("button",{name:"Remove thumbnail",exact:true})).toHaveCount(0);
+  await images.setInputFiles([file,{...file,name:"qa-two.png"}]);
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(2);
+  await expect(page.getByAltText("Cover image",{exact:true})).toHaveAttribute("src",/photo=1/);
+  await page.locator(".announcement-gallery-tile").first().hover();
+  await page.getByRole("button",{name:"Remove gallery image 1",exact:true}).click();
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(1);
+  await expect(page.getByAltText("Cover image",{exact:true})).toHaveAttribute("src",/photo=2/);
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  const preview=page.getByRole("dialog",{name:"Draft preview",exact:true});await expect(preview).toContainText("QA composer controls");
+  await preview.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await page.screenshot({path:"test-results/composer-qa-desktop.png",fullPage:true});
+  await audit(page);
+  let fail=true;
+  await page.route("**/rest/v1/announcements*",async route=>{
+    if(route.request().method()==="POST"&&fail){fail=false;return route.fulfill({status:500,json:{message:"Synthetic save failure"}});}
+    return route.continue();
+  });
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  await expect(page.getByLabel("Title",{exact:true})).toHaveValue("QA composer controls");
+  await expect(page.getByRole("status")).toContainText(/Failed to save|Synthetic save failure/);
+  await page.getByRole("button",{name:"Save draft",exact:true}).click();
+  await expect(page.locator(".announcement-card").filter({hasText:"QA composer controls"})).toBeVisible();
+  const saved=(await (await page.request.get(origin+"/rest/v1/announcements?title=eq."+encodeURIComponent("QA composer controls"))).json())[0];
+  expect(saved.thumbnail_url).toContain("photo=2");
+  expect(saved.image_urls).toEqual([saved.thumbnail_url]);
+  await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await audit(page);
+});
+
+
+test("composer QA: gallery limit and upload failure recovery",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await login(page);await page.goto("/admin/announcements");await page.getByRole("button",{name:"Write announcement",exact:true}).click();
+  const file={name:"qa.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")};
+  let fail=true,count=0;
+  await page.route("**/api/admin/announcements/upload",route=>{
+    if(fail){fail=false;return route.fulfill({status:500,json:{message:"Synthetic upload failure"}});}
+    return route.fulfill({json:{url:origin+"/evidence.svg?limit="+(++count)}});
+  });
+  await page.getByLabel("Upload announcement images",{exact:true}).setInputFiles(file);
+  await expect(page.getByRole("status")).toContainText("Synthetic upload failure");
+  await expect(page.getByRole("button",{name:"Save draft",exact:true})).toBeEnabled();
+  const gallery=page.getByLabel("Upload announcement images",{exact:true});
+  await gallery.setInputFiles(Array.from({length:10},(_,index)=>({...file,name:"qa-"+index+".png"})));
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(10);
+  await page.screenshot({path:"test-results/composer-multiple-images.png",fullPage:false});
+  await gallery.setInputFiles(file);
+  await expect(page.getByRole("status")).toContainText("up to 10 gallery images");
+  expect(count).toBe(10);
+  await page.locator(".announcement-gallery-tile").first().hover();
+  await page.getByRole("button",{name:"Remove gallery image 1",exact:true}).click();
+  await gallery.setInputFiles(file);
+  await expect(page.locator(".announcement-gallery-tile")).toHaveCount(10);
+  expect(count).toBe(11);
+});
+
+
+test("daily analytics: zero days, timezone boundaries and leap dates",()=>{
+  const days=dailyActivity([{created_at:"2024-02-28T16:00:00Z"}],[{created_at:"2024-03-01T00:00:00+08:00"}],"2024-02-28","2024-03-01");
+  expect(days).toEqual([{date:"2024-02-28",reports:0,residents:0},{date:"2024-02-29",reports:1,residents:0},{date:"2024-03-01",reports:0,residents:1}]);
+  expect(dailyActivity([],[],"2026-11-02","2026-11-02")).toHaveLength(1);
+  expect(dailyActivity([],[],"2026-11-02","2026-11-01")).toEqual([]);
+});
+
+async function dailyFixtures(page:Page) {
+  const today=dayKey(new Date());
+  const stamp=(offset:number)=>shiftDay(today,-offset)+"T12:00:00+08:00";
+  await page.route("**/rest/v1/reports?**",route=>route.fulfill({json:[0,1,4,12].map((offset,index)=>({id:"daily-report-"+index,category:"Road Damage",status:["Resolved","Pending","In Progress","Resolved"][index],created_at:stamp(offset)}))}));
+  await page.route("**/rest/v1/residents?**",route=>route.fulfill({json:[0,0,1,12].map(offset=>({created_at:stamp(offset)}))}));
+  return today;
+}
+
+test("daily analytics: desktop ranges, hover, guide, keyboard, export and height",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});await login(page);const today=await dailyFixtures(page);await page.goto("/admin/analytics");
+  const stats=page.locator(".analytics-stat");
+  await expect(stats.nth(0).locator(":scope > strong")).toHaveText("4");
+  await expect(stats.nth(2).locator(":scope > strong")).toHaveText("4");
+  await chooseDropdownOption(page,page,"Analytics period","Last 7 days");
+  await expect(stats.nth(0).locator(":scope > strong")).toHaveText("3");
+  await expect(stats.nth(1).locator(":scope > strong")).toHaveText("33%");
+  await expect(stats.nth(2).locator(":scope > strong")).toHaveText("3");
+  await expect(page.locator(".analytics-day-targets > button")).toHaveCount(7);
+  const plot=await page.locator(".analytics-daily-plot").boundingBox();
+  const move=async(x:number,y:number)=>page.mouse.move(plot!.x+x/690*plot!.width,plot!.y+y/240*plot!.height);
+  await move(41,204);
+  const firstTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
+  const firstPointerX=plot!.x+41/690*plot!.width;
+  expect(firstTooltip!.x-firstPointerX).toBeGreaterThanOrEqual(12);
+  expect(firstTooltip!.x-firstPointerX).toBeLessThanOrEqual(16);
+  expect(firstTooltip!.width).toBeGreaterThanOrEqual(175);
+  expect(firstTooltip!.width).toBeLessThanOrEqual(185);
+  expect(firstTooltip!.height).toBeLessThan(95);
+  await move(553,160);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-1)));
+  await move(654,160);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(today));
+  await expect(page.locator(".analytics-chart-tooltip")).toContainText("Registrations2");
+  const lastTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
+  const lastPointerX=plot!.x+654/690*plot!.width;
+  expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeGreaterThanOrEqual(12);
+  expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeLessThanOrEqual(16);
+
+  await page.screenshot({path:"test-results/analytics-daily-desktop.png",fullPage:true});
+  await move(348,50);await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);await expect(page.locator(".analytics-daily-guide")).toHaveAttribute("x1","348");
+  await page.mouse.move(10,10);await expect(page.locator(".analytics-daily-guide")).toHaveCount(0);
+  const day=page.getByRole("button",{name:formatDay(today)+": 1 reports, 2 registrations",exact:true});await day.focus();await day.press("Enter");await expect(page.locator(".analytics-chart-tooltip")).toBeVisible();await day.press("Escape");await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);
+  await page.getByText("View daily data table",{exact:true}).click();await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);await page.getByText("View daily data table",{exact:true}).click();
+  await chooseDropdownOption(page,page,"Analytics period","Custom range");
+  await page.getByLabel("Start date",{exact:true}).fill(today);await page.getByLabel("End date",{exact:true}).fill(shiftDay(today,-1));await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(page.locator(".analytics-range-controls").getByRole("alert")).toContainText("valid range");
+  await page.getByLabel("Start date",{exact:true}).fill(shiftDay(today,-1));await page.getByLabel("End date",{exact:true}).fill(today);await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");
+  const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toContain(today);
+  const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain('"'+today+'","1","2"');
+  const reportSeries=page.getByRole("button",{name:"Reports",exact:true});await reportSeries.click();await expect(reportSeries).toHaveAttribute("aria-pressed","false");await reportSeries.click();
+  await page.getByRole("button",{name:"Inspect Pending reports",exact:true}).focus();await expect(page.locator(".analytics-ring > div > strong")).toHaveText("1");
+  const boxes=await Promise.all([page.locator(".analytics-trend").boundingBox(),page.locator(".analytics-status").boundingBox()]);expect(Math.abs(boxes[0]!.height-boxes[1]!.height)).toBeLessThanOrEqual(1);
+  await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");await audit(page);
+  for(const width of [1920,1280,768,390]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);}
+  await page.screenshot({path:"test-results/analytics-daily-mobile.png",fullPage:true});await audit(page);
+  await page.getByRole("link",{name:"Review community reports",exact:true}).click();await expect(page).toHaveURL(/admin\/reports/);
+});
+
+test("daily analytics: empty state and load recovery",async({page})=>{
+  await login(page);let fail=true;
+  await page.route("**/rest/v1/reports?**",route=>fail?route.fulfill({status:500,json:{message:"Unavailable"}}):route.fulfill({json:[]}));
+  await page.route("**/rest/v1/residents?**",route=>route.fulfill({json:[]}));
+  await page.goto("/admin/analytics");await expect(page.getByRole("status")).toContainText("Unable to load analytics");await expect(page.getByRole("button",{name:"Export CSV",exact:true})).toBeDisabled();
+  fail=false;await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(page.locator(".analytics-chart-readout")).toContainText("No submissions recorded");await expect(page.locator(".analytics-stat").first().locator(":scope > strong")).toHaveText("0");
+});
+
+test.describe("daily activity touch",()=>{
+  test.use({hasTouch:true,viewport:{width:390,height:844}});
+  test("tap and drag across days",async({page})=>{
+    await login(page);const today=await dailyFixtures(page);await page.goto("/admin/analytics");await chooseDropdownOption(page,page,"Analytics period","Last 7 days");
+    await page.locator(".analytics-daily-plot").scrollIntoViewIfNeeded();const box=await page.locator(".analytics-daily-plot").boundingBox();
+    const point=(index:number)=>({x:box!.x+(40+index/6*616)/690*box!.width,y:box!.y+160/240*box!.height});
+    const first=point(1),last=point(5);await page.touchscreen.tap(first.x,first.y);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-5)));
+    const session=await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[first]});
+    for(let i=1;i<=5;i++)await session.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x:first.x+(last.x-first.x)*i/5,y:first.y}]});
+    await session.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+    await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-1)));await session.detach();
+  });
+});
+
+test("analytics demo: samples stay local, exports are labeled and live data returns",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});await login(page);await dailyFixtures(page);await page.goto("/admin/analytics");
+  const toggle=page.getByRole("switch",{name:"Demo data",exact:true});await expect(toggle).toHaveAttribute("aria-checked","false");
+  const count=page.locator(".analytics-stat").first().locator(":scope > strong");await expect(count).toHaveText("4");
+  const writes:string[]=[];page.on("request",request=>{if(["POST","PATCH","PUT","DELETE"].includes(request.method())&&/\/rest\/v1\/(reports|residents)(?:\?|$)/.test(request.url()))writes.push(request.url());});
+  await toggle.click();await expect(toggle).toHaveAttribute("aria-checked","true");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);expect(Number((await count.innerText()).replaceAll(",",""))).toBeGreaterThan(100);
+  await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeDisabled();
+  await page.screenshot({path:"test-results/analytics-demo-desktop.png",fullPage:true});await audit(page);
+  const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toMatch(/^DEMO-/);
+  const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain("DEMO DATA — SAMPLE ACTIVITY, NOT LIVE RECORDS");
+  await chooseDropdownOption(page,page,"Analytics period","Last 7 days");expect(Number(await count.innerText())).toBeGreaterThan(20);
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await audit(page);
+  await toggle.click();await expect(count).toHaveText("3");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeEnabled();
+  await page.reload();await expect(toggle).toHaveAttribute("aria-checked","false");expect(writes).toEqual([]);
 });
