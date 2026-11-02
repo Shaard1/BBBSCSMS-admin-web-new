@@ -3,8 +3,8 @@ import type { Announcement } from "@/lib/types";
 import DOMPurify from "dompurify";
 
 const announcementSanitizeConfig = {
-  ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br", "p", "div", "ul", "ol", "li", "span", "font"],
-  ALLOWED_ATTR: ["color"],
+  ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br", "p", "div", "ul", "ol", "li", "span", "font", "a"],
+  ALLOWED_ATTR: ["color", "href"],
   ALLOW_DATA_ATTR: false
 };
 

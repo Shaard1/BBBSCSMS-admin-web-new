@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { dailyActivity, dayKey, shiftDay, formatDay } from "../lib/analytics";
 import { monthlyActivity, reportSnapshot } from "../lib/workspace-metrics";
 
 const origin = "http://127.0.0.1:3218";
@@ -428,9 +429,9 @@ test("dropdowns stay visible in tables and a modal", async ({ page }) => {
   await page.keyboard.press("Escape");
 
   await page.goto("/admin/analytics");
-  const year = page.getByRole("combobox", { name: "Select analytics year" });
+  const year = page.getByRole("combobox", { name: "Analytics period" });
   await year.click();
-  await expectMenuInViewport(page.getByRole("listbox", { name: "Select analytics year" }));
+  await expectMenuInViewport(page.getByRole("listbox", { name: "Analytics period" }));
   await page.keyboard.press("Escape");
 
   await page.goto("/admin/documents");
@@ -1471,7 +1472,7 @@ test("composer QA: formatting, images, draft preview and recovery",async({page})
   await page.getByRole("button",{name:"Preview",exact:true}).click();
   await expect(page.getByLabel("Title",{exact:true})).toBeFocused();
   await expect(page.getByLabel("Title",{exact:true})).toHaveAttribute("aria-invalid","true");
-  await page.getByRole("button",{name:"Dismiss",exact:true}).click();
+  await page.getByRole("button",{name:"Dismiss notification",exact:true}).click();
   await page.getByLabel("Title",{exact:true}).fill("QA composer controls");
   const editor=page.getByRole("textbox",{name:"Announcement content",exact:true});
   await editor.fill("Synthetic formatting check");
@@ -1483,12 +1484,31 @@ test("composer QA: formatting, images, draft preview and recovery",async({page})
   }
   for(const color of ["#172033","#0077d9","#1f8a70","#e4a000","#b3261e"]) {
     await editor.press("ControlOrMeta+A");
+    await page.locator(".editor-popover").first().locator("summary").click();
     await page.getByRole("button",{name:"Use "+color+" text color",exact:true}).click();
     await expect(editor.locator("font")).toHaveAttribute("color",color);
   }
   await editor.press("ControlOrMeta+A");
+  await page.locator(".editor-popover").first().locator("summary").click();
   await page.getByLabel("Announcement text color",{exact:true}).fill("#172033");
   await expect(editor.locator("font")).toHaveAttribute("color","#172033");
+  await editor.click();
+  await editor.press("ControlOrMeta+A");
+  await page.getByRole("button",{name:"Bulleted list",exact:true}).click();
+  await expect(editor.locator("ul li")).toHaveCount(1);
+  await page.getByRole("button",{name:"Numbered list",exact:true}).click();
+  await expect(editor.locator("ol li")).toHaveCount(1);
+  await editor.press("ControlOrMeta+A");
+  await page.locator("summary[aria-label='Insert link']").click();
+  await page.getByLabel("Link address",{exact:true}).fill("https://example.com/notice");
+  await page.getByRole("button",{name:"Apply link",exact:true}).click();
+  await expect(editor.locator("a")).toHaveAttribute("href","https://example.com/notice");
+  await page.getByRole("button",{name:"Preview",exact:true}).click();
+  await expect(page.getByRole("dialog").locator("a[href='https://example.com/notice']")).toBeVisible();
+  await page.getByRole("button",{name:"Back to editing",exact:true}).click();
+  await editor.press("ControlOrMeta+A");
+  await page.getByRole("button",{name:"Clear formatting",exact:true}).click();
+  await expect(editor.locator("a,font,b,i,u")).toHaveCount(0);
   const file={name:"qa-only.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")};
   let upload=0;
   await page.route("**/api/admin/announcements/upload",route=>route.fulfill({json:{url:origin+"/evidence.svg?photo="+(++upload)}}));
@@ -1550,4 +1570,106 @@ test("composer QA: gallery limit and upload failure recovery",async({page})=>{
   await gallery.setInputFiles(file);
   await expect(page.locator(".announcement-gallery-tile")).toHaveCount(10);
   expect(count).toBe(11);
+});
+
+
+test("daily analytics: zero days, timezone boundaries and leap dates",()=>{
+  const days=dailyActivity([{created_at:"2024-02-28T16:00:00Z"}],[{created_at:"2024-03-01T00:00:00+08:00"}],"2024-02-28","2024-03-01");
+  expect(days).toEqual([{date:"2024-02-28",reports:0,residents:0},{date:"2024-02-29",reports:1,residents:0},{date:"2024-03-01",reports:0,residents:1}]);
+  expect(dailyActivity([],[],"2026-11-02","2026-11-02")).toHaveLength(1);
+  expect(dailyActivity([],[],"2026-11-02","2026-11-01")).toEqual([]);
+});
+
+async function dailyFixtures(page:Page) {
+  const today=dayKey(new Date());
+  const stamp=(offset:number)=>shiftDay(today,-offset)+"T12:00:00+08:00";
+  await page.route("**/rest/v1/reports?**",route=>route.fulfill({json:[0,1,4,12].map((offset,index)=>({id:"daily-report-"+index,category:"Road Damage",status:["Resolved","Pending","In Progress","Resolved"][index],created_at:stamp(offset)}))}));
+  await page.route("**/rest/v1/residents?**",route=>route.fulfill({json:[0,0,1,12].map(offset=>({created_at:stamp(offset)}))}));
+  return today;
+}
+
+test("daily analytics: desktop ranges, hover, guide, keyboard, export and height",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});await login(page);const today=await dailyFixtures(page);await page.goto("/admin/analytics");
+  const stats=page.locator(".analytics-stat");
+  await expect(stats.nth(0).locator(":scope > strong")).toHaveText("4");
+  await expect(stats.nth(2).locator(":scope > strong")).toHaveText("4");
+  await chooseDropdownOption(page,page,"Analytics period","Last 7 days");
+  await expect(stats.nth(0).locator(":scope > strong")).toHaveText("3");
+  await expect(stats.nth(1).locator(":scope > strong")).toHaveText("33%");
+  await expect(stats.nth(2).locator(":scope > strong")).toHaveText("3");
+  await expect(page.locator(".analytics-day-targets > button")).toHaveCount(7);
+  const plot=await page.locator(".analytics-daily-plot").boundingBox();
+  const move=async(x:number,y:number)=>page.mouse.move(plot!.x+x/690*plot!.width,plot!.y+y/240*plot!.height);
+  await move(41,204);
+  const firstTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
+  const firstPointerX=plot!.x+41/690*plot!.width;
+  expect(firstTooltip!.x-firstPointerX).toBeGreaterThanOrEqual(12);
+  expect(firstTooltip!.x-firstPointerX).toBeLessThanOrEqual(16);
+  expect(firstTooltip!.width).toBeGreaterThanOrEqual(175);
+  expect(firstTooltip!.width).toBeLessThanOrEqual(185);
+  expect(firstTooltip!.height).toBeLessThan(95);
+  await move(553,160);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-1)));
+  await move(654,160);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(today));
+  await expect(page.locator(".analytics-chart-tooltip")).toContainText("Registrations2");
+  const lastTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
+  const lastPointerX=plot!.x+654/690*plot!.width;
+  expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeGreaterThanOrEqual(12);
+  expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeLessThanOrEqual(16);
+
+  await page.screenshot({path:"test-results/analytics-daily-desktop.png",fullPage:true});
+  await move(348,50);await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);await expect(page.locator(".analytics-daily-guide")).toHaveAttribute("x1","348");
+  await page.mouse.move(10,10);await expect(page.locator(".analytics-daily-guide")).toHaveCount(0);
+  const day=page.getByRole("button",{name:formatDay(today)+": 1 reports, 2 registrations",exact:true});await day.focus();await day.press("Enter");await expect(page.locator(".analytics-chart-tooltip")).toBeVisible();await day.press("Escape");await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);
+  await page.getByText("View daily data table",{exact:true}).click();await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);await page.getByText("View daily data table",{exact:true}).click();
+  await chooseDropdownOption(page,page,"Analytics period","Custom range");
+  await page.getByLabel("Start date",{exact:true}).fill(today);await page.getByLabel("End date",{exact:true}).fill(shiftDay(today,-1));await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(page.locator(".analytics-range-controls").getByRole("alert")).toContainText("valid range");
+  await page.getByLabel("Start date",{exact:true}).fill(shiftDay(today,-1));await page.getByLabel("End date",{exact:true}).fill(today);await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");
+  const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toContain(today);
+  const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain('"'+today+'","1","2"');
+  const reportSeries=page.getByRole("button",{name:"Reports",exact:true});await reportSeries.click();await expect(reportSeries).toHaveAttribute("aria-pressed","false");await reportSeries.click();
+  await page.getByRole("button",{name:"Inspect Pending reports",exact:true}).focus();await expect(page.locator(".analytics-ring > div > strong")).toHaveText("1");
+  const boxes=await Promise.all([page.locator(".analytics-trend").boundingBox(),page.locator(".analytics-status").boundingBox()]);expect(Math.abs(boxes[0]!.height-boxes[1]!.height)).toBeLessThanOrEqual(1);
+  await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");await audit(page);
+  for(const width of [1920,1280,768,390]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);}
+  await page.screenshot({path:"test-results/analytics-daily-mobile.png",fullPage:true});await audit(page);
+  await page.getByRole("link",{name:"Review community reports",exact:true}).click();await expect(page).toHaveURL(/admin\/reports/);
+});
+
+test("daily analytics: empty state and load recovery",async({page})=>{
+  await login(page);let fail=true;
+  await page.route("**/rest/v1/reports?**",route=>fail?route.fulfill({status:500,json:{message:"Unavailable"}}):route.fulfill({json:[]}));
+  await page.route("**/rest/v1/residents?**",route=>route.fulfill({json:[]}));
+  await page.goto("/admin/analytics");await expect(page.getByRole("status")).toContainText("Unable to load analytics");await expect(page.getByRole("button",{name:"Export CSV",exact:true})).toBeDisabled();
+  fail=false;await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(page.locator(".analytics-chart-readout")).toContainText("No submissions recorded");await expect(page.locator(".analytics-stat").first().locator(":scope > strong")).toHaveText("0");
+});
+
+test.describe("daily activity touch",()=>{
+  test.use({hasTouch:true,viewport:{width:390,height:844}});
+  test("tap and drag across days",async({page})=>{
+    await login(page);const today=await dailyFixtures(page);await page.goto("/admin/analytics");await chooseDropdownOption(page,page,"Analytics period","Last 7 days");
+    await page.locator(".analytics-daily-plot").scrollIntoViewIfNeeded();const box=await page.locator(".analytics-daily-plot").boundingBox();
+    const point=(index:number)=>({x:box!.x+(40+index/6*616)/690*box!.width,y:box!.y+160/240*box!.height});
+    const first=point(1),last=point(5);await page.touchscreen.tap(first.x,first.y);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-5)));
+    const session=await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[first]});
+    for(let i=1;i<=5;i++)await session.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x:first.x+(last.x-first.x)*i/5,y:first.y}]});
+    await session.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+    await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-1)));await session.detach();
+  });
+});
+
+test("analytics demo: samples stay local, exports are labeled and live data returns",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});await login(page);await dailyFixtures(page);await page.goto("/admin/analytics");
+  const toggle=page.getByRole("switch",{name:"Demo data",exact:true});await expect(toggle).toHaveAttribute("aria-checked","false");
+  const count=page.locator(".analytics-stat").first().locator(":scope > strong");await expect(count).toHaveText("4");
+  const writes:string[]=[];page.on("request",request=>{if(["POST","PATCH","PUT","DELETE"].includes(request.method())&&/\/rest\/v1\/(reports|residents)(?:\?|$)/.test(request.url()))writes.push(request.url());});
+  await toggle.click();await expect(toggle).toHaveAttribute("aria-checked","true");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);expect(Number((await count.innerText()).replaceAll(",",""))).toBeGreaterThan(100);
+  await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeDisabled();
+  await page.screenshot({path:"test-results/analytics-demo-desktop.png",fullPage:true});await audit(page);
+  const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toMatch(/^DEMO-/);
+  const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain("DEMO DATA — SAMPLE ACTIVITY, NOT LIVE RECORDS");
+  await chooseDropdownOption(page,page,"Analytics period","Last 7 days");expect(Number(await count.innerText())).toBeGreaterThan(20);
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await audit(page);
+  await toggle.click();await expect(count).toHaveText("3");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeEnabled();
+  await page.reload();await expect(toggle).toHaveAttribute("aria-checked","false");expect(writes).toEqual([]);
 });

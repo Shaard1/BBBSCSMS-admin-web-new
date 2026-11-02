@@ -243,7 +243,7 @@ const server = http.createServer(async (req, res) => {
     }
     if(rpc==='get_office_resident_accounts')return json(accounts);
     if(rpc==='get_resident_summary')return json({total:summary.total,pending:summary.legacyPending});
-    if(rpc==='get_resident_metrics')return json({summary,legacyQueue:rows.filter(r=>state(r)==='legacy_pending').slice(0,5),months:[]});
+    if(rpc==='get_resident_metrics')return json({summary,legacyQueue:rows.filter(r=>state(r)==='legacy_pending').slice(0,5),availableYears:[...new Set(rows.map(r=>new Date(r.created_at).getFullYear()))],months:Array.from({length:12},(_,month)=>({month,residents:rows.filter(r=>{const date=new Date(r.created_at);return date.getFullYear()===Number(body.p_year)&&date.getMonth()===month;}).length}))});
     if(rpc==='get_resident_directory'){
       const term=String(body.p_search??'').toLowerCase();
       const filtered=rows.filter(r=>[r.id,r.full_name,r.contact_number,r.email].join(' ').toLowerCase().includes(term)&&(!body.p_access||body.p_access==='all'||state(r)===body.p_access)&&(!body.p_phone||body.p_phone==='all'||(r.basic_account?'unverified':'unknown')===body.p_phone));

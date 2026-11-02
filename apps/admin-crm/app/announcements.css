@@ -123,3 +123,20 @@ body .announcement-toast > button:hover { background:#f0f4f8; color:var(--text);
 .announcement-upload-spinner { width:24px; height:24px; border:2px solid #cfdaec; border-top-color:var(--blue); border-radius:50%; animation:announcement-upload-spin .8s linear infinite; }
 @keyframes announcement-upload-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .announcement-upload-spinner { animation:none; } }
+
+.announcement-composer .rich-editor-toolbar { justify-content:flex-start; gap:4px; flex-wrap:wrap; }
+.editor-popover { position:relative; }
+.editor-popover > summary { display:flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:0 9px; border-radius:8px; cursor:pointer; list-style:none; font-size:.8rem; }
+.editor-popover > summary::-webkit-details-marker { display:none; }
+.editor-popover > summary:hover,.editor-popover[open] > summary { background:var(--soft-blue); }
+.editor-color-menu,.editor-link-menu { position:absolute; top:calc(100% + 8px); left:0; z-index:20; display:grid; gap:12px; padding:16px; width:230px; max-width:calc(100vw - 48px); border-radius:12px; background:#fff; box-shadow:0 6px 24px #172b4626; }
+.editor-menu-label,.editor-link-menu > label { font-size:.8rem; font-weight:600; }
+.editor-color-options { display:flex; gap:8px; }
+body .announcement-composer .editor-color-options > button { width:30px; height:30px; min-height:30px; border-radius:50%; padding:0; box-shadow:inset 0 0 0 2px #ffffff; }
+.editor-custom-color { display:flex; align-items:center; justify-content:space-between; font-size:.8rem; }
+.editor-custom-color input { width:34px; height:30px; padding:2px; }
+.editor-link-menu { left:auto; right:0; width:270px; }
+body .announcement-composer .editor-link-menu > button { width:auto; padding:8px 12px; font-size:.8rem; }
+.editor-link-menu > span[role="alert"] { font-size:.75rem; color:#a42635; }
+.rich-editor-surface a { color:var(--blue); text-decoration:underline; }
+body .announcement-composer .editor-color-options > button { min-width:30px; }

@@ -12,6 +12,11 @@ import {
   ImageIcon,
   Italic,
   Palette,
+  ChevronDown,
+  List,
+  ListOrdered,
+  Link2,
+  RemoveFormatting,
   Plus,
   Search,
   Trash2,
@@ -243,13 +248,13 @@ export default function AnnouncementsPage() {
   return (
     <section className="announcement-page">
       {activeView === "create" ? <button className="announcement-back" disabled={isSubmitting || isUploading} onClick={() => unsavedChanges.requestDiscard(() => { setForm(emptyForm); setSavedForm(emptyForm); setActiveView("posted"); })} type="button"><ArrowLeft size={18}/> Back to announcement library</button> : null}
-      <header className="announcement-header">
+      {activeView === "create" ? <header className="announcement-header">
         <div className="announcement-heading-copy">
-          <h2>{activeView === "posted" ? "Announcement library" : form.id ? "Edit announcement" : "New announcement"}</h2>
-          <p>{activeView === "posted" ? "Manage the updates your residents see." : "Prepare your message, then save a draft or publish it."}</p>
+          <h2>{form.id ? "Edit announcement" : "New announcement"}</h2>
+          <p>Prepare your message, then save a draft or publish it.</p>
         </div>
 
-      </header>
+      </header> : null}
 
       {message ? (
         <div className="announcement-toast" role="status" aria-live="polite" aria-atomic="true">
@@ -534,14 +539,27 @@ function RichTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const changeFrameRef = useRef<number | null>(null);
   const selectionRef = useRef<Range | null>(null);
-  const [formatting, setFormatting] = useState({bold:false,italic:false,underline:false});
+  const [formatting, setFormatting] = useState({bold:false,italic:false,underline:false,bullet:false,numbered:false});
+  const colorMenuRef = useRef<HTMLDetailsElement>(null);
+  const linkMenuRef = useRef<HTMLDetailsElement>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkError, setLinkError] = useState("");
+  useEffect(() => {
+    function dismiss(event: PointerEvent) {
+      for (const menu of [colorMenuRef.current, linkMenuRef.current]) {
+        if (menu && !menu.contains(event.target as Node)) menu.open = false;
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, []);
 
   useEffect(() => {
     function trackSelection() {
       const selection = document.getSelection();
       if (!selection?.rangeCount || !editorRef.current?.contains(selection.anchorNode)) return;
       selectionRef.current = selection.getRangeAt(0).cloneRange();
-      setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline")});
+      setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline"),bullet:document.queryCommandState("insertUnorderedList"),numbered:document.queryCommandState("insertOrderedList")});
     }
     document.addEventListener("selectionchange",trackSelection);
     return () => document.removeEventListener("selectionchange",trackSelection);
@@ -569,7 +587,9 @@ function RichTextEditor({
       selection?.removeAllRanges(); selection?.addRange(range);
     }
     document.execCommand(command, false, commandValue);
-    setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline")});
+    const updatedSelection = document.getSelection();
+    if (updatedSelection?.rangeCount) selectionRef.current = updatedSelection.getRangeAt(0).cloneRange();
+    setFormatting({bold:document.queryCommandState("bold"),italic:document.queryCommandState("italic"),underline:document.queryCommandState("underline"),bullet:document.queryCommandState("insertUnorderedList"),numbered:document.queryCommandState("insertOrderedList")});
     commitEditorChange();
   }
 
@@ -594,6 +614,7 @@ function RichTextEditor({
       >
         <button
           type="button"
+          title="Bold"
           aria-label="Bold"
           aria-pressed={formatting.bold}
           onMouseDown={(event) => event.preventDefault()}
@@ -603,6 +624,7 @@ function RichTextEditor({
         </button>
         <button
           type="button"
+          title="Italic"
           aria-label="Italic"
           aria-pressed={formatting.italic}
           onMouseDown={(event) => event.preventDefault()}
@@ -612,6 +634,7 @@ function RichTextEditor({
         </button>
         <button
           type="button"
+          title="Underline"
           aria-label="Underline"
           aria-pressed={formatting.underline}
           onMouseDown={(event) => event.preventDefault()}
@@ -619,27 +642,35 @@ function RichTextEditor({
         >
           <Underline size={16} />
         </button>
-        <label className="rich-editor-color" aria-label="Text color">
-          <Palette size={16} />
-          <input
-            type="color"
-            aria-label="Announcement text color"
-            defaultValue={editorColors[1]}
-            onChange={(event) => runCommand("foreColor", event.target.value)}
-          />
-        </label>
-        <div className="rich-editor-swatches" aria-label="Quick text colors">
-          {editorColors.map((color) => (
-            <button
-              key={color}
-              type="button"
-              aria-label={`Use ${color} text color`}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => runCommand("foreColor", color)}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
+        <details className="editor-popover" ref={colorMenuRef} onKeyDown={event => { if(event.key === "Escape") { event.currentTarget.open=false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+          <summary title="Text color" aria-label="Text color"><Palette size={16}/> <span>Text color</span><ChevronDown size={12}/></summary>
+          <div className="editor-color-menu">
+            <span className="editor-menu-label">Text color</span>
+            <div className="editor-color-options">
+              {editorColors.map(color => <button key={color} type="button" title={color} aria-label={"Use " + color + " text color"} onMouseDown={event=>event.preventDefault()} onClick={()=>{runCommand("foreColor",color);if(colorMenuRef.current)colorMenuRef.current.open=false;}} style={{backgroundColor:color}}/>)}
+            </div>
+            <label className="editor-custom-color">Custom color<input type="color" aria-label="Announcement text color" defaultValue={editorColors[1]} onChange={event=>runCommand("foreColor",event.target.value)}/></label>
+          </div>
+        </details>
+        <button type="button" aria-label="Bulleted list" title="Bulleted list" aria-pressed={formatting.bullet} onMouseDown={event=>event.preventDefault()} onClick={()=>runCommand("insertUnorderedList")}><List size={18}/></button>
+        <button type="button" aria-label="Numbered list" title="Numbered list" aria-pressed={formatting.numbered} onMouseDown={event=>event.preventDefault()} onClick={()=>runCommand("insertOrderedList")}><ListOrdered size={18}/></button>
+        <details className="editor-popover" ref={linkMenuRef} onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();}}}>
+          <summary aria-label="Insert link" title="Insert link"><Link2 size={18}/></summary>
+          <div className="editor-link-menu">
+            <label htmlFor="announcement-link-url">Link address</label>
+            <input id="announcement-link-url" type="url" placeholder="https://example.com" value={linkUrl} onChange={event=>{setLinkUrl(event.target.value);setLinkError("");}} onKeyDown={event=>{if(event.key==="Enter")event.preventDefault();}}/>
+            {linkError ? <span role="alert">{linkError}</span> : null}
+            <button type="button" onClick={()=>{
+              let url: URL;
+              try { url=new URL(linkUrl); if(!["https:","http:"].includes(url.protocol))throw new Error(); }
+              catch { setLinkError("Enter a valid http or https address.");return; }
+              if(!selectionRef.current || selectionRef.current.collapsed){setLinkError("Select the text you want to link first.");return;}
+              runCommand("createLink",url.href); if(linkMenuRef.current)linkMenuRef.current.open=false;setLinkUrl("");
+            }}>Apply link</button>
+            <button type="button" onClick={()=>{runCommand("unlink");if(linkMenuRef.current)linkMenuRef.current.open=false;}}>Remove link</button>
+          </div>
+        </details>
+        <button type="button" aria-label="Clear formatting" title="Clear formatting" onMouseDown={event=>event.preventDefault()} onClick={()=>{runCommand("removeFormat");runCommand("unlink");}}><RemoveFormatting size={18}/></button>
       </div>
       <div
         className="rich-editor-surface"
