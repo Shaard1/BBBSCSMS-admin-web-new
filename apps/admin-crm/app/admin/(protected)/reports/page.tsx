@@ -269,8 +269,8 @@ export default function ReportsPage() {
             options={[{ label: "Newest first", value: "newest" }, { label: "Oldest first", value: "oldest" }]}
             onChange={(value) => { setSortOrder(value); setPage(0); }} />
         </label>
-        <button disabled={queueBusy || isWorking} onClick={() => void refreshReports()} type="button">
-          {queueBusy ? "Updating…" : "Refresh"}
+        <button className="workspace-reset-button" disabled={queueBusy || isWorking} onClick={() => void refreshReports()} type="button">
+          {queueBusy ? "Resetting…" : "Reset"}
         </button>
       </div>
 
@@ -305,7 +305,7 @@ export default function ReportsPage() {
 
       <div className="report-list" role="region" aria-label="Report results" aria-busy={queueBusy}>
         {queueFailed && !hasLoaded ? (
-          <div className="empty-state">Reports could not be loaded. Select Refresh to try again.</div>
+          <div className="empty-state">Reports could not be loaded. Select Reset to try again.</div>
         ) : stats.total === 0 && !isLoading ? (
           <div className="empty-state">No reports found.</div>
         ) : reports.length === 0 && !isLoading ? (
@@ -329,7 +329,7 @@ export default function ReportsPage() {
 
       <nav className="report-pagination" aria-label="Report pages">
         <p role="status" aria-live="polite">
-          {queueBusy ? 'Updating results…' : queueFailed ? 'Results could not be refreshed. Select Refresh to try again.' : filteredTotal === 0 ? 'No matching reports' : pageCount === 1 ? `${filteredTotal} ${filteredTotal === 1 ? 'report' : 'reports'}` :
+          {queueBusy ? 'Updating results…' : queueFailed ? 'Results could not be refreshed. Select Reset to try again.' : filteredTotal === 0 ? 'No matching reports' : pageCount === 1 ? `${filteredTotal} ${filteredTotal === 1 ? 'report' : 'reports'}` :
             `${page * reportPageSize + 1}–${Math.min((page + 1) * reportPageSize, filteredTotal)} of ${filteredTotal} ${filteredTotal === 1 ? 'report' : 'reports'}`}
         </p>
         {pageCount > 1 ? <div>

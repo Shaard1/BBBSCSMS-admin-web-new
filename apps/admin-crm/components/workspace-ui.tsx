@@ -15,13 +15,13 @@ export function RefreshButton({
 }) {
   return (
     <button
-      className="secondary-admin-button"
+      className="secondary-admin-button workspace-reset-button"
       disabled={loading}
       onClick={onClick}
       type="button"
     >
       <RefreshCw size={16} className={loading ? "is-spinning" : ""} />
-      {loading ? "Refreshing…" : "Refresh"}
+      {loading ? "Resetting…" : "Reset"}
     </button>
   );
 }

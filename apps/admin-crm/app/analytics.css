@@ -198,3 +198,48 @@ body .analytics-status-cells > .analytics-status-row:hover,body .analytics-statu
 .analytics-chart-key i.analytics-series-registration { background:repeating-linear-gradient(90deg,#16A394 0 5px,transparent 5px 8px) !important; }
 .analytics-pointer-tooltip i.analytics-series-report { background:linear-gradient(90deg,#6941CF,#A17BF0); }
 .analytics-pointer-tooltip i.analytics-series-registration { background:repeating-linear-gradient(90deg,#16A394 0 4px,transparent 4px 6px); }
+
+.analytics-period-control { display:flex; align-items:center; gap:6px; }
+body .analytics-edit-range { border:0; background:transparent; box-shadow:none; color:#245aa6; font-size:11px; padding:4px 6px; min-height:36px; }
+.analytics-range-controls.analytics-range-popover { position:fixed; z-index:100; display:grid; justify-content:stretch; align-items:stretch; width:350px; max-width:calc(100vw - 32px); padding:18px; gap:16px; border-radius:14px; background:#fff; box-shadow:0 8px 32px #172b4626; }
+.analytics-range-popover > strong { font-size:14px; font-weight:600; }
+.analytics-range-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.analytics-range-fields > label { display:grid; gap:6px; font-size:11px; }
+.analytics-range-popover .analytics-range-fields input { width:100%; min-width:0; font-size:12px; }
+.analytics-range-popover > p { text-align:left; font-size:11px; margin:0; }
+.analytics-range-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+.analytics-range-controls.analytics-range-popover { width:570px; max-height:calc(100vh - 32px); overflow:auto; }
+.crm-calendar-navigation { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.crm-calendar-navigation > span { font-size:11px; color:#60738d; }
+body .crm-calendar-navigation button { display:grid; place-items:center; min-height:30px; width:30px; padding:0; border:0; background:#f4f7fb; border-radius:7px; box-shadow:none; }
+.crm-calendar-months { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.crm-calendar-months h4 { text-align:center; font-size:12px; font-weight:600; margin:8px 0 14px; }
+.crm-calendar-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); row-gap:5px; }
+.crm-calendar-weekday { text-align:center; color:#718097; font-size:10px; padding-bottom:8px; }
+body .crm-calendar-days button { display:grid; place-items:center; min-height:30px; width:100%; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; font-size:11px; color:#243c5b; }
+body .crm-calendar-days button.in-range { background:#eaf2ff; color:#245db7; }
+body .crm-calendar-days button.range-endpoint { background:#2563d8; color:#fff; border-radius:8px; font-weight:600; }
+body .crm-calendar-days button:hover:not(:disabled) { background:#cfe1ff; color:#174aa4; border-radius:8px; }
+body .crm-calendar-days button:disabled { opacity:.3; }
+@media(max-width:540px) { .crm-calendar-months { grid-template-columns:1fr; gap:16px; } .crm-calendar-months section:nth-child(2) { display:none; } body .crm-calendar-days button { min-height:36px; } }
+
+.crm-calendar-days { user-select:none; }
+.analytics-range-fields input[readonly] { cursor:default; }
+
+/* Stronger calendar typography for easier date scanning. */
+.crm-calendar-months h4 { color:#14253d; font-size:14px; font-weight:650; }
+.crm-calendar-weekday { color:#52627a; font-size:11px; font-weight:500; }
+body .crm-calendar-days button { color:#14253d; font-size:12px; font-weight:550; }
+body .crm-calendar-days button.range-endpoint { color:#fff; font-weight:650; }
+body .crm-calendar-days button:disabled { color:#8491a4; opacity:.5; font-weight:400; }
+.analytics-range-popover > strong { font-size:15px; font-weight:650; color:#14253d; }
+.analytics-range-fields > label { font-size:12px; font-weight:550; color:#24364f; }
+.analytics-range-popover .analytics-range-fields input { font-size:13px; font-weight:550; color:#14253d; }
+.crm-calendar-navigation > span { color:#52627a; font-size:12px; }
+
+body .crm-calendar-days button.in-range { border-radius:0; }
+body .crm-calendar-days button.in-range.range-row-start { border-top-left-radius:11px; border-bottom-left-radius:11px; }
+body .crm-calendar-days button.in-range.range-row-end { border-top-right-radius:11px; border-bottom-right-radius:11px; }
+body .crm-calendar-days button.range-endpoint { border-radius:11px; }
+body .crm-calendar-days button:hover:not(:disabled) { border-radius:11px; }

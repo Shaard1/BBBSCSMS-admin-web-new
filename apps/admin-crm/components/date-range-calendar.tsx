@@ -1,0 +1,18 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {ChevronLeft,ChevronRight} from "@/components/crm-icons";
+export function DateRangeCalendar({value,today,onChange}:{value:{start:string;end:string};today:string;onChange:(value:{start:string;end:string})=>void}){
+  const [month,setMonth]=useState(()=>new Date(Number(value.end.slice(0,4)),Number(value.end.slice(5,7))-2,1));
+  const [pickingEnd,setPickingEnd]=useState(false);
+  const drag=useRef<{start:string;moved:boolean}|null>(null);
+  const ignoreClick=useRef(false);
+  useEffect(()=>{
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    function finish(){if(drag.current?.moved){ignoreClick.current=true;setPickingEnd(false);timer=setTimeout(()=>{ignoreClick.current=false;},0);}drag.current=null;}
+    document.addEventListener("pointerup",finish);document.addEventListener("pointercancel",finish);
+    return()=>{document.removeEventListener("pointerup",finish);document.removeEventListener("pointercancel",finish);clearTimeout(timer);};
+  },[]);
+  function dragTo(date:string){const current=drag.current;if(!current||date===current.start&&!current.moved)return;current.moved=true;onChange({start:date<current.start?date:current.start,end:date<current.start?current.start:date});}
+  function choose(date:string){if(!pickingEnd){onChange({start:date,end:date});setPickingEnd(true);}else{onChange({start:date<value.start?date:value.start,end:date<value.start?value.start:date});setPickingEnd(false);}}
+  return <div className="crm-range-calendar"><div className="crm-calendar-navigation"><button type="button" aria-label="Previous month" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))}><ChevronLeft size={16}/></button><span>{pickingEnd?"Select end date":"Select start date"}</span><button type="button" aria-label="Next month" disabled={new Date(month.getFullYear(),month.getMonth()+1,1)>new Date(today+"T00:00:00")} onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))}><ChevronRight size={16}/></button></div><div className="crm-calendar-months">{[0,1].map(offset=>{const date=new Date(month.getFullYear(),month.getMonth()+offset,1);const year=date.getFullYear(),m=date.getMonth();const length=new Date(year,m+1,0).getDate();return <section key={offset} aria-label={date.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}><h4>{date.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</h4><div className="crm-calendar-days">{["Su","Mo","Tu","We","Th","Fr","Sa"].map(day=><span className="crm-calendar-weekday" key={day}>{day}</span>)}{Array.from({length:date.getDay()},(_,i)=><span key={"blank"+i}/>)}{Array.from({length},(_,i)=>{const key=year+"-"+String(m+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");const endpoint=key===value.start||key===value.end;return <button key={key} type="button" disabled={key>today} aria-label={new Date(year,m,i+1).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})} aria-pressed={endpoint} aria-current={key===today?"date":undefined} className={(key>=value.start&&key<=value.end?"in-range ":"")+(key===value.start||new Date(year,m,i+1).getDay()===0||i===0?"range-row-start ":"")+(key===value.end||new Date(year,m,i+1).getDay()===6||i===length-1?"range-row-end ":"")+(endpoint?"range-endpoint":"")} onPointerDown={event=>{if(event.pointerType==="mouse"&&event.button===0){event.preventDefault();drag.current={start:key,moved:false};}}} onPointerEnter={event=>{if(event.pointerType==="mouse"&&event.buttons===1)dragTo(key);}} onClick={()=>{if(!ignoreClick.current)choose(key);}}>{i+1}</button>;})}</div></section>;})}</div></div>;
+}

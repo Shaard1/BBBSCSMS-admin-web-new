@@ -135,7 +135,7 @@ function ResidentDirectoryPage() {
     {!directory.serverPaged ? <p className="admin-message">Some accounts use the previous registration process. Service history and account access changes are currently unavailable.</p> : null}
     {message ? <div className="admin-message" role="status"><span>{message}</span><button type="button" onClick={() => setMessage('')}>Dismiss</button></div> : null}
     <div className="resident-panel">
-      <div className="resident-panel-heading"><div><h3>Resident directory</h3><p>Review resident contact details, phone verification, and account access.</p></div><button type="button" disabled={loading} onClick={() => setRevision(r => r + 1)}><RefreshCw size={16}/> Refresh</button></div>
+      <div className="resident-panel-heading"><div><h3>Resident directory</h3><p>Review resident contact details, phone verification, and account access.</p></div><button className="workspace-reset-button" type="button" disabled={loading} onClick={() => setRevision(r => r + 1)}><RefreshCw size={16}/> Reset</button></div>
     <div className="resident-account-toolbar">
       <label className="resident-search"><Search size={18}/><input aria-label="Search resident accounts" placeholder="Search name, contact, email or ID…" value={search} maxLength={150} onChange={e => { setSearch(e.target.value); setPage(0); }}/></label>
       <div className="resident-account-filter"><span>Account access</span><UiDropdown ariaLabel="Account access" value={access} onChange={value => { setAccess(value); setPage(0); }} options={[{value:'all',label:'All accounts'},{value:'active',label:'Active'},{value:'suspended',label:'Suspended'},{value:'legacy_pending',label:'Legacy review pending'},{value:'legacy_rejected',label:'Legacy registration rejected'}]} /></div>

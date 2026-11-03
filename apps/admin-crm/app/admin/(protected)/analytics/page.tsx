@@ -8,6 +8,7 @@ import { Hourglass, Wrench, CheckCheck, ArrowUpRight, CheckCircle2, Clock3, Down
 import { reportSnapshot } from "@/lib/workspace-metrics";
 import { createDemoAnalytics } from "@/lib/analytics-demo";
 import { CategoryBreakdown, WorkloadBreakdown } from "@/components/analytics-breakdowns";
+import { DateRangeCalendar } from "@/components/date-range-calendar";
 import { ActivityChart } from "@/components/daily-activity-chart";
 import { dailyActivity, dayKey, shiftDay, formatDay, fetchAnalyticsInputs } from "@/lib/analytics";
 import { normalizeReportStatus } from "@/lib/report-utils";
@@ -23,15 +24,28 @@ export default function AnalyticsPage() {
     const [range,setRange]=useState({start:shiftDay(today,-29),end:today});
     const [custom,setCustom]=useState(range);
     const [rangeError,setRangeError]=useState("");
+    const [rangeOpen,setRangeOpen]=useState(false);
+    const rangeAnchor=useRef<HTMLDivElement>(null);
+    const rangePanel=useRef<HTMLDivElement>(null);
+    function closeRange(){setRangeOpen(false);rangeAnchor.current?.querySelector<HTMLButtonElement>("button")?.focus();}
+    useEffect(()=>{
+      if(!rangeOpen)return;
+      function position(){const anchor=rangeAnchor.current?.getBoundingClientRect();const panel=rangePanel.current;if(!anchor||!panel)return;panel.style.left=Math.max(16,Math.min(anchor.right-panel.offsetWidth,window.innerWidth-panel.offsetWidth-16))+"px";panel.style.top=Math.max(16,Math.min(anchor.bottom+8,window.innerHeight-panel.offsetHeight-16))+"px";}
+      function outside(event:PointerEvent){if(!rangeAnchor.current?.contains(event.target as Node)&&!rangePanel.current?.contains(event.target as Node))setRangeOpen(false);}
+      position();rangePanel.current?.querySelector<HTMLButtonElement>(".crm-calendar-days button:not(:disabled)")?.focus();
+      window.addEventListener("resize",position);window.addEventListener("scroll",position,true);document.addEventListener("pointerdown",outside);
+      return()=>{window.removeEventListener("resize",position);window.removeEventListener("scroll",position,true);document.removeEventListener("pointerdown",outside);};
+    },[rangeOpen]);
     function changePeriod(value:string) {
       setPeriod(value);setRangeError("");
       if(value!=="custom")setRange({start:shiftDay(today,1-Number(value)),end:today});
-      else setCustom(range);
+      else {setCustom(range);setRangeOpen(true);}
+      if(value!=="custom")setRangeOpen(false);
     }
     function applyRange() {
       const count=(Date.parse(custom.end)-Date.parse(custom.start))/86400000+1;
       if(!custom.start||!custom.end||!Number.isFinite(count)||count<1||count>366||custom.end>today){setRangeError("Choose a valid range of up to 366 days, ending today or earlier.");return;}
-      setRange(custom);setRangeError("");
+      setRange(custom);setRangeError("");closeRange();
     }
     const [isLoading, setIsLoading] = useState(true);
     const [message, setMessage] = useState("");
@@ -87,12 +101,17 @@ export default function AnalyticsPage() {
     <div className="analytics-toolbar">
       <div className="analytics-actions">
         <div className="analytics-demo-control"><button type="button" role="switch" aria-label="Demo data" aria-checked={demo} onClick={()=>setDemo(value=>!value)}><span className="analytics-switch-track" aria-hidden="true"><i/></span>Demo data</button></div>
-        <UiDropdown ariaLabel="Analytics period" matchTriggerWidth options={[{label:"Last 7 days",value:"7"},{label:"Last 30 days",value:"30"},{label:"Custom range",value:"custom"}]} value={period} onChange={changePeriod}/>
-        {demo?<button className="secondary-admin-button" type="button" disabled title="Sample activity is generated locally">Refresh</button>:<RefreshButton loading={isLoading} onClick={load}/>}
+        <div ref={rangeAnchor} className="analytics-period-control"><UiDropdown ariaLabel="Analytics period" matchTriggerWidth options={[{label:"Last 7 days",value:"7"},{label:"Last 30 days",value:"30"},{label:"Custom range",value:"custom"}]} value={period} onChange={changePeriod}/></div>
         <button className="primary-admin-button" type="button" disabled={!!message&&!demo} onClick={exportData}><Download size={16}/> Export CSV</button>
+        {demo?<button className="secondary-admin-button workspace-reset-button" type="button" disabled title="Sample activity is generated locally">Reset</button>:<RefreshButton loading={isLoading} onClick={load}/>}
       </div>
     </div>
-    {period==="custom" ? <div className="analytics-range-controls"><label>Start date<input type="date" value={custom.start} max={today} onChange={event=>setCustom({...custom,start:event.target.value})}/></label><label>End date<input type="date" value={custom.end} max={today} onChange={event=>setCustom({...custom,end:event.target.value})}/></label><button type="button" className="secondary-admin-button" onClick={applyRange}>Apply range</button>{rangeError?<p role="alert">{rangeError}</p>:null}</div>:null}
+    {rangeOpen ? <div ref={rangePanel} className="analytics-range-controls analytics-range-popover" role="region" aria-label="Custom date range" onKeyDown={event=>{if(event.key==="Escape"){event.stopPropagation();closeRange();}}}>
+      <strong>Custom date range</strong>
+      <DateRangeCalendar value={custom} today={today} onChange={setCustom}/>
+      {rangeError?<p role="alert">{rangeError}</p>:null}
+      <div className="analytics-range-actions"><button type="button" className="secondary-admin-button" onClick={closeRange}>Cancel</button><button type="button" className="primary-admin-button" onClick={applyRange}>Apply range</button></div>
+    </div>:null}
     {message&&!demo ? <Notice message={message}/> : <>
       <div className="analytics-metrics">
         <article className="analytics-stat"><div><span>Community reports</span><FileText size={18}/></div><strong>{selectedReports.length.toLocaleString()}</strong><p>{snapshot.open} open · {snapshot.resolved} resolved</p></article>
