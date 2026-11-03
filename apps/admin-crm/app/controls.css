@@ -82,7 +82,7 @@ select:focus-visible,textarea:focus-visible,
 .resident-search:focus-within,.staff-page .resident-search:focus-within,
 .topbar-search:has(input:focus-visible) .topbar-search-bar,.settings-input-group:focus-within {
   outline:none; border-color:#3178d9;
-  background:white; box-shadow:0 0 0 3px #3178d926,inset 0 1px 2px #172b4d05;
+  background:white; box-shadow:0 0 0 2px #3178d926,inset 0 1px 2px #172b4d05;
 }
 .resident-search input:focus-visible,.staff-page .resident-search input:focus-visible,
 .topbar-search input:focus-visible,.account-settings .settings-input-group input:focus-visible {
@@ -106,3 +106,5 @@ input[aria-invalid="true"],textarea[aria-invalid="true"],input:user-invalid,text
 @media(prefers-reduced-motion:reduce) { button,input,select,textarea { transition:none; } }
 
 .ui-dropdown .ui-dropdown-menu::-webkit-scrollbar { display:none; }
+
+.workspace-reset-button { margin-left:auto; flex-shrink:0; }

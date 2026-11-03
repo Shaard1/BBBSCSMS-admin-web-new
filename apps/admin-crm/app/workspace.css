@@ -107,8 +107,8 @@ summary {
   -webkit-tap-highlight-color: transparent;
 }
 :focus-visible {
-  outline: 3px solid #3178d9;
-  outline-offset: 3px;
+  outline: 2px solid #3178d9;
+  outline-offset: 2px;
 }
 input,
 select,
@@ -163,7 +163,7 @@ small {
 }
 input[aria-invalid="true"], .rich-editor-surface[aria-invalid="true"] {
   border: 2px solid #b3261e;
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 em {
   font-style: normal;
@@ -1154,7 +1154,7 @@ a.workspace-metric:hover {
 .ui-dropdown-trigger[aria-expanded="true"] {
   border-color: #3975c5;
   background: #fff;
-  box-shadow: 0 0 0 3px rgb(49 120 217 / 13%);
+  box-shadow: 0 0 0 2px rgb(49 120 217 / 13%);
 }
 .ui-dropdown-trigger > svg {
   color: #5a6d85;
@@ -1906,8 +1906,8 @@ a.workspace-metric:hover {
   cursor: pointer;
 }
 .file-upload-control:focus-within {
-  outline: 3px solid #3178d9;
-  outline-offset: 3px;
+  outline: 2px solid #3178d9;
+  outline-offset: 2px;
 }
 .announcement-form-footer {
   display: flex;
@@ -2778,7 +2778,7 @@ caption {
   outline: 2px solid #006bb6;
   outline-offset: 2px;
   border-color: #006bb6;
-  box-shadow: 0 0 0 5px #006bb60d;
+  box-shadow: 0 0 0 2px #006bb60d;
 }
 .office-login-card .field-label {
   font-size: 0.875rem;
@@ -3892,3 +3892,9 @@ details[open] > :not(summary) { animation:workspace-pane-enter 160ms ease both; 
 .account-settings .settings-section input:user-invalid:not([type="checkbox"]):not([type="file"]),
 .settings-input-group:has(input:user-invalid) { border-color:#bd3348; box-shadow:0 0 0 3px #bd334814; }
 .account-settings .settings-input-group input:user-invalid:not([type="checkbox"]):not([type="file"]) { border:0; box-shadow:none; }
+
+
+.admin-sidebar nav a:focus-visible { outline: 2px solid #3178d9; outline-offset: 2px; }
+@media (forced-colors: active) {
+  .admin-sidebar nav a:focus-visible { outline-color: Highlight; }
+}

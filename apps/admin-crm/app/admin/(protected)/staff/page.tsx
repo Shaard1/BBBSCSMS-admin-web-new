@@ -205,7 +205,6 @@ export default function StaffAccountsPage() {
               <input aria-label="Search staff accounts" placeholder="Search name, email, or role…" value={query} onChange={(event) => setQuery(event.target.value)} />
               {query ? <button type="button" aria-label="Clear staff search" onClick={() => setQuery("")}><X size={16} /></button> : null}
             </label>
-            <RefreshButton loading={isLoading} onClick={loadAccounts} />
             {canManage ? (
               <button
                 type="button"
@@ -219,6 +218,7 @@ export default function StaffAccountsPage() {
                 Add staff account
               </button>
             ) : null}
+            <RefreshButton loading={isLoading} onClick={loadAccounts} />
           </div>
         </div>
         <div className="staff-search-summary" role="status">

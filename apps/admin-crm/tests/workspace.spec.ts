@@ -523,7 +523,7 @@ test("staff: searchable directory, create form and role guard", async ({
   await expect(page.getByText("No office accounts match this search.")).toBeVisible();
   await page.getByRole("button", { name: "Clear staff search", exact: true }).click();
   await expect(page.locator(".staff-directory-row")).toHaveCount(2);
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Office accounts", exact: true })).toBeVisible();
   await expect(page.locator(".staff-directory-panel")).toHaveAttribute("aria-busy", "false");
   await page.getByLabel("Search staff accounts").fill("Jamie");
@@ -773,10 +773,10 @@ test("empty and failed requests have understandable recovery", async ({
       json: { message: "Synthetic network failure" },
     }),
   );
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator(".admin-message")).toBeVisible();
   await page.unroute("**/rest/v1/reports?**");
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator(".report-card")).toHaveCount(5);
 });
 
@@ -1622,14 +1622,25 @@ test("daily analytics: desktop ranges, hover, guide, keyboard, export and height
   const day=page.getByRole("button",{name:formatDay(today)+": 1 reports, 2 registrations",exact:true});await day.focus();await day.press("Enter");await expect(page.locator(".analytics-chart-tooltip")).toBeVisible();await day.press("Escape");await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);
   await page.getByText("View daily data table",{exact:true}).click();await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);await page.getByText("View daily data table",{exact:true}).click();
   await chooseDropdownOption(page,page,"Analytics period","Custom range");
-  await page.getByLabel("Start date",{exact:true}).fill(today);await page.getByLabel("End date",{exact:true}).fill(shiftDay(today,-1));await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(page.locator(".analytics-range-controls").getByRole("alert")).toContainText("valid range");
-  await page.getByLabel("Start date",{exact:true}).fill(shiftDay(today,-1));await page.getByLabel("End date",{exact:true}).fill(today);await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");
+  const startDay=page.getByRole("button",{name:formatDay(shiftDay(today,-1)),exact:true});
+  const endDay=page.getByRole("button",{name:formatDay(today),exact:true});
+  const from=await startDay.boundingBox(),to=await endDay.boundingBox();
+  await page.mouse.move(from!.x+from!.width/2,from!.y+from!.height/2);await page.mouse.down();await page.mouse.move(to!.x+to!.width/2,to!.y+to!.height/2,{steps:8});await page.mouse.up();
+  await expect(startDay).toHaveAttribute("aria-pressed","true");await expect(endDay).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("button",{name:"Apply range",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");
+  await chooseDropdownOption(page,page,"Analytics period","Custom range");
+  await expect(page.getByRole("region",{name:"Custom date range",exact:true})).toBeVisible();
+  await page.screenshot({path:"test-results/analytics-custom-range.png",fullPage:false});
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Custom date range",exact:true})).toHaveCount(0);
+  await chooseDropdownOption(page,page,"Analytics period","Custom range");await page.getByRole("region",{name:"Custom date range",exact:true}).getByRole("button",{name:"Previous month",exact:true}).press("Escape");
+  await expect(page.getByRole("region",{name:"Custom date range",exact:true})).toHaveCount(0);
   const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toContain(today);
   const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain('"'+today+'","1","2"');
   const reportSeries=page.getByRole("button",{name:"Reports",exact:true});await reportSeries.click();await expect(reportSeries).toHaveAttribute("aria-pressed","false");await reportSeries.click();
   await page.getByRole("button",{name:"Inspect Pending reports",exact:true}).focus();await expect(page.locator(".analytics-ring > div > strong")).toHaveText("1");
   const boxes=await Promise.all([page.locator(".analytics-trend").boundingBox(),page.locator(".analytics-status").boundingBox()]);expect(Math.abs(boxes[0]!.height-boxes[1]!.height)).toBeLessThanOrEqual(1);
-  await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");await audit(page);
+  await page.getByRole("button",{name:"Reset",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");await audit(page);
   for(const width of [1920,1280,768,390]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);}
   await page.screenshot({path:"test-results/analytics-daily-mobile.png",fullPage:true});await audit(page);
   await page.getByRole("link",{name:"Review community reports",exact:true}).click();await expect(page).toHaveURL(/admin\/reports/);
@@ -1640,7 +1651,7 @@ test("daily analytics: empty state and load recovery",async({page})=>{
   await page.route("**/rest/v1/reports?**",route=>fail?route.fulfill({status:500,json:{message:"Unavailable"}}):route.fulfill({json:[]}));
   await page.route("**/rest/v1/residents?**",route=>route.fulfill({json:[]}));
   await page.goto("/admin/analytics");await expect(page.getByRole("status")).toContainText("Unable to load analytics");await expect(page.getByRole("button",{name:"Export CSV",exact:true})).toBeDisabled();
-  fail=false;await page.getByRole("button",{name:"Refresh",exact:true}).click();await expect(page.locator(".analytics-chart-readout")).toContainText("No submissions recorded");await expect(page.locator(".analytics-stat").first().locator(":scope > strong")).toHaveText("0");
+  fail=false;await page.getByRole("button",{name:"Reset",exact:true}).click();await expect(page.locator(".analytics-chart-readout")).toContainText("No submissions recorded");await expect(page.locator(".analytics-stat").first().locator(":scope > strong")).toHaveText("0");
 });
 
 test.describe("daily activity touch",()=>{
@@ -1664,7 +1675,7 @@ test("analytics demo: samples stay local, exports are labeled and live data retu
   const count=page.locator(".analytics-stat").first().locator(":scope > strong");await expect(count).toHaveText("4");
   const writes:string[]=[];page.on("request",request=>{if(["POST","PATCH","PUT","DELETE"].includes(request.method())&&/\/rest\/v1\/(reports|residents)(?:\?|$)/.test(request.url()))writes.push(request.url());});
   await toggle.click();await expect(toggle).toHaveAttribute("aria-checked","true");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);expect(Number((await count.innerText()).replaceAll(",",""))).toBeGreaterThan(100);
-  await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Reset",exact:true})).toBeDisabled();
   const bar=page.locator(".analytics-status-row-track > i").first();
   expect(await bar.evaluate(element=>({height:element.getBoundingClientRect().height,radius:getComputedStyle(element).borderRadius}))).toEqual({height:6,radius:"3px"});
   await page.locator(".analytics-status").screenshot({path:"test-results/analytics-status-palette.png"});
@@ -1675,6 +1686,6 @@ test("analytics demo: samples stay local, exports are labeled and live data retu
   const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain("DEMO DATA — SAMPLE ACTIVITY, NOT LIVE RECORDS");
   await chooseDropdownOption(page,page,"Analytics period","Last 7 days");expect(Number(await count.innerText())).toBeGreaterThan(20);
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await audit(page);
-  await toggle.click();await expect(count).toHaveText("3");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeEnabled();
+  await toggle.click();await expect(count).toHaveText("3");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Reset",exact:true})).toBeEnabled();
   await page.reload();await expect(toggle).toHaveAttribute("aria-checked","false");expect(writes).toEqual([]);
 });
