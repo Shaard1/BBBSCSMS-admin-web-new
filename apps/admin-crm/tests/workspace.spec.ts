@@ -1665,6 +1665,11 @@ test("analytics demo: samples stay local, exports are labeled and live data retu
   const writes:string[]=[];page.on("request",request=>{if(["POST","PATCH","PUT","DELETE"].includes(request.method())&&/\/rest\/v1\/(reports|residents)(?:\?|$)/.test(request.url()))writes.push(request.url());});
   await toggle.click();await expect(toggle).toHaveAttribute("aria-checked","true");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);expect(Number((await count.innerText()).replaceAll(",",""))).toBeGreaterThan(100);
   await expect(page.getByRole("button",{name:"Refresh",exact:true})).toBeDisabled();
+  const bar=page.locator(".analytics-status-row-track > i").first();
+  expect(await bar.evaluate(element=>({height:element.getBoundingClientRect().height,radius:getComputedStyle(element).borderRadius}))).toEqual({height:6,radius:"3px"});
+  await page.locator(".analytics-status").screenshot({path:"test-results/analytics-status-palette.png"});
+  await page.locator(".analytics-bottom-grid").screenshot({path:"test-results/analytics-breakdowns.png"});
+  await page.locator(".analytics-trend").screenshot({path:"test-results/analytics-submission-style.png"});
   await page.screenshot({path:"test-results/analytics-demo-desktop.png",fullPage:true});await audit(page);
   const downloading=page.waitForEvent("download");await page.getByRole("button",{name:"Export CSV",exact:true}).click();const download=await downloading;expect(download.suggestedFilename()).toMatch(/^DEMO-/);
   const stream=await download.createReadStream();let csv="";for await(const chunk of stream!)csv+=chunk.toString();expect(csv).toContain("DEMO DATA — SAMPLE ACTIVITY, NOT LIVE RECORDS");

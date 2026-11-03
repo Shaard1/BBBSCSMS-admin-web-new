@@ -4,14 +4,16 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import { Notice, RefreshButton } from "@/components/workspace-ui";
 import { UiDropdown } from "@/components/ui-dropdown";
-import { ArrowUpRight, CheckCircle2, Clock3, Download, FileText, Users } from "@/components/crm-icons";
+import { Hourglass, Wrench, CheckCheck, ArrowUpRight, CheckCircle2, Clock3, Download, FileText, Users } from "@/components/crm-icons";
 import { reportSnapshot } from "@/lib/workspace-metrics";
 import { createDemoAnalytics } from "@/lib/analytics-demo";
+import { CategoryBreakdown, WorkloadBreakdown } from "@/components/analytics-breakdowns";
 import { ActivityChart } from "@/components/daily-activity-chart";
 import { dailyActivity, dayKey, shiftDay, formatDay, fetchAnalyticsInputs } from "@/lib/analytics";
 import { normalizeReportStatus } from "@/lib/report-utils";
 import type { CommunityReport } from "@/lib/types";
-const statusColors = ["#d49b37", "#3473d9", "#328969"];
+const statusColors = ["#F97345", "#7047EB", "#079D8F"];
+const statusTints = ["#FDBA74", "#AC8AFF", "#53D8BE"];
 export default function AnalyticsPage() {
     const [reports, setReports] = useState<CommunityReport[]>([]);
     const [registrations,setRegistrations]=useState<{created_at:string}[]>([]);
@@ -108,14 +110,8 @@ export default function AnalyticsPage() {
 
       </div>
       <div className="analytics-bottom-grid">
-        <section className="analytics-card" aria-labelledby="categories-title"><div className="analytics-card-heading"><div><h3 id="categories-title">Reports by category</h3></div><span className="analytics-period">{periodLabel}</span></div>
-          <div className="analytics-categories">{snapshot.categories.length ? snapshot.categories.map(([category, count]) => <div key={category}><div><span>{category}</span><strong>{count}<small>{Math.round(count / selectedReports.length * 100)}%</small></strong></div><div className="analytics-bar-track"><span style={{ width: count / Math.max(1, selectedReports.length) * 100 + "%" }}/></div></div>) : <p className="analytics-empty">No reports recorded in this period.</p>}</div>
-        </section>
-        <section className="analytics-card" aria-labelledby="workload-title"><div className="analytics-card-heading"><div><h3 id="workload-title">Open report workload</h3></div><Link href="/admin/reports" className="analytics-text-link">View reports <ArrowUpRight size={15}/></Link></div>
-          <div className="analytics-workload-total"><strong>{snapshot.open}</strong><span>reports awaiting resolution</span></div>
-          <div className="analytics-age-list">{ageGroups.map((count, index) => <div key={index}><span>{["Under 7 days", "7–29 days", "30+ days"][index]}</span><div className="analytics-bar-track"><span style={{ width: count / Math.max(1, snapshot.open) * 100 + "%", background: ["#9db9df", "#d5a458", "#b56c4d"][index] }}/></div><strong>{count}</strong></div>)}</div>
-          <div className="analytics-insight"><span>Busiest day</span><strong>{selectedReports.length + residentTotal ? formatDay(busiest.date,true) + " · " + (busiest.reports + busiest.residents) + " submissions" : "No activity yet"}</strong></div>
-        </section>
+        <CategoryBreakdown categories={snapshot.categories} total={selectedReports.length} periodLabel={periodLabel}/>
+        <WorkloadBreakdown counts={ageGroups} busiestDate={formatDay(busiest.date,true)} busiestTotal={selectedReports.length+residentTotal?busiest.reports+busiest.residents:0}/>
       </div>
       <p className="analytics-footnote" title="Figures use submission dates in Philippine time; report statuses reflect their current state.">{demo?"Sample data · not saved to the database":updatedAt?"Updated "+updatedAt.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""}</p>
     </>}
@@ -133,19 +129,26 @@ function ReportStatus({counts,periodLabel}:{counts:number[];periodLabel:string})
     <div className="analytics-status-visual">
       <div className="analytics-ring" role="img" aria-label={labels.map((label,index)=>label+": "+counts[index]).join(". ")}>
         <svg viewBox="0 0 200 200" aria-hidden="true">
-          <defs>{statusColors.map((color,index)=><linearGradient key={index} id={"status-gradient-"+index} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={color}/><stop offset="100%" stopColor={["#eaba60","#6799ed","#67b99a"][index]}/></linearGradient>)}</defs>
-          <circle cx="100" cy="100" r="76" fill="none" stroke="#f0f3f8" strokeWidth="16"/>
+          <defs>{statusColors.map((color,index)=><linearGradient key={index} id={"status-gradient-"+index} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={color}/><stop offset="65%" stopColor={color}/><stop offset="100%" stopColor={statusTints[index]}/></linearGradient>)}</defs>
+          <circle cx="100" cy="100" r="76" fill="none" stroke="#f0f3f8" strokeWidth="14"/>
           {counts.map((count,index)=>{
             if(!count)return null;
             const offset=counts.slice(0,index).reduce((sum,value)=>sum+value,0)/Math.max(1,total)*circumference;
             const gap=nonEmpty>1?23:0;
-            return <circle key={index} cx="100" cy="100" r="76" fill="none" stroke={"url(#status-gradient-"+index+")"} strokeWidth={active===index?20:16} strokeLinecap="round" strokeDasharray={Math.max(1,count/total*circumference-gap)+" "+circumference} strokeDashoffset={-offset-gap/2} transform="rotate(-90 100 100)" opacity={active===null||active===index?1:.22} onMouseEnter={()=>setActive(index)} onMouseLeave={()=>setActive(null)}/>;
+            return <circle key={index} cx="100" cy="100" r="76" fill="none" stroke={"url(#status-gradient-"+index+")"} strokeWidth={active===index?17:14} strokeLinecap="round" strokeDasharray={Math.max(1,count/total*circumference-gap)+" "+circumference} strokeDashoffset={-offset-gap/2} transform="rotate(-90 100 100)" opacity={active===null||active===index?1:.7} onMouseEnter={()=>setActive(index)} onMouseLeave={()=>setActive(null)}/>;
           })}
         </svg>
         <div><span className="analytics-ring-eyebrow">{active===null?"Resolution rate":labels[active]}</span><strong>{active===null?resolvedRate+"%":counts[active]}</strong><span>{active===null?"of reports resolved":"of "+total+" reports"}</span></div>
       </div>
     </div>
-    <div className="analytics-status-cells" aria-label="Inspect report status">{counts.map((count,index)=><button key={index} type="button" aria-label={"Inspect "+labels[index]+" reports"} aria-pressed={active===index} onMouseEnter={()=>setActive(index)} onMouseLeave={()=>setActive(null)} onFocus={()=>setActive(index)} onBlur={()=>setActive(null)} onClick={()=>setActive(index)} style={{"--status-color":statusColors[index]} as CSSProperties}><span><i/>{labels[index]}</span><strong>{count}<small>{total?Math.round(count/total*100):0}%</small></strong><div className="analytics-status-mini-track"><i style={{width:(total?count/total*100:0)+"%"}}/></div></button>)}</div>
-    <div className="analytics-status-footer"><div><span>Awaiting resolution</span><strong>{counts[0]+counts[1]} <small>reports</small></strong></div><Link href="/admin/reports" aria-label="Review community reports"><ArrowUpRight size={20}/></Link></div>
+    <div className="analytics-status-cells" aria-label="Inspect report status">{counts.map((count,index)=>{
+      const StatusIcon=[Hourglass,Wrench,CheckCheck][index];
+      return <button key={index} className="analytics-status-row" type="button" aria-label={"Inspect "+labels[index]+" reports"} aria-pressed={active===index} onMouseEnter={()=>setActive(index)} onMouseLeave={()=>setActive(null)} onFocus={()=>setActive(index)} onBlur={()=>setActive(null)} onClick={()=>setActive(index)} style={{"--status-color":statusColors[index],"--status-tint":statusTints[index]} as CSSProperties}>
+        <span className="analytics-status-row-label"><StatusIcon size={16}/>{labels[index]}</span>
+        <span className="analytics-status-row-track" aria-hidden="true"><i style={{width:(total?count/total*100:0)+"%"}}/></span>
+        <strong>{count}</strong><small>{total?Math.round(count/total*100):0}%</small>
+      </button>;
+    })}</div>
+    <div className="analytics-status-footer"><span><strong>{counts[0]+counts[1]}</strong> open reports</span><Link href="/admin/reports" aria-label="Review community reports">View reports <ArrowUpRight size={15}/></Link></div>
   </section>;
 }
