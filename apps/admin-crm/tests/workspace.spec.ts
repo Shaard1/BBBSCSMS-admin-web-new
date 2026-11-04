@@ -1,3 +1,4 @@
+import {parseAnalyticsCsv} from "../lib/analytics-import";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { dailyActivity, dayKey, shiftDay, formatDay } from "../lib/analytics";
@@ -1599,10 +1600,11 @@ test("daily analytics: desktop ranges, hover, guide, keyboard, export and height
   await expect(stats.nth(2).locator(":scope > strong")).toHaveText("3");
   await expect(page.locator(".analytics-day-targets > button")).toHaveCount(7);
   const plot=await page.locator(".analytics-daily-plot").boundingBox();
-  const move=async(x:number,y:number)=>page.mouse.move(plot!.x+x/690*plot!.width,plot!.y+y/240*plot!.height);
+  const chartX=(x:number)=>plot!.x+40+(x-40)/616*(plot!.width-74);
+  const move=async(x:number,y:number)=>page.mouse.move(chartX(x),plot!.y+y/240*plot!.height);
   await move(41,204);
   const firstTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
-  const firstPointerX=plot!.x+41/690*plot!.width;
+  const firstPointerX=chartX(41);
   expect(firstTooltip!.x-firstPointerX).toBeGreaterThanOrEqual(12);
   expect(firstTooltip!.x-firstPointerX).toBeLessThanOrEqual(16);
   expect(firstTooltip!.width).toBeGreaterThanOrEqual(175);
@@ -1612,12 +1614,12 @@ test("daily analytics: desktop ranges, hover, guide, keyboard, export and height
   await move(654,160);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(today));
   await expect(page.locator(".analytics-chart-tooltip")).toContainText("Registrations2");
   const lastTooltip=await page.locator(".analytics-chart-tooltip").boundingBox();
-  const lastPointerX=plot!.x+654/690*plot!.width;
+  const lastPointerX=chartX(654);
   expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeGreaterThanOrEqual(12);
   expect(lastPointerX-lastTooltip!.x-lastTooltip!.width).toBeLessThanOrEqual(16);
 
   await page.screenshot({path:"test-results/analytics-daily-desktop.png",fullPage:true});
-  await move(348,50);await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);await expect(page.locator(".analytics-daily-guide")).toHaveAttribute("x1","348");
+  await move(348,50);await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);expect(Number(await page.locator(".analytics-daily-guide").getAttribute("x1"))).toBeCloseTo(40+(plot!.width-74)/2,1);
   await page.mouse.move(10,10);await expect(page.locator(".analytics-daily-guide")).toHaveCount(0);
   const day=page.getByRole("button",{name:formatDay(today)+": 1 reports, 2 registrations",exact:true});await day.focus();await day.press("Enter");await expect(page.locator(".analytics-chart-tooltip")).toBeVisible();await day.press("Escape");await expect(page.locator(".analytics-chart-tooltip")).toHaveCount(0);
   await page.getByText("View daily data table",{exact:true}).click();await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);await page.getByText("View daily data table",{exact:true}).click();
@@ -1640,7 +1642,7 @@ test("daily analytics: desktop ranges, hover, guide, keyboard, export and height
   const reportSeries=page.getByRole("button",{name:"Reports",exact:true});await reportSeries.click();await expect(reportSeries).toHaveAttribute("aria-pressed","false");await reportSeries.click();
   await page.getByRole("button",{name:"Inspect Pending reports",exact:true}).focus();await expect(page.locator(".analytics-ring > div > strong")).toHaveText("1");
   const boxes=await Promise.all([page.locator(".analytics-trend").boundingBox(),page.locator(".analytics-status").boundingBox()]);expect(Math.abs(boxes[0]!.height-boxes[1]!.height)).toBeLessThanOrEqual(1);
-  await page.getByRole("button",{name:"Reset",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("2");await audit(page);
+  await page.getByRole("button",{name:"Reset",exact:true}).click();await expect(stats.nth(0).locator(":scope > strong")).toHaveText("4");await audit(page);
   for(const width of [1920,1280,768,390]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);}
   await page.screenshot({path:"test-results/analytics-daily-mobile.png",fullPage:true});await audit(page);
   await page.getByRole("link",{name:"Review community reports",exact:true}).click();await expect(page).toHaveURL(/admin\/reports/);
@@ -1659,7 +1661,7 @@ test.describe("daily activity touch",()=>{
   test("tap and drag across days",async({page})=>{
     await login(page);const today=await dailyFixtures(page);await page.goto("/admin/analytics");await chooseDropdownOption(page,page,"Analytics period","Last 7 days");
     await page.locator(".analytics-daily-plot").scrollIntoViewIfNeeded();const box=await page.locator(".analytics-daily-plot").boundingBox();
-    const point=(index:number)=>({x:box!.x+(40+index/6*616)/690*box!.width,y:box!.y+160/240*box!.height});
+    const point=(index:number)=>({x:box!.x+40+index/6*(box!.width-74),y:box!.y+160/240*box!.height});
     const first=point(1),last=point(5);await page.touchscreen.tap(first.x,first.y);await expect(page.locator(".analytics-chart-tooltip")).toContainText(formatDay(shiftDay(today,-5)));
     const session=await page.context().newCDPSession(page);
     await session.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[first]});
@@ -1675,7 +1677,7 @@ test("analytics demo: samples stay local, exports are labeled and live data retu
   const count=page.locator(".analytics-stat").first().locator(":scope > strong");await expect(count).toHaveText("4");
   const writes:string[]=[];page.on("request",request=>{if(["POST","PATCH","PUT","DELETE"].includes(request.method())&&/\/rest\/v1\/(reports|residents)(?:\?|$)/.test(request.url()))writes.push(request.url());});
   await toggle.click();await expect(toggle).toHaveAttribute("aria-checked","true");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);expect(Number((await count.innerText()).replaceAll(",",""))).toBeGreaterThan(100);
-  await expect(page.getByRole("button",{name:"Reset",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Reset",exact:true})).toBeEnabled();
   const bar=page.locator(".analytics-status-row-track > i").first();
   expect(await bar.evaluate(element=>({height:element.getBoundingClientRect().height,radius:getComputedStyle(element).borderRadius}))).toEqual({height:6,radius:"3px"});
   await page.locator(".analytics-status").screenshot({path:"test-results/analytics-status-palette.png"});
@@ -1688,4 +1690,91 @@ test("analytics demo: samples stay local, exports are labeled and live data retu
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await audit(page);
   await toggle.click();await expect(count).toHaveText("3");await expect(page.getByText("Demo data — sample activity",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Reset",exact:true})).toBeEnabled();
   await page.reload();await expect(toggle).toHaveAttribute("aria-checked","false");expect(writes).toEqual([]);
+});
+
+test("analytics CSV import: validation and view-only flow",async({page})=>{
+  expect(()=>parseAnalyticsCsv('Date,Reports,Registrations\n2026-02-30,2,3')).toThrow();
+  expect(()=>parseAnalyticsCsv('Date,Reports,Registrations\n2026-01-01,-1,2')).toThrow();
+  expect(()=>parseAnalyticsCsv('Date,Reports,Registrations\n2026-01-01,1,2\n2026-01-01,1,2')).toThrow();
+  await login(page);await page.goto("/admin/analytics");
+  await page.getByLabel("Import Analytics CSV",{exact:true}).setInputFiles({name:"saved-report.csv",mimeType:"text/csv",buffer:Buffer.from('"Date","Reports","Registrations"\n"2026-10-01","12","7"\n"2026-10-03","3","2"\n\n"Report status","Count"\n"Pending","15"')});
+  await expect(page.getByText("Imported report",{exact:true})).toBeVisible();
+  await expect(page.locator(".analytics-stat").first().locator(":scope > strong")).toHaveText("15");
+  await expect(page.locator(".analytics-status")).toHaveCount(0);
+  await page.getByText("View daily data table",{exact:true}).click();await expect(page.getByRole("table").getByRole("row")).toHaveCount(4);
+  await page.getByRole("button",{name:"Back to live data",exact:true}).click();await expect(page.locator(".analytics-status")).toBeVisible();
+});
+
+test("analytics adaptive matrix",async({page})=>{
+ test.setTimeout(180000);await login(page);await page.goto("/admin/analytics");await page.getByRole("switch",{name:"Demo data",exact:true}).click();
+ for(const [width,height] of [[320,740],[360,800],[390,844],[600,960],[768,1024],[844,390],[1024,768],[1366,768],[1920,1080]]){
+  await page.setViewportSize({width,height});
+  await expect(page.locator(".analytics-daily-plot > svg")).toHaveAttribute("viewBox",new RegExp("0 0 "));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:"test-results/analytics-adaptive-"+width+".png",fullPage:true});
+  const issues=await page.locator(".analytics-page").evaluate(root=>Array.from(root.querySelectorAll(".analytics-actions button,.analytics-card,.analytics-stat,.analytics-category-row,.analytics-status-row")).filter(el=>{const r=el.getBoundingClientRect();return r.left<0||r.right>innerWidth+1;}).map(el=>el.className));
+  expect(issues,"Overflow at "+width).toEqual([]);
+  const actions=await page.locator(".analytics-action-group").boundingBox();
+  const card=await page.locator(".analytics-toolbar").boundingBox();
+  expect(actions!.x).toBeGreaterThanOrEqual(card!.x-1);
+  expect(actions!.x+actions!.width).toBeLessThanOrEqual(card!.x+card!.width+1);
+  const period=await page.locator(".analytics-period-control").boundingBox();
+  const demo=await page.locator(".analytics-demo-control").boundingBox();
+  expect(period!.x).toBeLessThan(demo!.x);
+  if(card!.width<=704){
+   const buttons=await page.locator(".analytics-action-group > button").evaluateAll(elements=>elements.map(element=>{const r=element.getBoundingClientRect();return {y:r.y,width:r.width};}));
+   expect(Math.max(...buttons.map(b=>b.width))-Math.min(...buttons.map(b=>b.width))).toBeLessThan(1);
+   expect(Math.max(...buttons.map(b=>b.y))-Math.min(...buttons.map(b=>b.y))).toBeLessThan(1);
+   expect(actions!.y).toBeGreaterThan(period!.y);
+  }
+
+  await chooseDropdownOption(page,page,"Analytics period","Custom range");
+  await expectMenuInViewport(page.getByRole("region",{name:"Custom date range",exact:true}));
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();await audit(page);
+ }
+});
+
+ test("dashboard responsive review",async({page})=>{
+ test.setTimeout(180000);await login(page);await page.goto("/admin/dashboard");
+ await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ await expect(page.getByText("Start with the queues waiting for review.",{exact:true})).toHaveCount(0);
+ const before=await page.locator(".dashboard-summary-item strong").allTextContents();
+ await page.getByRole("button",{name:"Reset",exact:true}).click();
+ await expect(page.locator(".dashboard-summary-item strong")).toHaveText(before);
+
+ for(const [width,height] of [[320,740],[390,844],[600,960],[768,1024],[844,390],[1024,768],[1366,768],[1920,1080]]){
+ await page.setViewportSize({width,height});
+ await page.screenshot({path:"test-results/dashboard-"+width+".png",fullPage:true});
+ const tiles=await page.locator(".dashboard-summary-item").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().y));
+ if(width<=600)expect(tiles[0]).toEqual(tiles[1]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await audit(page);
+ }
+ await page.setViewportSize({width:1366,height:900});
+ for(const href of ["/admin/reports","/admin/documents","/admin/residents","/admin/map","/admin/announcements"]){
+  await page.locator('.dashboard-page a[href="'+href+'"]').first().click();
+  await expect(page).toHaveURL(new RegExp(href));
+  await page.goto("/admin/dashboard");
+ }
+ });
+
+test("dashboard every content action and hover",async({page})=>{
+ test.setTimeout(180000);await login(page);await page.goto("/admin/dashboard");await page.setViewportSize({width:1440,height:1000});
+ await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ const count=await page.locator(".dashboard-page a").count();
+ for(let index=0;index<count;index++){
+  const link=page.locator(".dashboard-page a").nth(index);
+  const href=await link.getAttribute("href");
+  const before=await link.boundingBox();await link.hover();
+  if(await link.evaluate(el=>el.classList.contains("dashboard-summary-item"))){
+   await page.waitForTimeout(200);const after=await link.boundingBox();expect(after!.y).toEqual(before!.y);
+   expect(await link.evaluate(el=>getComputedStyle(el).borderColor)).toBe("rgb(185, 195, 209)");
+  }
+  await link.focus();expect(await link.evaluate(el=>getComputedStyle(el).outlineWidth)).toBe("2px");
+  await link.press("Enter");await expect(page).toHaveURL(new RegExp(href!));
+  await page.goto("/admin/dashboard");await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ }
+ await page.getByRole("button",{name:"Reset",exact:true}).hover();await page.getByRole("button",{name:"Reset",exact:true}).click();
+ await expect(page.locator(".dashboard-page")).toHaveAttribute("aria-busy","false");await audit(page);
+ await page.screenshot({path:"test-results/dashboard-interactions.png",fullPage:true});
 });

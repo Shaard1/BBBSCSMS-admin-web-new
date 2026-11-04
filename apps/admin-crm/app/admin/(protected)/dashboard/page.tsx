@@ -1,6 +1,7 @@
 "use client";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 import Link from "next/link";
+import { ReportCategoryIcon } from "@/components/report-category-icon";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -22,6 +23,7 @@ import { fetchDocumentRequests } from "@/lib/document-requests";
 import { fetchReports } from "@/lib/reports";
 import { fetchResidentMetrics } from "@/lib/residents";
 import {
+  normalizeReportCategory,
   normalizeReportStatus,
   reportStatusLabel,
   shortReportCategory,
@@ -31,12 +33,10 @@ import type {
   Announcement,
   CommunityReport,
   DocumentRequest,
-  Resident,
 } from "@/lib/types";
 
 export default function AdminDashboardPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
   const [legacyPendingTotal,setLegacyPendingTotal]=useState(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [documents, setDocuments] = useState<DocumentRequest[]>([]);
@@ -55,7 +55,6 @@ export default function AdminDashboardPage() {
         fetchDocumentRequests({ images: false }),
       ]);
       setReports(r);
-      setResidents(u.legacyQueue);
       setLegacyPendingTotal(u.summary.legacyPending);
       setAnnouncements(a);
       setDocuments(d);
@@ -80,7 +79,6 @@ export default function AdminDashboardPage() {
     void load();
   }, []);
   const snapshot = useMemo(() => reportSnapshot(reports), [reports]);
-  const pendingResidents = residents.filter((r) => r.status === "pending");
   const pendingDocuments = documents.filter((d) => d.status === "pending");
   const readyDocuments = documents.filter(
     (d) => d.status === "ready_for_release",
@@ -91,22 +89,19 @@ export default function AdminDashboardPage() {
     .slice(0, 5);
   const queues = [
     {
-      title: "Review previous registrations",
-      detail: "Only accounts using the old registration process",
+      title: "Previous registrations",
       count: legacyPendingTotal,
       href: "/admin/residents",
       icon: ShieldCheck,
     },
     {
-      title: "Review community reports",
-      detail: "Categorize concerns and start follow-up",
+      title: "Pending reports",
       count: snapshot.pending,
       href: "/admin/reports",
       icon: FileText,
     },
     {
-      title: "Process certificate requests",
-      detail: "Review applications, fees, and requirements",
+      title: "Certificate requests",
       count: pendingDocuments.length,
       href: "/admin/documents",
       icon: FileBadge2,
@@ -115,162 +110,41 @@ export default function AdminDashboardPage() {
   if (isLoading && !hasLoaded) return <AdminPageSkeleton href="/admin/dashboard" />;
 
   return (
-    <section className="workspace-page overview-page" aria-busy={isLoading}>
-      <PageActions>
-        <span className="sync-note">
-          {lastUpdated ? `Updated ${lastUpdated}` : "Not yet refreshed"}
-        </span>
-        <RefreshButton loading={isLoading} onClick={load} />
-      </PageActions>
-      <Notice message={message} onDismiss={() => setMessage("")} />
+    <section className="workspace-page overview-page dashboard-page" aria-busy={isLoading}>
+      <PageActions><RefreshButton loading={isLoading} onClick={load}/></PageActions>
+      <Notice message={message} onDismiss={()=>setMessage("")}/>
       <section className="dashboard-summary" aria-label="Workload summary">
-        <div className="dashboard-summary-grid">
-          {[
-            { label: "Open reports", value: snapshot.open, href: "/admin/reports" },
-            { label: "Ready for collection", value: readyDocuments, href: "/admin/documents" },
-            { label: "Requests awaiting review", value: pendingDocuments.length, href: "/admin/documents" },
-            { label: "Resolved reports", value: snapshot.resolved, href: "/admin/reports" },
-          ].map((metric) => (
-            <Link className="dashboard-summary-item" href={metric.href} key={metric.label}>
-              <span className="dashboard-summary-label">
-                {metric.label}<ArrowUpRight size={17} aria-hidden="true" />
-              </span>
-              <strong>{metric.value}</strong>
-            </Link>
-          ))}
-        </div>
+        <div className="dashboard-summary-grid">{[
+          {label:"Open reports",value:snapshot.open,detail:snapshot.open?snapshot.pending+" pending · "+snapshot.progress+" in progress":"No open reports",href:"/admin/reports"},
+          {label:"Pending certificates",value:pendingDocuments.length,detail:pendingDocuments.length?"Awaiting review":"No requests awaiting review",href:"/admin/documents"},
+          {label:"Ready for collection",value:readyDocuments,detail:readyDocuments?"Awaiting pickup":"Nothing ready for pickup",href:"/admin/documents"},
+          {label:"Resolved reports",value:snapshot.resolved,detail:reports.length?snapshot.resolutionRate+"% of all reports":"No reports yet",href:"/admin/reports"},
+        ].map(metric=><Link className="dashboard-summary-item" href={metric.href} key={metric.label}>
+          <span className="dashboard-summary-label">{metric.label}<ArrowUpRight size={17} aria-hidden="true"/></span>
+          <strong>{metric.value}</strong><span className="dashboard-summary-detail">{metric.detail}</span>
+        </Link>)}</div>
       </section>
-      <div className="overview-columns">
-        <Panel
-          title="Needs your attention"
-          description="Start with the queues waiting for review."
-        >
-          <div className="action-queue">
-            {queues.map((q) => (
-              <Link href={q.href} key={q.href}>
-                <span className="queue-icon">
-                  <q.icon size={21} />
-                </span>
-                <div>
-                  <h3>{q.title}</h3>
-                  <p>{q.detail}</p>
-                </div>
-                <strong>{q.count}</strong>
-                <ArrowRight size={17} />
-              </Link>
-            ))}
-          </div>
-          <div className="queue-footnote">
-            <span>
-              {snapshot.overdue} open reports are at least 7 days old.
-            </span>
-            <Link href="/admin/reports">
-              Review reports <ArrowRight size={14} />
-            </Link>
-          </div>
-        </Panel>
-        <Panel
-          title="Field & communications"
-          description="Keep local action and public updates connected."
-        >
-          <div className="operation-link">
-            <MapPinned size={22} />
-            <div>
-              <h3>Complaint map</h3>
-              <p>
-                {snapshot.mapped} mapped reports · {snapshot.unmappedOpen} open
-                reports without valid locations
-              </p>
-              <Link href="/admin/map">
-                Explore the map <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
-          <div className="operation-link">
-            <Megaphone size={22} />
-            <div>
-              <h3>Public announcements</h3>
-              <p>
-                {announcements.length - draftCount} published · {draftCount}{" "}
-                drafts
-              </p>
-              <Link href="/admin/announcements">
-                Manage announcements <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
-        </Panel>
+      <div className="dashboard-content">
+        <div className="dashboard-recent"><Panel title="Recent reports" action={<Link href="/admin/reports">View all <ArrowUpRight size={14}/></Link>}>
+          <div className="overview-list">{recentReports.length?recentReports.map(r=><Link href="/admin/reports" key={r.id}>
+            <span className="list-avatar" data-category={normalizeReportCategory(r.category)}><ReportCategoryIcon category={r.category} size={20}/></span>
+            <div><strong>{shortReportCategory(r.category)}</strong><p>{r.description||"No description provided"}</p>
+            <small>{r.reporter_name||"Resident"}</small></div>
+            <div className="dashboard-report-meta"><span className={"status-badge "+normalizeReportStatus(r.status).replace(" ","-")}>{reportStatusLabel(normalizeReportStatus(r.status))}</span><time dateTime={r.created_at}>{new Date(r.created_at).toLocaleDateString("en-PH",{month:"short",day:"numeric"})}</time></div>
+          </Link>):<p className="empty-state">No reports yet.</p>}</div>
+        </Panel></div>
+        <div className="dashboard-attention"><Panel title="Awaiting review">
+          <div className="action-queue">{queues.map(q=><Link href={q.href} key={q.href}>
+            <span className="queue-icon"><q.icon size={20}/></span><div><h3>{q.title}</h3></div><strong>{q.count}</strong><ArrowRight size={16}/>
+          </Link>)}</div>
+          {snapshot.overdue>0?<Link className="dashboard-overdue" href="/admin/reports"><span><strong>{snapshot.overdue}</strong> reports open 7+ days</span><ArrowUpRight size={16}/></Link>:null}
+        </Panel></div>
+        <div className="dashboard-shortcuts"><Panel title="Workspace">
+          <Link className="dashboard-shortcut" href="/admin/map"><span className="queue-icon"><MapPinned size={20}/></span><div><h3>Complaint map</h3><p>{snapshot.mapped} mapped{snapshot.unmappedOpen>0?" · "+snapshot.unmappedOpen+" missing locations":""}</p></div><ArrowUpRight size={17}/></Link>
+          <Link className="dashboard-shortcut" href="/admin/announcements"><span className="queue-icon"><Megaphone size={20}/></span><div><h3>Announcements</h3><p>{announcements.length-draftCount} published · {draftCount} drafts</p></div><ArrowUpRight size={17}/></Link>
+        </Panel></div>
       </div>
-      <div className="overview-columns">
-        <Panel
-          title="Recent community reports"
-          description="Latest submissions across all statuses."
-          action={<Link href="/admin/reports">View all</Link>}
-        >
-          <div className="overview-list">
-            {recentReports.length ? (
-              recentReports.map((r) => (
-                <Link href="/admin/reports" key={r.id}>
-                  <span className="list-avatar">
-                    <FileText size={18} />
-                  </span>
-                  <div>
-                    <strong>{shortReportCategory(r.category)}</strong>
-                    <p>{r.description || "No description provided"}</p>
-                    <small>
-                      {r.reporter_name || "Resident"} ·{" "}
-                      {new Date(r.created_at).toLocaleDateString("en-PH", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </small>
-                  </div>
-                  <span
-                    className={`status-badge ${normalizeReportStatus(r.status).replace(" ", "-")}`}
-                  >
-                    {reportStatusLabel(normalizeReportStatus(r.status))}
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="empty-state">No community reports yet.</p>
-            )}
-          </div>
-        </Panel>
-        {legacyPendingTotal > 0 ? <Panel
-          title="Previous registration queue"
-          description="Accounts submitted under the previous registration process."
-          action={<Link href="/admin/residents">View all</Link>}
-        >
-          <div className="overview-list">
-            {[...pendingResidents]
-              .sort(
-                (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
-              )
-              .slice(0, 5)
-              .map((r) => (
-                <Link href="/admin/residents" key={r.id}>
-                  <span className="list-avatar">
-                    {r.full_name?.charAt(0) || "R"}
-                  </span>
-                  <div>
-                    <strong>{r.full_name || "Unnamed resident"}</strong>
-                    <p>{r.address || "Address not provided"}</p>
-                    <small>
-                      {new Date(r.created_at).toLocaleDateString("en-PH")}
-                    </small>
-                  </div>
-                  <ArrowRight size={16} />
-                </Link>
-              ))}
-            {!legacyPendingTotal ? (
-              <p className="empty-state">
-                No registrations waiting for review.
-              </p>
-            ) : null}
-          </div>
-        </Panel> : null}
-      </div>
+      {lastUpdated?<p className="dashboard-updated">Updated {lastUpdated}</p>:null}
     </section>
   );
 }
