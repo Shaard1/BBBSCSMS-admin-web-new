@@ -1733,3 +1733,48 @@ test("analytics adaptive matrix",async({page})=>{
   await page.getByRole("button",{name:"Cancel",exact:true}).click();await audit(page);
  }
 });
+
+ test("dashboard responsive review",async({page})=>{
+ test.setTimeout(180000);await login(page);await page.goto("/admin/dashboard");
+ await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ await expect(page.getByText("Start with the queues waiting for review.",{exact:true})).toHaveCount(0);
+ const before=await page.locator(".dashboard-summary-item strong").allTextContents();
+ await page.getByRole("button",{name:"Reset",exact:true}).click();
+ await expect(page.locator(".dashboard-summary-item strong")).toHaveText(before);
+
+ for(const [width,height] of [[320,740],[390,844],[600,960],[768,1024],[844,390],[1024,768],[1366,768],[1920,1080]]){
+ await page.setViewportSize({width,height});
+ await page.screenshot({path:"test-results/dashboard-"+width+".png",fullPage:true});
+ const tiles=await page.locator(".dashboard-summary-item").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().y));
+ if(width<=600)expect(tiles[0]).toEqual(tiles[1]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await audit(page);
+ }
+ await page.setViewportSize({width:1366,height:900});
+ for(const href of ["/admin/reports","/admin/documents","/admin/residents","/admin/map","/admin/announcements"]){
+  await page.locator('.dashboard-page a[href="'+href+'"]').first().click();
+  await expect(page).toHaveURL(new RegExp(href));
+  await page.goto("/admin/dashboard");
+ }
+ });
+
+test("dashboard every content action and hover",async({page})=>{
+ test.setTimeout(180000);await login(page);await page.goto("/admin/dashboard");await page.setViewportSize({width:1440,height:1000});
+ await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ const count=await page.locator(".dashboard-page a").count();
+ for(let index=0;index<count;index++){
+  const link=page.locator(".dashboard-page a").nth(index);
+  const href=await link.getAttribute("href");
+  const before=await link.boundingBox();await link.hover();
+  if(await link.evaluate(el=>el.classList.contains("dashboard-summary-item"))){
+   await page.waitForTimeout(200);const after=await link.boundingBox();expect(after!.y).toEqual(before!.y);
+   expect(await link.evaluate(el=>getComputedStyle(el).borderColor)).toBe("rgb(185, 195, 209)");
+  }
+  await link.focus();expect(await link.evaluate(el=>getComputedStyle(el).outlineWidth)).toBe("2px");
+  await link.press("Enter");await expect(page).toHaveURL(new RegExp(href!));
+  await page.goto("/admin/dashboard");await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
+ }
+ await page.getByRole("button",{name:"Reset",exact:true}).hover();await page.getByRole("button",{name:"Reset",exact:true}).click();
+ await expect(page.locator(".dashboard-page")).toHaveAttribute("aria-busy","false");await audit(page);
+ await page.screenshot({path:"test-results/dashboard-interactions.png",fullPage:true});
+});
