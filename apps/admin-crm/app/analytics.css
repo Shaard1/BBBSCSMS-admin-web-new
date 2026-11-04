@@ -243,3 +243,78 @@ body .crm-calendar-days button.in-range.range-row-start { border-top-left-radius
 body .crm-calendar-days button.in-range.range-row-end { border-top-right-radius:11px; border-bottom-right-radius:11px; }
 body .crm-calendar-days button.range-endpoint { border-radius:11px; }
 body .crm-calendar-days button:hover:not(:disabled) { border-radius:11px; }
+
+.analytics-action-group { display:inline-flex; align-items:stretch; border-radius:14px; box-shadow:0 1px 2px #172b4614; margin-left:auto; }
+body .analytics-action-group > button { margin:0; border-radius:0; box-shadow:none; min-height:44px; white-space:nowrap; }
+body .analytics-action-group > button:first-child { border-radius:14px 0 0 14px; }
+body .analytics-action-group > button:last-child { border-radius:0 14px 14px 0; border-left:0; }
+.analytics-action-group > button:focus-visible { position:relative; z-index:1; }
+.analytics-chart-key { display:inline-flex; width:fit-content; gap:0; padding:3px; border:1px solid #e4e9f1; border-radius:10px; background:#fff; box-shadow:0 1px 2px #172b460a; }
+body .analytics-chart-key > button { border-radius:7px; min-height:32px; padding:5px 10px; background:#edf3fc; }
+body .analytics-chart-key > button[aria-pressed="false"] { text-decoration:none; color:#6a7890; background:transparent; }
+body .analytics-chart-key > button[aria-pressed="false"] i { opacity:.35; }
+@media(max-width:480px) { .analytics-action-group { margin-left:0; flex:1; } body .analytics-action-group > button { flex:1; padding-inline:10px; font-size:12px; } }
+
+.analytics-import-grid { grid-template-columns:1fr; }
+.analytics-import-notice { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px 16px; background:#edf3fc; border-radius:12px; font-size:12px; }
+
+/* Independent toolbar actions with consistent spacing. */
+.analytics-action-group { gap:8px; box-shadow:none; border-radius:0; }
+body .analytics-action-group > button,body .analytics-action-group > button:first-child,body .analytics-action-group > button:last-child { border-radius:14px; box-shadow:0 1px 2px #172b4614; }
+body .analytics-action-group > button:last-child { border-left:1px solid var(--border); }
+
+.analytics-page .analytics-stat,
+.analytics-page .analytics-card { border:1px solid var(--control-border); box-shadow:var(--control-shadow); background:linear-gradient(180deg,#fff,#fbfcfe); }
+
+.analytics-actions { gap:10px; align-items:center; }
+.analytics-demo-control { margin-right:12px; }
+.analytics-action-group { margin-left:8px; gap:8px; }
+body .analytics-action-group > button { min-height:44px; padding:0 14px; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.analytics-action-group > button svg { width:18px; height:18px; flex-shrink:0; }
+@media(max-width:640px) { .analytics-demo-control { margin-right:0; } .analytics-action-group { margin-left:0; flex-wrap:wrap; } }
+
+/* Keep scope controls left and file actions right; use two full rows when narrow. */
+.analytics-toolbar { container-type:inline-size; width:100%; }
+.analytics-actions { display:grid; grid-template-columns:auto auto minmax(0,1fr); width:100%; gap:16px; align-items:center; }
+.analytics-period-control { min-width:0; }
+.analytics-demo-control { margin:0; flex-basis:auto; }
+.analytics-action-group { display:flex; flex-wrap:nowrap; justify-self:end; flex-shrink:0; margin:0; gap:8px; }
+.analytics-daily-plot > svg { height:240px; }
+.analytics-range-controls.analytics-range-popover { max-height:calc(100dvh - 32px); }
+.analytics-import-notice { overflow-wrap:anywhere; }
+.analytics-metrics:has(> :last-child:nth-child(2)) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@container (max-width:44rem) {
+ .analytics-actions { grid-template-columns:minmax(0,1fr) auto; gap:12px; }
+ .analytics-demo-control { justify-self:end; }
+ .analytics-action-group { grid-column:1/-1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; }
+ body .analytics-action-group > button { min-width:0; width:100%; }
+}
+@container (max-width:25rem) {
+ body .analytics-action-group > button { padding-inline:6px; font-size:12px; gap:6px; }
+ .analytics-action-group { gap:8px; }
+}
+@media (max-width:30em) {
+ .analytics-category-row { grid-template-columns:19px minmax(0,1fr) minmax(24px,.55fr) 28px 26px; }
+ .analytics-age-columns > div > div { flex-wrap:wrap; gap:4px; }
+ .analytics-card-heading { flex-wrap:wrap; }
+ body .analytics-chart-key > button { min-height:44px; }
+ body .crm-calendar-navigation button { width:44px; min-height:44px; }
+}
+
+/* Status summary adapts to its card rather than stretching a small chart. */
+.analytics-status { container-type:inline-size; }
+.analytics-status-body { display:grid; gap:16px; flex:1; align-content:center; }
+.analytics-status .analytics-card-heading { margin-bottom:16px; }
+.analytics-status-visual { padding:0; flex:none; }
+.analytics-status .analytics-ring { width:208px; }
+.analytics-status-cells { gap:8px; }
+body .analytics-status-cells > .analytics-status-row { grid-template-columns:minmax(0,1fr) auto auto; gap:6px 10px; padding:8px; min-height:56px; }
+.analytics-status-row > .analytics-status-row-label { font-size:12px; }
+.analytics-status-cells .analytics-status-row > strong { grid-column:2; grid-row:1; font-size:20px; }
+.analytics-status-row > small { grid-column:3; grid-row:1; min-width:30px; font-size:11px; }
+.analytics-status-row > .analytics-status-row-track { grid-column:1/-1; grid-row:2; height:6px; }
+.analytics-status-footer { margin-top:16px; padding:8px 8px 0; }
+@container (min-width:28rem) {
+ .analytics-status-body { grid-template-columns:208px minmax(0,1fr); gap:24px; align-items:center; }
+ .analytics-status-visual { align-self:center; }
+}
