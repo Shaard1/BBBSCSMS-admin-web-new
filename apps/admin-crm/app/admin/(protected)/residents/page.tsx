@@ -18,11 +18,12 @@ export default function ResidentsPage() {
  return <Suspense fallback={<p role="status">Loading resident accounts…</p>}><ResidentDirectoryPage/></Suspense>;
 }
 function ResidentDirectoryPage() {
-    const targetId=useSearchParams().get("resident");
+    const searchParams=useSearchParams();
+    const targetId=searchParams.get("resident");
     const { role } = useAdminRole();
     const [directory, setDirectory] = useState(empty);
     const [search, setSearch] = useState('');
-    const [access, setAccess] = useState('all');
+    const [access, setAccess] = useState(()=>{const initial=searchParams.get('access');return ['active','suspended','legacy_pending','legacy_rejected'].includes(initial??'')?initial!:'all';});
     const [phone, setPhone] = useState('all');
     const [page, setPage] = useState(0);
     const [revision, setRevision] = useState(0);

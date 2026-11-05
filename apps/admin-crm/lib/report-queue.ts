@@ -39,11 +39,20 @@ export function readReportQueueResult(value: unknown): Omit<ReportQueueResult, '
   };
 }
 
-/** Compatibility for projects that have not installed the additive queue migration. */
+function matchesStatus(report:CommunityReport,status:string,now:number) {
+  const current=normalizeReportStatus(report.status);
+  if(status==='all')return true;
+  if(status==='open')return current!=='resolved';
+  if(status==='aged')return current!=='resolved'&&now-Date.parse(report.created_at)>=7*86400000;
+  return current===status;
+}
+
+/** Client-side paging for compatibility deployments and composite status views. */
 export function pageLoadedReports(records: CommunityReport[], filters: ReportQueueFilters): ReportQueueResult {
   const query = filters.search.trim().toLowerCase();
+  const now=Date.now();
   const items = records.filter(report =>
-    (filters.status === 'all' || normalizeReportStatus(report.status) === filters.status) &&
+    matchesStatus(report,filters.status,now) &&
     (filters.category === 'all' || normalizeReportCategory(report.category) === filters.category) &&
     (!query || [report.description, report.reporter_name, report.category, report.status].join(' ').toLowerCase().includes(query))
   ).sort((a, b) => {

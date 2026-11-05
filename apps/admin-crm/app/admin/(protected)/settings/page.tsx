@@ -2,6 +2,7 @@
 import { PasswordField } from "@/components/settings-password-field";
 import { ProfilePhotoEditor } from "@/components/profile-photo-editor";
 import Image from "next/image";
+import {useOfficePhoto,notifyOfficePhotoUpdated} from "@/components/use-office-photo";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -11,8 +12,7 @@ import { notificationPreferenceKey, notificationPreferenceEvent } from "@/lib/ac
 export default function SettingsPage() {
   const [account, setAccount] = useState<{id:string;name:string;email:string;role:string} | null>(null);
   const [editingPhoto, setEditingPhoto] = useState<File | null>(null);
-  const [hasPhoto, setHasPhoto] = useState(true);
-  const [photoVersion, setPhotoVersion] = useState(0);
+  const {hasPhoto,photoUrl,markMissing}=useOfficePhoto(account?.id??"");
   const [savingPhoto, setSavingPhoto] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
   const [profileName, setProfileName] = useState("");
@@ -49,8 +49,7 @@ export default function SettingsPage() {
       const form=new FormData(); if(file)form.set("file",file);
       const response=await fetch("/api/admin/profile/photo",{method:file?"POST":"DELETE",body:file?form:undefined});
       const result=await response.json();if(!response.ok)throw new Error(result.message);
-      setHasPhoto(Boolean(file));setPhotoVersion(Date.now());
-      window.dispatchEvent(new CustomEvent("bc-photo-updated",{detail:{hasPhoto:Boolean(file)}}));
+      if(account)notifyOfficePhotoUpdated(account.id,Boolean(file));
       setMessage(file?"Profile photo updated.":"Profile photo removed.");
       return true;
     } catch(error) {setError(error instanceof Error?error.message:"Unable to update your photo.");return false;}
@@ -100,7 +99,7 @@ export default function SettingsPage() {
     {account?<div className="settings-layout">
       <div className="settings-content">
       <section id="profile-section" className="settings-section" aria-labelledby="profile-heading"><div><h2 id="profile-heading">Profile</h2><p>Update your photo and name as they appear in the workspace.</p></div><form onSubmit={saveProfile}><div className="settings-photo">
-        <span className="settings-photo-preview">{hasPhoto ? <Image unoptimized width={64} height={64} src={"/api/admin/profile/photo?v="+photoVersion} alt="Your profile photo" onError={()=>setHasPhoto(false)}/> : account.name.slice(0,1).toUpperCase()}</span>
+        <span className="settings-photo-preview">{hasPhoto&&photoUrl ? <Image unoptimized width={64} height={64} src={photoUrl} alt="Your profile photo" onError={markMissing}/> : account.name.slice(0,1).toUpperCase()}</span>
         <div><div className="settings-photo-actions"><button type="button" disabled={savingPhoto} onClick={()=>photoInput.current?.click()}>{savingPhoto?"Updating…":hasPhoto?"Change photo":"Upload photo"}</button>{hasPhoto?<button type="button" disabled={savingPhoto} onClick={()=>void updatePhoto()}>Remove photo</button>:null}</div><small>JPG, PNG or WebP. Up to 2 MB.</small></div>
         <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile photo" hidden onChange={event=>{const file=event.target.files?.[0];if(file){if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>2*1024*1024){setError("Choose a JPG, PNG or WebP image under 2 MB.");}else{setError("");setEditingPhoto(file);}event.target.value="";}}}/>
       </div><label>Full name<input autoComplete="name" required minLength={2} maxLength={120} value={profileName} onChange={event=>setProfileName(event.target.value)} disabled={savingProfile}/></label><dl><div><dt>Email</dt><dd>{account.email}</dd></div><div><dt>Role</dt><dd>{account.role}</dd></div></dl><button className="primary-admin-button" type="submit" disabled={savingProfile || profileName.trim()===account.name}>{savingProfile?"Saving…":"Save profile"}</button></form></section>

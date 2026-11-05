@@ -4,6 +4,12 @@ import type { CommunityReport } from "@/lib/types";
 import { pageLoadedReports, readReportQueueResult, reportPageSize, type ReportQueueFilters, type ReportQueueResult } from './report-queue';
 
 export async function fetchReportQueue(filters: ReportQueueFilters, signal?: AbortSignal, loadedReports?: CommunityReport[]): Promise<ReportQueueResult> {
+  if (!loadedReports && (filters.status === 'open' || filters.status === 'aged')) {
+    const records=await fetchReports();
+    signal?.throwIfAborted();
+    const result=pageLoadedReports(records,filters);
+    return {...result,compatibilityRecords:records};
+  }
   // Reuse the current page's in-memory snapshot in compatibility mode, like the original list.
   // Refresh and mutations discard it; it never persists or crosses component/account lifetimes.
   if (loadedReports) return { ...pageLoadedReports(loadedReports, filters), compatibilityRecords: loadedReports };
@@ -30,12 +36,14 @@ export async function fetchReportQueue(filters: ReportQueueFilters, signal?: Abo
 type FetchReportsOptions = {
   limit?: number;
   images?: boolean;
+  id?: string;
 };
 
 export async function fetchReports(options: FetchReportsOptions = {}) {
   let query = supabase
     .from("reports")
     .select<string>(options.images === false ? 'id,user_id,description,category,status,admin_note,latitude,longitude,created_at' : '*')
+    .match(options.id?{id:options.id}:{})
     .order("created_at", { ascending: false }).returns<CommunityReport[]>();
 
   if (options.limit) {
