@@ -1109,7 +1109,7 @@ test('certificate queue filters, search, reset and history retry work at desktop
   await expect(page.locator('.document-request-card')).toHaveCount(0);
   await page.getByRole('button', { name: 'Reset filters', exact: true }).click();
   await expect(page.locator('.document-request-card')).toHaveCount(3);
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Submitted requests', exact: true })).toBeVisible();
   await expect(page.locator('.document-requests-panel')).toHaveAttribute('aria-busy', 'false');
   for (const width of [1440, 360]) {
@@ -1369,6 +1369,15 @@ test("profile photos upload, persist, replace and remove", async ({page})=>{
   await editor.getByRole("button",{name:"Apply",exact:true}).click();
   await expect(page.getByRole("status").filter({hasText:"Profile photo updated."})).toBeVisible();
   await expect(page.locator(".sidebar-account-avatar img")).toBeVisible();
+  expect(await (await page.request.get(origin+'/__photo-count')).json()).toEqual({count:1});
+  const firstPhoto=await (await page.request.get('/api/admin/profile/photo')).body();
+  await page.goto('/admin/staff');
+  const accountPhoto=page.locator('.staff-directory-row').filter({hasText:'admin@example.test'}).locator('.resident-avatar img');
+  await expect(accountPhoto).toBeVisible();
+  expect(await accountPhoto.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.reload();await expect(accountPhoto).toBeVisible();
+  await page.goto('/admin/settings');
+
   await page.reload();
   await expect(page.getByRole("button",{name:"Change photo",exact:true})).toBeVisible();
   await input.setInputFiles({name:"replacement.png",mimeType:"image/png",buffer:png});
@@ -1383,11 +1392,22 @@ test("profile photos upload, persist, replace and remove", async ({page})=>{
   await page.screenshot({path:"test-results/profile-photo-crop-editor.png"});
   await editor.getByRole("button",{name:"Apply",exact:true}).click();
   await expect(page.getByRole("status").filter({hasText:"Profile photo updated."})).toBeVisible();
+
+  expect(await (await page.request.get(origin+'/__photo-count')).json()).toEqual({count:1});
+  const replacementPhoto=await (await page.request.get('/api/admin/profile/photo')).body();
+  expect(replacementPhoto.equals(firstPhoto)).toBe(false);
+  const rejectedPhoto=await page.request.post('/api/admin/profile/photo',{multipart:{file:{name:'bad.png',mimeType:'image/png',buffer:Buffer.from('invalid image')}}});
+  expect(rejectedPhoto.status()).toBe(400);
+  expect((await (await page.request.get('/api/admin/profile/photo')).body()).equals(replacementPhoto)).toBe(true);
   await page.getByRole("button",{name:"Remove photo",exact:true}).click();
+  await expect.poll(async()=>await (await page.request.get(origin+'/__photo-count')).json()).toEqual({count:0});
+
   await expect(page.getByRole("status").filter({hasText:"Profile photo removed."})).toBeVisible();
   await expect(page.locator(".sidebar-account-avatar img")).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("button",{name:"Upload photo",exact:true})).toBeVisible();
+  await page.goto("/admin/staff");await expect(accountPhoto).toHaveCount(0);
+  await page.goto("/admin/settings");
   await input.setInputFiles({name:"bad.svg",mimeType:"image/svg+xml",buffer:Buffer.from("<svg/>")});
   await expect(page.getByRole("alert").filter({hasText:/Choose a JPG/})).toBeVisible();
   const invalid=await page.request.post("/api/admin/profile/photo",{multipart:{file:{name:"fake.png",mimeType:"image/png",buffer:Buffer.from("not an image")}}});
@@ -1752,7 +1772,7 @@ test("analytics adaptive matrix",async({page})=>{
  }
  await page.setViewportSize({width:1366,height:900});
  for(const href of ["/admin/reports","/admin/documents","/admin/residents","/admin/map","/admin/announcements"]){
-  await page.locator('.dashboard-page a[href="'+href+'"]').first().click();
+  await page.locator('.dashboard-page a[href^="'+href+'"]').first().click();
   await expect(page).toHaveURL(new RegExp(href));
   await page.goto("/admin/dashboard");
  }
@@ -1771,10 +1791,113 @@ test("dashboard every content action and hover",async({page})=>{
    expect(await link.evaluate(el=>getComputedStyle(el).borderColor)).toBe("rgb(185, 195, 209)");
   }
   await link.focus();expect(await link.evaluate(el=>getComputedStyle(el).outlineWidth)).toBe("2px");
-  await link.press("Enter");await expect(page).toHaveURL(new RegExp(href!));
+  await link.press("Enter");await expect(page).toHaveURL(new URL(href!,page.url()).toString());
   await page.goto("/admin/dashboard");await expect(page.locator(".dashboard-summary-item")).toHaveCount(4);
  }
  await page.getByRole("button",{name:"Reset",exact:true}).hover();await page.getByRole("button",{name:"Reset",exact:true}).click();
  await expect(page.locator(".dashboard-page")).toHaveAttribute("aria-busy","false");await audit(page);
  await page.screenshot({path:"test-results/dashboard-interactions.png",fullPage:true});
+});
+
+test("blue dashboard card hover is visible without movement",async({page})=>{
+ await login(page);await page.goto("/admin/dashboard");await page.setViewportSize({width:1440,height:1000});
+ const card=page.locator(".dashboard-summary-item").first();await expect(card).toBeVisible();
+ await page.mouse.move(5,5);await card.screenshot({path:"test-results/blue-card-default.png"});
+ const before=await card.boundingBox();const shadow=await card.evaluate(el=>getComputedStyle(el).boxShadow);
+ await card.hover();await page.waitForTimeout(200);
+ const after=await card.boundingBox();expect(after).toEqual(before);
+ expect(await card.evaluate(el=>getComputedStyle(el,"::before").opacity)).toBe("1");
+ expect(await card.evaluate(el=>getComputedStyle(el).boxShadow)).not.toBe(shadow);
+ await card.screenshot({path:"test-results/blue-card-hover.png"});await audit(page);
+});
+
+test("dashboard demo stays local and Reset restores live data",async({page})=>{
+ await login(page);await page.goto("/admin/dashboard");
+ const toggle=page.getByRole("switch",{name:"Demo data",exact:true});await expect(toggle).toHaveAttribute("aria-checked","false");
+ const counts=page.locator(".dashboard-summary-item > strong");await expect(counts).toHaveCount(4);const live=await counts.allTextContents();
+ const writes:string[]=[];page.on("request",r=>{if(["POST","PATCH","PUT","DELETE"].includes(r.method())&&r.url().includes("/rest/v1/")&&!r.url().includes("/rpc/get_resident_metrics"))writes.push(r.url());});
+ await toggle.click();await expect(counts).toHaveText(["38","9","4","26"]);
+ await expect(page.getByText("Sample data · links open the live workspace.",{exact:true})).toHaveCount(0);
+ await page.setViewportSize({width:320,height:740});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await audit(page);
+ await page.getByRole("button",{name:"Reset",exact:true}).click();await expect(toggle).toHaveAttribute("aria-checked","false");await expect(counts).toHaveText(live);
+ expect(writes).toEqual([]);await toggle.click();await page.reload();await expect(toggle).toHaveAttribute("aria-checked","false");
+});
+
+test("dashboard links select queues and open the exact report",async({page})=>{
+ await login(page);await page.goto('/admin/dashboard');
+ await page.getByRole('link',{name:'Open reports',exact:false}).first().click();
+ await expect(page.getByRole('button',{name:'Open',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.report-card')).toHaveCount(3);
+ await page.goto('/admin/dashboard');await page.getByRole('link',{name:'Ready for collection',exact:false}).click();
+ await expect(page.locator('.ui-dropdown-trigger')).toContainText('Ready for Release');
+ await page.goto('/admin/dashboard');
+ const report=page.locator('.dashboard-recent .overview-list > a').first();const target=await report.getAttribute('href');
+ await report.click();await expect(page).toHaveURL(new URL(target!,page.url()).toString());
+ await expect(page.getByRole('dialog',{name:'Report details',exact:true})).toBeVisible();
+ await expect(page.getByRole('dialog')).toContainText('Drainage blocked after heavy rain');
+ await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).last().click();
+ await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page).not.toHaveURL(/report=/);
+ await page.goto('/admin/dashboard');await page.locator('.dashboard-overdue').click();
+ await expect(page.getByRole('button',{name:'Open 7+ days',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.report-card')).toHaveCount(3);
+ await page.goto('/admin/dashboard');await page.locator('.action-queue a[href^="/admin/residents"]').click();
+ await expect(page.getByRole('combobox',{name:'Account access',exact:true})).toContainText('Legacy review pending');
+});
+
+test("dashboard partial failures never masquerade as zero counts",async({page})=>{
+ await login(page);
+ await page.route('**/rest/v1/document_requests**',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Temporary test outage'})}));
+ await page.goto('/admin/dashboard');
+ await expect(page.locator('.dashboard-summary-item > strong')).toHaveText(['3','—','—','2']);
+ await expect(page.locator('.dashboard-recent .overview-list > a')).toHaveCount(5);
+ await expect(page.locator('.dashboard-summary-item').nth(1).locator('strong')).toHaveAttribute('aria-label','Unavailable');
+ await page.unroute('**/rest/v1/document_requests**');await page.getByRole('button',{name:'Reset',exact:true}).click();
+ await expect(page.locator('.dashboard-summary-item > strong')).toHaveText(['3','1','1','2']);
+ await audit(page);
+});
+
+test("office profile photo reads enforce authentication and account boundaries",async({page})=>{
+ expect((await page.request.get('/api/admin/profile/photo?userId=00000000-0000-4000-8000-000000000001')).status()).toBe(401);
+ await login(page,'staff');
+ expect((await page.request.get('/api/admin/profile/photo?userId=00000000-0000-4000-8000-000000000001')).status()).toBe(403);
+ expect((await page.request.get('/api/admin/profile/photo')).status()).toBe(404);
+});
+
+test("administrator can read office photos but not resident storage paths",async({page})=>{
+ await login(page);
+ const staff='00000000-0000-4000-8000-000000000002';
+ const resident='10000000-0000-4000-8000-000000000001';
+ const bytes=Buffer.from('synthetic photo content');
+ for(const id of [staff,resident])await page.request.post(origin+'/storage/v1/object/office-profile-photos/'+id+'/avatar',{data:bytes,headers:{'Content-Type':'image/png'}});
+ const allowed=await page.request.get('/api/admin/profile/photo?userId='+staff);
+ expect(allowed.status()).toBe(200);expect((await allowed.body()).equals(bytes)).toBe(true);
+ expect((await page.request.get('/api/admin/profile/photo?userId='+resident)).status()).toBe(404);
+ expect((await page.request.get('/api/admin/profile/photo?userId=../other')).status()).toBe(400);
+});
+
+test("profile replacement refreshes settings sidebar and directory across tabs",async({page})=>{
+ await login(page);
+ await page.request.post(origin+'/__photo-cache');
+ const image=async(color:string)=>Buffer.from(await page.evaluate(color=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=200;const ctx=canvas.getContext('2d')!;ctx.fillStyle=color;ctx.fillRect(0,0,200,200);return canvas.toDataURL('image/png').split(',')[1];},color),'base64');
+ const old=await image('#ec2828');const fresh=await image('#2864ec');
+ expect((await page.request.post('/api/admin/profile/photo',{multipart:{file:{name:'old.png',mimeType:'image/png',buffer:old}}})).ok()).toBe(true);
+ // Prime a storage cache entry at the fixed avatar path.
+ await page.request.get(origin+'/storage/v1/object/authenticated/office-profile-photos/00000000-0000-4000-8000-000000000001/avatar');
+ await page.goto('/admin/settings');
+ const pixel=async(locator:Locator)=>locator.evaluate(element=>{const img=element as HTMLImageElement;if(!img.complete||!img.naturalWidth)return '';const canvas=document.createElement('canvas');canvas.width=canvas.height=1;canvas.getContext('2d')!.drawImage(img,0,0,1,1);return Array.from(canvas.getContext('2d')!.getImageData(0,0,1,1).data).join(',');});
+ const preview=page.getByRole('img',{name:'Your profile photo',exact:true});
+ await expect.poll(()=>pixel(preview)).toBe('236,40,40,255');
+ const other=await page.context().newPage();await other.goto('/admin/settings');
+ await other.getByLabel('Choose profile photo',{exact:true}).setInputFiles({name:'new.png',mimeType:'image/png',buffer:fresh});
+ await other.getByRole('dialog',{name:'Adjust profile photo',exact:true}).getByRole('button',{name:'Apply',exact:true}).click();
+ await expect(other.getByRole('status').filter({hasText:'Profile photo updated.'})).toBeVisible();
+ // Lossy crop encoding may vary a pixel: test the dominant blue channel.
+ await expect.poll(async()=>{const values=(await pixel(preview)).split(',').map(Number);return values[2]>200&&values[0]<70;}).toBe(true);
+ await expect.poll(async()=>{const values=(await pixel(page.locator('.sidebar-account-avatar img'))).split(',').map(Number);return values[2]>200&&values[0]<70;}).toBe(true);
+ await page.goto('/admin/staff');
+ const directory=page.locator('.staff-directory-row').filter({hasText:'admin@example.test'}).locator('.resident-avatar img');
+ await expect.poll(async()=>{const values=(await pixel(directory)).split(',').map(Number);return values[2]>200&&values[0]<70;}).toBe(true);
+ await page.goto('/admin/settings');await page.reload();
+ await expect.poll(async()=>{const values=(await pixel(preview)).split(',').map(Number);return values[2]>200&&values[0]<70;}).toBe(true);
+ await other.close();
 });

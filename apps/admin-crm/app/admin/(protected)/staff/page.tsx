@@ -1,10 +1,11 @@
 "use client";
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
+import { OfficeAccountAvatar } from "@/components/office-account-avatar";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/workspace-ui";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Search, ShieldCheck, Trash2, UserPlus, X } from "@/components/crm-icons";
+import { Search, Trash2, UserPlus, X } from "@/components/crm-icons";
 import { useAdminRole } from "@/components/admin-role-context";
 import { UiDropdown } from "@/components/ui-dropdown";
 import {
@@ -46,6 +47,7 @@ function getAccountStatusClassName(status?: string) {
 export default function StaffAccountsPage() {
   const { role } = useAdminRole();
   const canManage = canManageOfficeAccounts(role);
+  const [photoVersion,setPhotoVersion]=useState(0);
   const [accounts, setAccounts] = useState<OfficeAccount[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +75,7 @@ export default function StaffAccountsPage() {
     try {
       const data = await fetchOfficeAccounts();
       setAccounts(data);
+      setPhotoVersion(Date.now());
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -253,9 +256,7 @@ export default function StaffAccountsPage() {
                 key={account.id}
               >
                 <div className="resident-person">
-                  <span className="resident-avatar fallback">
-                    <ShieldCheck size={19} />
-                  </span>
+                  <OfficeAccountAvatar key={account.id+":"+photoVersion} userId={account.id} version={photoVersion}/>
                   <div className="staff-directory-identity">
                     <strong>
                       {account.full_name || "Unnamed office user"}

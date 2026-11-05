@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import {useOfficePhoto} from "@/components/use-office-photo";
 import { fetchPendingNotificationIds, notificationReadEvent, unreadIds, type PendingNotificationIds } from "@/lib/notifications";
 
 import {
@@ -99,12 +100,11 @@ export function AdminShell({ children }: AdminShellProps) {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [hasProfilePhoto, setHasProfilePhoto] = useState(true);
-  const [profilePhotoVersion, setProfilePhotoVersion] = useState(0);
   const [adminName, setAdminName] = useState("Admin");
   const [role, setRole] = useState<OfficeRole>("staff");
   const [pendingIds, setPendingIds] = useState<PendingNotificationIds>({ reports: [], documents: [], residents: [] });
   const [officeUserId, setOfficeUserId] = useState("");
+  const {hasPhoto:hasProfilePhoto,photoUrl,markMissing}=useOfficePhoto(officeUserId,pathname);
   const [readRevision, setReadRevision] = useState(0);
   const unread = useMemo(() => ({
     reports: unreadIds("reports", pendingIds.reports, officeUserId).length,
@@ -132,13 +132,8 @@ export function AdminShell({ children }: AdminShellProps) {
       const name = (event as CustomEvent<{fullName:string}>).detail?.fullName;
       if (name) setAdminName(name);
     }
-    function refreshPhoto(event: Event) {
-      setHasProfilePhoto((event as CustomEvent<{hasPhoto:boolean}>).detail.hasPhoto);
-      setProfilePhotoVersion(Date.now());
-    }
-    window.addEventListener("bc-photo-updated", refreshPhoto);
     window.addEventListener("bc-profile-updated", refreshProfile);
-    return () => { window.removeEventListener("bc-profile-updated", refreshProfile); window.removeEventListener("bc-photo-updated", refreshPhoto); };
+    return () => { window.removeEventListener("bc-profile-updated", refreshProfile); };
   }, []);
   useEffect(() => {
     function loadPreference() {
@@ -585,7 +580,7 @@ export function AdminShell({ children }: AdminShellProps) {
         </nav>
         <div className="sidebar-account" ref={accountRef}>
           <button className="sidebar-account-trigger" type="button" aria-label="Account options" aria-expanded={isAccountOpen} aria-controls="account-options" onClick={() => setIsAccountOpen(value => !value)}>
-            <span className="sidebar-account-avatar" aria-hidden="true">{hasProfilePhoto ? <Image unoptimized width={64} height={64} src={"/api/admin/profile/photo?v="+profilePhotoVersion} alt="" onError={()=>setHasProfilePhoto(false)}/> : adminName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
+            <span className="sidebar-account-avatar" aria-hidden="true">{hasProfilePhoto&&photoUrl ? <Image unoptimized width={64} height={64} src={photoUrl} alt="" onError={markMissing}/> : adminName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
             <span className="sidebar-account-copy"><strong>{adminName}</strong><small>{officeRoleLabel(role)}</small></span>
             <ChevronsUpDown size={16} aria-hidden="true" />
           </button>

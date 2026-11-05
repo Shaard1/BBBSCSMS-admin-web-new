@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteReport,
   fetchReportQueue,
+  fetchReports,
   updateReportAdminNote,
   updateReportCategory,
   updateReportStatus,
@@ -45,6 +46,8 @@ const ReportLocationMap = dynamic(
 
 const statusFilters = [
   { label: "All", value: "all" },
+  { label: "Open", value: "open" },
+  { label: "Open 7+ days", value: "aged" },
   { label: "Pending", value: "pending" },
   { label: "In Progress", value: "in progress" },
   { label: "Resolved", value: "resolved" },
@@ -64,10 +67,15 @@ export default function ReportsPage() {
   const { role } = useAdminRole();
   const canDelete = canDeleteReports(role);
   const [reports, setReports] = useState<CommunityReport[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedFilter, setSelectedFilter] = useState(()=>{
+    if(typeof window==='undefined')return 'all';
+    const status=new URLSearchParams(window.location.search).get('status');
+    return statusFilters.some(filter=>filter.value===status)?status!:'all';
+  });
+  const openedTarget=useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("newest");
+  const [sortOrder, setSortOrder] = useState(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("status")==="aged"?"oldest":"newest");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const [filteredTotal, setFilteredTotal] = useState(0);
@@ -109,9 +117,20 @@ export default function ReportsPage() {
       if (page > lastPage) { setPage(lastPage); return; }
       setReports(data.items);
       setHasLoaded(true);
-      setSelectedReport(
-        (current) => data.items.find((report) => report.id === current?.id) ?? null,
-      );
+      setSelectedReport(current=>current?(data.items.find(report=>report.id===current.id)??current):null);
+      const target=new URLSearchParams(window.location.search).get('report');
+      if(target&&!openedTarget.current){
+        try {
+          const matches=await fetchReports({id:target});
+          if(signal?.aborted||requestId!==latestRequest.current)return;
+          openedTarget.current=true;
+          if(matches[0])setSelectedReport(matches[0]);
+          else setMessage('This report is unavailable or you no longer have access to it.');
+        } catch(error) {
+          if(signal?.aborted)return;
+          setMessage(error instanceof Error?error.message:'Unable to open this report. Use Reset to retry.');
+        }
+      }
     } catch (error) {
       if (signal?.aborted || requestId !== latestRequest.current) return;
       setQueueFailed(true);
@@ -137,6 +156,12 @@ export default function ReportsPage() {
   useEffect(() => {
     if (selectedReport?.id) void markOfficeNotificationRead("reports", selectedReport.id);
   }, [selectedReport?.id]);
+
+  useEffect(()=>{
+    const url=new URL(window.location.href);
+    if(selectedFilter==='all')url.searchParams.delete('status');else url.searchParams.set('status',selectedFilter);
+    window.history.replaceState(null,'',url);
+  },[selectedFilter]);
 
   const queueBusy = isLoading || searchQuery !== debouncedSearch;
   const pageCount = Math.max(1, Math.ceil(filteredTotal / reportPageSize));
@@ -359,7 +384,7 @@ export default function ReportsPage() {
         <ReportDetailsDialog
           report={selectedReport}
           canDelete={canDelete}
-          onClose={() => setSelectedReport(null)}
+          onClose={() => {setSelectedReport(null);const url=new URL(window.location.href);url.searchParams.delete('report');window.history.replaceState(null,'',url);}}
           onDelete={requestDelete}
           onEditNote={openNoteDialog}
           onImageView={setViewingImage}

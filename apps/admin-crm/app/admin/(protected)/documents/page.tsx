@@ -36,10 +36,20 @@ export default function DocumentRequestsPage() {
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<FilterValue>("all");
+  const [selectedFilter, setSelectedFilter] = useState<FilterValue>(()=>{
+    if(typeof window==='undefined')return 'all';
+    const status=new URLSearchParams(window.location.search).get('status');
+    return filters.some(filter=>filter.value===status)?status as FilterValue:'all';
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedRequest =
     requests.find((request) => request.id === selectedId) ?? null;
+
+  useEffect(()=>{
+    const url=new URL(window.location.href);
+    if(selectedFilter==='all')url.searchParams.delete('status');else url.searchParams.set('status',selectedFilter);
+    window.history.replaceState(null,'',url);
+  },[selectedFilter]);
 
   const filteredRequests = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
